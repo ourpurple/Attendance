@@ -96,19 +96,59 @@ git clone <your-repo-url> attendance-system
 - **框架**: `其他`
 - **启动文件**: `backend/main:app`
 - **端口**: `8000`
-- **启动方式**: `uvicorn`
+- **启动方式**: 选择 **命令行启动**（推荐）或 **gunicorn**
 
-**启动命令：**
+**启动方式选择：**
+
+#### 方案1：命令行启动（推荐，最简单）
+
+1. **启动方式**: 选择 **命令行启动**
+2. **启动文件/启动命令**: 填写完整命令：
+   ```bash
+   uvicorn backend.main:app --host 0.0.0.0 --port 8000
+   ```
+
+#### 方案2：Gunicorn（适合生产环境，性能更好）
+
+1. **启动方式**: 选择 **gunicorn**
+2. **启动文件**: `backend.main:app`
+3. **绑定地址**: `0.0.0.0:8000`
+4. **进程数**: `4`（根据服务器配置调整，建议CPU核心数×2）
+5. **Worker类型**: `uvicorn.workers.UvicornWorker`
+
+**注意**: 如果使用Gunicorn，需要先安装gunicorn：
 ```bash
-uvicorn backend.main:app --host 0.0.0.0 --port 8000
+cd /www/wwwroot/attendance-system
+pip3 install gunicorn
 ```
+
+#### 方案3：uWSGI（不推荐，主要用于Django）
+
+本项目使用FastAPI，不推荐使用uWSGI。
 
 **依赖安装：**
 在项目路径下执行：
 ```bash
 cd /www/wwwroot/attendance-system
 pip3 install -r requirements.txt
+
+# 如果使用Gunicorn方案，还需要安装：
+pip3 install gunicorn
 ```
+
+**重要提示：bcrypt版本兼容性**
+
+如果安装依赖时遇到bcrypt版本兼容性问题（如 `AttributeError: module 'bcrypt' has no attribute '__about__'`），请执行：
+
+```bash
+# 卸载旧版本bcrypt
+pip3 uninstall bcrypt -y
+
+# 安装兼容版本
+pip3 install bcrypt==3.2.0
+```
+
+`requirements.txt` 中已固定bcrypt版本为3.2.0，与passlib 1.7.4兼容。
 
 ---
 
@@ -278,18 +318,49 @@ CORS_ORIGINS=["https://your-domain.com","http://your-domain.com"]
 
 ## 进程守护
 
-### 方法1：使用Python项目管理器（推荐）
+### 使用Python项目管理器（推荐，已内置进程守护）
+
+**Python项目管理器已经内置了进程守护功能**，无需额外配置。它会自动：
+- 监控进程状态
+- 进程崩溃时自动重启
+- 支持开机自启
+
+#### 管理项目
 
 在宝塔面板中：
 
 1. 打开 **Python项目管理器**
 2. 找到 `attendance-backend` 项目
-3. 确保项目状态为 **运行中**
-4. 点击 **设置** → 勾选 **开机自启**
+3. 可以执行以下操作：
+   - **启动/停止**: 点击项目右侧的 **启动** 或 **停止** 按钮
+   - **重启**: 点击 **重启** 按钮
+   - **查看日志**: 点击 **日志** 按钮查看运行日志
+   - **设置**: 点击 **设置** 按钮修改配置
+   - **开机自启**: 在 **设置** 中勾选 **开机自启**
 
-### 方法2：使用PM2管理器
+#### 不同启动方式的管理
 
-1. 安装 **PM2管理器**
+**命令行启动方式：**
+- 启动/停止/重启：直接在项目管理器中操作
+- 修改启动命令：点击 **设置** → 修改 **启动文件/启动命令**
+
+**Gunicorn启动方式：**
+- 启动/停止/重启：直接在项目管理器中操作
+- 修改配置：点击 **设置** → 可以修改进程数、绑定地址等
+- 查看进程：Gunicorn会启动多个worker进程，可以在 **日志** 中查看
+
+**注意事项：**
+- 如果项目无法启动，请检查 **日志** 中的错误信息
+- 确保端口8000未被其他程序占用
+- 确保 `.env` 文件配置正确
+
+### 其他进程守护方案（可选）
+
+如果不想使用Python项目管理器，也可以使用以下方案：
+
+#### 方案2：使用PM2管理器
+
+1. 安装 **PM2管理器**（宝塔软件商店）
 2. 创建启动脚本 `/www/wwwroot/attendance-system/start.sh`：
 
 ```bash
@@ -308,35 +379,6 @@ chmod +x /www/wwwroot/attendance-system/start.sh
    - **名称**: `attendance-backend`
    - **启动文件**: `/www/wwwroot/attendance-system/start.sh`
    - **运行目录**: `/www/wwwroot/attendance-system`
-
-### 方法3：使用Supervisor（命令行）
-
-如果宝塔面板没有Python项目管理器，可以使用Supervisor：
-
-```bash
-# 安装Supervisor
-yum install supervisor -y  # CentOS
-# 或
-apt install supervisor -y  # Ubuntu/Debian
-
-# 创建配置文件
-cat > /etc/supervisor/conf.d/attendance.conf << EOF
-[program:attendance]
-command=/www/server/python_manager/venv/attendance-backend/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
-directory=/www/wwwroot/attendance-system
-user=www
-autostart=true
-autorestart=true
-redirect_stderr=true
-stdout_logfile=/www/wwwlogs/attendance-backend.log
-environment=PATH="/www/server/python_manager/venv/attendance-backend/bin"
-EOF
-
-# 启动服务
-supervisorctl reread
-supervisorctl update
-supervisorctl start attendance
-```
 
 ---
 
@@ -395,18 +437,37 @@ echo "Backup completed: attendance_$DATE.db.tar.gz"
 
 **检查步骤：**
 
-1. 查看Python项目管理器中的日志
-2. 检查 `.env` 文件是否存在且配置正确
-3. 检查端口8000是否被占用：
+1. **查看日志**: 在Python项目管理器中点击项目的 **日志** 按钮，查看详细错误信息
+2. **检查启动方式配置**:
+   - 如果使用 **命令行启动**，确保启动命令完整：`uvicorn backend.main:app --host 0.0.0.0 --port 8000`
+   - 如果使用 **gunicorn**，确保已安装gunicorn：`pip3 install gunicorn`
+   - 确保Worker类型设置为：`uvicorn.workers.UvicornWorker`
+3. **检查 `.env` 文件**: 确保文件存在且配置正确（特别是 `SECRET_KEY`）
+4. **检查端口占用**:
    ```bash
    netstat -tlnp | grep 8000
+   # 或使用宝塔终端执行
    ```
-4. 手动测试启动：
+5. **检查依赖**: 确保所有依赖已安装：
+   ```bash
+   cd /www/wwwroot/attendance-system
+   pip3 install -r requirements.txt
+   ```
+6. **手动测试启动**:
    ```bash
    cd /www/wwwroot/attendance-system
    source /www/server/python_manager/venv/attendance-backend/bin/activate
    python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
    ```
+
+**切换启动方式：**
+
+如果当前启动方式有问题，可以切换到其他方式：
+
+1. 在Python项目管理器中点击项目的 **设置**
+2. 修改 **启动方式**（命令行启动 / gunicorn）
+3. 根据选择的启动方式填写相应配置
+4. 保存并重启项目
 
 ### 2. 502 Bad Gateway
 
@@ -455,6 +516,39 @@ echo "Backup completed: attendance_$DATE.db.tar.gz"
    systemctl status nginx
    ```
 4. 查看Nginx访问日志：`/www/wwwlogs/attendance-access.log`
+
+### 7. bcrypt版本兼容性错误
+
+**错误信息：**
+```
+AttributeError: module 'bcrypt' has no attribute '__about__'
+ValueError: password cannot be longer than 72 bytes
+```
+
+**原因：**
+- bcrypt 4.0.0+版本移除了`__about__`属性，与passlib 1.7.4不兼容
+- bcrypt对密码长度有72字节的限制
+
+**解决方法：**
+
+1. **卸载旧版本bcrypt**：
+   ```bash
+   cd /www/wwwroot/attendance-system
+   source .venv/bin/activate  # 如果使用虚拟环境
+   pip3 uninstall bcrypt -y
+   ```
+
+2. **安装兼容版本**：
+   ```bash
+   pip3 install bcrypt==3.2.0
+   ```
+
+3. **重新初始化数据库**：
+   ```bash
+   python3 init_db.py
+   ```
+
+**注意**：`requirements.txt` 中已固定bcrypt版本为3.2.0，重新安装依赖时会自动安装正确版本。
 
 ---
 
@@ -510,7 +604,30 @@ echo "Backup completed: attendance_$DATE.db.tar.gz"
 
 ## 性能优化
 
-### 1. 启用Gzip压缩
+### 1. 使用Gunicorn提升性能（推荐生产环境）
+
+如果当前使用 **命令行启动**，建议切换到 **Gunicorn** 以获得更好的性能：
+
+1. 安装Gunicorn：
+   ```bash
+   cd /www/wwwroot/attendance-system
+   pip3 install gunicorn
+   ```
+
+2. 在Python项目管理器中修改项目设置：
+   - **启动方式**: 选择 **gunicorn**
+   - **启动文件**: `backend.main:app`
+   - **绑定地址**: `0.0.0.0:8000`
+   - **进程数**: `4`（建议设置为CPU核心数×2，例如2核服务器设置为4）
+   - **Worker类型**: `uvicorn.workers.UvicornWorker`
+
+3. 保存并重启项目
+
+**性能对比：**
+- **命令行启动（uvicorn）**: 单进程，适合开发和小规模使用
+- **Gunicorn**: 多进程，可以充分利用多核CPU，适合生产环境
+
+### 2. 启用Gzip压缩
 
 在Nginx配置中添加：
 
@@ -522,7 +639,7 @@ gzip_min_length 1024;
 gzip_types text/plain text/css text/xml text/javascript application/x-javascript application/xml+rss application/json;
 ```
 
-### 2. 静态文件缓存
+### 3. 静态文件缓存
 
 已在配置中添加，确保以下配置存在：
 
@@ -533,7 +650,7 @@ location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)$ {
 }
 ```
 
-### 3. 数据库优化
+### 4. 数据库优化
 
 如果用户量增长，考虑迁移到MySQL：
 
