@@ -1,5 +1,14 @@
-// API基础URL
-const API_BASE_URL = 'http://localhost:8000/api';
+// API基础URL - 自动检测当前访问的域名
+// 如果当前页面是 http://oa.ruoshui-edu.cn/admin/index.html
+// 则 API URL 为 http://oa.ruoshui-edu.cn/api
+function getApiBaseUrl() {
+    // 获取当前页面的协议和主机
+    const protocol = window.location.protocol; // http: 或 https:
+    const host = window.location.host; // hostname:port
+    return `${protocol}//${host}/api`;
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 // 全局状态
 let currentUser = null;

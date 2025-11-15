@@ -3,7 +3,7 @@ App({
   globalData: {
     userInfo: null,
     token: null,
-    apiBaseUrl: 'http://localhost:8000/api'  // 生产环境需要替换为实际域名
+    apiBaseUrl: 'https://oa.ruoshui-edu.cn/api'  // 生产环境需要替换为实际域名
   },
   
   // 公司信息
@@ -13,6 +13,13 @@ App({
   },
 
   onLaunch() {
+    // 从本地存储恢复 token
+    const token = wx.getStorageSync('token');
+    if (token) {
+      this.globalData.token = token;
+      console.log('✅ 从本地存储恢复 token');
+    }
+    
     // 尝试微信自动登录
     this.wechatAutoLogin();
   },
@@ -105,9 +112,15 @@ App({
   // 检查登录状态
   checkLoginStatus() {
     return new Promise((resolve) => {
+      // 先尝试从本地存储获取 token
       if (!this.globalData.token) {
-        resolve(false);
-        return;
+        const token = wx.getStorageSync('token');
+        if (token) {
+          this.globalData.token = token;
+        } else {
+          resolve(false);
+          return;
+        }
       }
 
       wx.request({
@@ -120,11 +133,13 @@ App({
             this.globalData.userInfo = res.data;
             resolve(true);
           } else {
+            console.warn('❌ Token 验证失败，清除登录状态');
             this.logout();
             resolve(false);
           }
         },
-        fail: () => {
+        fail: (err) => {
+          console.error('❌ 检查登录状态失败:', err);
           this.logout();
           resolve(false);
         }
@@ -145,25 +160,73 @@ App({
         requestData.wechat_code = wechatCode;
       }
 
+      const loginUrl = `${this.globalData.apiBaseUrl}/auth/login`;
+      console.log('🔐 登录请求:', loginUrl, { username, hasWechatCode: !!wechatCode });
+
       wx.request({
-        url: `${this.globalData.apiBaseUrl}/auth/login`,
+        url: loginUrl,
         method: 'POST',
         data: requestData,
+        header: {
+          'Content-Type': 'application/json'
+        },
         success: (res) => {
+          console.log('🔐 登录响应:', res.statusCode, res.data);
+          
           if (res.statusCode === 200) {
-            this.globalData.token = res.data.access_token;
-            wx.setStorageSync('token', res.data.access_token);
-            // 清除微信 code（已绑定）
-            if (wechatCode) {
-              wx.removeStorageSync('wechat_code');
+            if (res.data && res.data.access_token) {
+              this.globalData.token = res.data.access_token;
+              wx.setStorageSync('token', res.data.access_token);
+              console.log('✅ 登录成功，Token 已保存');
+              
+              // 清除微信 code（已绑定）
+              if (wechatCode) {
+                wx.removeStorageSync('wechat_code');
+              }
+              
+              // 验证登录状态
+              this.checkLoginStatus().then(() => {
+                resolve(res.data);
+              }).catch((err) => {
+                console.error('❌ 验证登录状态失败:', err);
+                // 即使验证失败，也返回登录成功（token已保存）
+                resolve(res.data);
+              });
+            } else {
+              console.error('❌ 登录响应中缺少 access_token');
+              reject({ 
+                detail: '登录响应格式错误',
+                message: '登录失败，请重试'
+              });
             }
-            this.checkLoginStatus();
-            resolve(res.data);
           } else {
-            reject(res.data);
+            console.error('❌ 登录失败:', res.statusCode, res.data);
+            reject(res.data || { 
+              detail: `登录失败 (${res.statusCode})`,
+              message: res.data?.detail || '登录失败，请检查用户名和密码'
+            });
           }
         },
-        fail: reject
+        fail: (err) => {
+          console.error('❌ 登录请求失败:', err);
+          
+          // 提供更详细的错误信息
+          let errorMessage = '登录失败，请检查网络连接';
+          
+          if (err.errMsg) {
+            if (err.errMsg.includes('timeout')) {
+              errorMessage = '请求超时，请检查网络连接';
+            } else if (err.errMsg.includes('fail')) {
+              errorMessage = '网络请求失败，请检查：\n1. 网络连接是否正常\n2. 服务器地址是否正确\n3. 微信公众平台是否配置了合法域名';
+            }
+          }
+          
+          reject({
+            detail: errorMessage,
+            message: errorMessage,
+            error: err
+          });
+        }
       });
     });
   },
@@ -183,8 +246,17 @@ App({
     return new Promise((resolve, reject) => {
       const { url, method = 'GET', data = {} } = options;
       
+      // 确保 token 已从本地存储恢复
+      if (!this.globalData.token) {
+        const token = wx.getStorageSync('token');
+        if (token) {
+          this.globalData.token = token;
+        }
+      }
+      
       // 打印请求日志（小程序中可以直接打印，不影响性能）
       console.log('📤 请求:', method, url, data);
+      console.log('📤 Token:', this.globalData.token ? '已设置' : '未设置');
       
       wx.request({
         url: `${this.globalData.apiBaseUrl}${url}`,
@@ -202,6 +274,12 @@ App({
             console.warn('❌ 未授权，清除登录状态');
             this.logout();
             reject({ message: '未授权，请重新登录' });
+          } else if (res.statusCode === 403) {
+            console.warn('❌ 权限不足或未登录，清除登录状态');
+            // 403 可能是权限不足，也可能是未登录（token无效）
+            // 清除登录状态，让用户重新登录
+            this.logout();
+            reject({ message: '权限不足或登录已过期，请重新登录' });
           } else if (res.statusCode === 200 || res.statusCode === 201) {
             // 确保返回的数据不是 null 或 undefined
             let responseData = res.data;

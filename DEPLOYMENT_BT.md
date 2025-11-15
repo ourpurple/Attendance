@@ -77,7 +77,8 @@ wget -O install.sh http://download.bt.cn/install/install-ubuntu_6.0.sh && sudo b
 ```bash
 # 在终端中执行（或使用宝塔终端）
 cd /www/wwwroot/
-git clone <your-repo-url> attendance-system
+git clone https://github.com/ourpurple/Attendance.git attendance-system
+git pull https://github.com/ourpurple/Attendance attendance-system
 # 或直接上传代码压缩包并解压
 ```
 
@@ -220,9 +221,15 @@ python3 init_db.py
 
 1. 点击 **网站** → **添加站点**
 2. **域名**: 填写你的域名（如 `attendance.yourdomain.com`）
-3. **备注**: `考勤系统Mobile端`
-4. **根目录**: `/www/wwwroot/attendance-system/frontend/mobile`
+3. **备注**: `考勤系统（Mobile + Admin）`
+4. **根目录**: `/www/wwwroot/attendance-system/frontend/mobile`（默认根目录，实际通过 location 配置同时服务 mobile 和 admin）
 5. **PHP版本**: 选择 **纯静态**（不需要PHP）
+
+**说明**：
+- 根目录设置为 `mobile`，但通过 Nginx 配置可以同时访问：
+  - Mobile前端：`/` 或 `/mobile/`
+  - Admin后台：`/admin/`
+  - API接口：`/api/`
 
 ### 2. 配置Nginx
 
@@ -231,9 +238,18 @@ python3 init_db.py
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # 修改为实际域名
+    server_name your-domain.com;  # 修改为实际域名或IP
     index index.html index.htm;
     root /www/wwwroot/attendance-system/frontend/mobile;
+
+    # SSL 配置标识（宝塔自动配置 SSL 时需要）
+    #error_page 404/404.html;
+    #error_page 502/502.html;
+    #error_page 503/503.html;
+    #CERT-APPLY-CHECK--START
+    # 注意：请勿删除或修改下一行带注释的过期规则，否则脚本无法正常续期
+    # 过期规则会自动添加在下面
+    #CERT-APPLY-CHECK--END
 
     # 日志
     access_log /www/wwwlogs/attendance-access.log;
@@ -242,8 +258,37 @@ server {
     # 客户端最大上传大小
     client_max_body_size 10M;
 
-    # API代理到后端
+    # API代理到后端（重要：必须在其他location之前）
     location /api {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket支持
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # CORS 头（如果需要）
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+        
+        # 处理 OPTIONS 请求
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+    }
+
+    # Admin管理后台 - 使用正则匹配所有 /admin 开头的路径（优先级最高）
+    location ~ ^/admin {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -266,8 +311,9 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    # 静态文件缓存
+    # Mobile 静态文件缓存
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)$ {
+        root /www/wwwroot/attendance-system/frontend/mobile;
         expires 30d;
         add_header Cache-Control "public, immutable";
     }
@@ -278,6 +324,99 @@ server {
     }
 }
 ```
+
+**重要提示：**
+- `location /api` 必须在其他 location 之前，否则 API 请求会被前端路由拦截
+- `location /admin` 必须在 `location /` 之前，否则 admin 请求会被 mobile 路由拦截
+- 如果使用 IP 访问，将 `server_name` 改为服务器 IP 或使用 `_`（匹配所有域名）
+- 访问地址：
+  - Mobile前端：`http://your-domain.com/` 或 `http://your-domain.com/mobile/`
+  - Admin后台：`http://your-domain.com/admin/`
+  - API接口：`http://your-domain.com/api/`
+
+**当前配置说明：**
+
+当前使用的是**正则匹配 + 直接代理到后端**的方案（已验证有效）：
+- 使用 `location ~ ^/admin` 正则匹配，确保所有 `/admin` 开头的路径都被捕获
+- 正则匹配的优先级高于普通前缀匹配，会优先于 `location /` 匹配
+- Admin 的所有请求（包括静态文件）都通过 Nginx 代理到后端 FastAPI
+- 后端 FastAPI 的 `app.mount("/admin", StaticFiles(...))` 会自动处理静态文件
+- 避免了 Nginx 路径映射的复杂问题
+
+**关键点：**
+- 必须使用正则匹配 `location ~ ^/admin`，不能使用 `location /admin` 或 `location /admin/`
+- 正则匹配 `~` 的优先级高于普通前缀匹配，确保 `/admin/app.js` 等子路径不会被 `location /` 捕获
+
+**紧急修复步骤（如果还是不行）：**
+
+1. **首先测试后端是否正常**（在服务器上执行）：
+   ```bash
+   # 测试后端是否能正常返回 admin 页面
+   curl http://127.0.0.1:8000/admin/
+   
+   # 测试静态文件
+   curl http://127.0.0.1:8000/admin/style.css
+   curl http://127.0.0.1:8000/admin/app.js
+   ```
+   
+   如果这些命令返回 404 或错误，说明后端配置有问题，需要检查：
+   - 后端服务是否运行
+   - `frontend/admin/` 目录是否存在
+   - 后端日志是否有错误
+
+2. **如果后端正常，但 Nginx 还是不行，使用这个终极方案**：
+   
+   完全替换 Admin 相关配置为以下内容（注意：正则匹配 `~` 的优先级高于普通匹配）：
+   
+   ```nginx
+   # Admin管理后台 - 使用正则匹配（优先级最高，匹配所有 /admin 开头的路径）
+   location ~ ^/admin {
+       proxy_pass http://127.0.0.1:8000;
+       proxy_set_header Host $host;
+       proxy_set_header X-Real-IP $remote_addr;
+       proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+       proxy_set_header X-Forwarded-Proto $scheme;
+       
+       proxy_http_version 1.1;
+       proxy_set_header Upgrade $http_upgrade;
+       proxy_set_header Connection "upgrade";
+       
+       proxy_connect_timeout 60s;
+       proxy_send_timeout 60s;
+       proxy_read_timeout 60s;
+   }
+   ```
+   
+   保存后，**测试 Nginx 配置**：
+   ```bash
+   nginx -t
+   ```
+   
+   如果测试通过，重载配置：
+   ```bash
+   nginx -s reload
+   ```
+   
+   或者在宝塔面板中：**网站** → **设置** → **重载配置**
+
+3. **检查 Nginx 配置顺序**：
+   
+   确保配置顺序是：
+   1. `location /api` （最前）
+   2. `location ~ ^/admin` （正则匹配，优先级高）
+   3. `location /` （最后，兜底）
+   
+   正则匹配 `~` 的优先级高于普通前缀匹配，所以 `location ~ ^/admin` 会优先于 `location /` 匹配。
+
+4. **如果还是不行，查看详细日志**：
+   ```bash
+   # 查看 Nginx 错误日志
+   tail -f /www/wwwlogs/attendance-error.log
+   
+   # 查看后端日志（在 Python 项目管理器中）
+   ```
+   
+   然后访问 `http://oa.ruoshui-edu.cn/admin/`，观察日志输出。
 
 ### 3. 保存并重载Nginx
 
@@ -300,19 +439,66 @@ server {
 
 在宝塔面板中：
 
-1. 点击网站右侧的 **设置** → **SSL**
-2. 选择 **Let's Encrypt** → 勾选域名 → 点击 **申请**
-3. 申请成功后，勾选 **强制HTTPS**
+1. **确保配置文件包含 SSL 标识**：
+   - 在网站配置文件中，确保包含以下标识（已在配置模板中添加）：
+     ```nginx
+     #error_page 404/404.html;
+     #CERT-APPLY-CHECK--START
+     #CERT-APPLY-CHECK--END
+     ```
+   - 如果没有，请手动添加到 `server` 块的开头
+
+2. **申请 SSL 证书**：
+   - 点击网站右侧的 **设置** → **SSL**
+   - 选择 **Let's Encrypt** → 勾选域名 → 点击 **申请**
+   - 如果提示"未找到标识信息"，请先添加上述标识，保存配置后再申请
+
+3. **启用 HTTPS**：
+   - 申请成功后，勾选 **强制HTTPS**
+   - 点击 **保存**
+
+**如果自动配置失败，可以手动添加 SSL 配置**：
+
+在 `server` 块中添加以下配置（在 `listen 80;` 之后）：
+
+```nginx
+# HTTP 重定向到 HTTPS
+if ($server_port !~ 443){
+    rewrite ^(/.*)$ https://$host$1 permanent;
+}
+
+# HTTPS 配置
+listen 443 ssl http2;
+ssl_certificate /www/server/panel/vhost/cert/your-domain.com/fullchain.pem;
+ssl_certificate_key /www/server/panel/vhost/cert/your-domain.com/privkey.pem;
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:HIGH:!aNULL:!MD5:!RC4:!DHE;
+ssl_prefer_server_ciphers on;
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 10m;
+```
+
+**注意**：将 `your-domain.com` 替换为实际域名，证书路径通常在 `/www/server/panel/vhost/cert/域名/` 目录下。
 
 ### 3. 更新CORS配置
 
 SSL配置完成后，更新 `.env` 文件中的 `CORS_ORIGINS`：
 
 ```env
+# 如果使用域名访问
 CORS_ORIGINS=["https://your-domain.com","http://your-domain.com"]
+
+# 如果使用IP访问，也需要添加IP
+CORS_ORIGINS=["https://your-domain.com","http://your-domain.com","http://your-server-ip","https://your-server-ip"]
+
+# 或者允许所有来源（仅用于测试，生产环境不推荐）
+CORS_ORIGINS=["*"]
 ```
 
-然后重启Python项目。
+**注意**：
+- 如果使用 IP 访问，必须将 IP 地址添加到 `CORS_ORIGINS`
+- 域名格式必须包含协议（`http://` 或 `https://`）
+- 修改后需要重启 Python 项目才能生效
 
 ---
 
@@ -482,13 +668,51 @@ echo "Backup completed: attendance_$DATE.db.tar.gz"
 2. 检查Nginx配置中的 `proxy_pass` 地址是否为 `http://127.0.0.1:8000`
 3. 查看Nginx错误日志：`/www/wwwlogs/attendance-error.log`
 
-### 3. API请求失败（CORS错误）
+### 3. API请求失败（CORS错误或Failed to fetch）
+
+**错误现象：**
+- 前端页面可以打开，但登录时提示 "Failed to fetch"
+- 浏览器控制台显示 CORS 错误
+
+**可能原因：**
+1. 直接访问了后端 8000 端口，而不是通过 Nginx
+2. Nginx API 代理配置有问题
+3. CORS 配置不正确
 
 **解决方法：**
 
-1. 检查 `.env` 文件中的 `CORS_ORIGINS` 是否包含实际访问的域名
-2. 确保域名格式正确（包含协议 `https://` 或 `http://`）
-3. 重启Python项目
+1. **确认访问方式**：
+   - ✅ 正确：通过域名访问（如 `http://your-domain.com` 或 `https://your-domain.com`）
+   - ❌ 错误：直接访问后端端口（如 `http://your-ip:8000`）
+
+2. **检查 Nginx 配置**：
+   - 确保 `location /api` 的 `proxy_pass` 指向 `http://127.0.0.1:8000`
+   - 确保 Nginx 配置已保存并重载
+
+3. **检查 CORS 配置**：
+   - 编辑 `.env` 文件，确保 `CORS_ORIGINS` 包含实际访问的域名：
+     ```env
+     CORS_ORIGINS=["https://your-domain.com","http://your-domain.com","http://your-ip"]
+     ```
+   - 如果使用 IP 访问，也需要添加 IP 地址
+
+4. **测试 API 连接**：
+   - 在浏览器中访问：`http://your-domain.com/api/health`
+   - 应该返回：`{"status":"healthy"}`
+   - 如果返回 404 或无法访问，说明 Nginx 代理配置有问题
+
+5. **重启服务**：
+   ```bash
+   # 重启 Python 项目
+   # 在 Python 项目管理器中点击"重启"
+   
+   # 重启 Nginx
+   # 在宝塔面板中：网站 → 设置 → 重载配置
+   ```
+
+6. **查看错误日志**：
+   - Nginx 错误日志：`/www/wwwlogs/attendance-error.log`
+   - Python 项目日志：在 Python 项目管理器中点击"日志"
 
 ### 4. 数据库锁定错误
 
@@ -680,14 +904,26 @@ globalData: {
 }
 ```
 
-### 2. 微信公众平台配置
+### 2. 微信公众平台配置 ⚠️ **重要：必须配置，否则小程序无法登录**
 
 1. 登录[微信公众平台](https://mp.weixin.qq.com/)
 2. 进入 **开发** → **开发设置**
-3. 配置服务器域名：
-   - **request合法域名**: `https://your-domain.com`
-   - **uploadFile合法域名**: `https://your-domain.com`
-   - **downloadFile合法域名**: `https://your-domain.com`
+3. 找到 **服务器域名** 配置
+4. 配置以下域名（将 `your-domain.com` 替换为实际域名，如 `oa.ruoshui-edu.cn`）：
+   - **request合法域名**: `https://your-domain.com`（必须配置，否则无法登录）
+   - **uploadFile合法域名**: `https://your-domain.com`（如果上传文件需要）
+   - **downloadFile合法域名**: `https://your-domain.com`（如果下载文件需要）
+
+**重要提示**：
+- ✅ 必须使用 HTTPS（不能是 HTTP）
+- ✅ 不需要加 `/api` 后缀
+- ✅ 不需要加端口号
+- ✅ 配置后需要等待几分钟生效
+- ✅ 开发环境可以开启"不校验合法域名"进行测试
+
+**如果小程序无法登录，请优先检查此项配置！**
+
+详细排查步骤请参考：`miniprogram/LOGIN_TROUBLESHOOTING.md`
 
 ### 3. 配置微信登录
 
