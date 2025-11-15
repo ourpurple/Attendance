@@ -1,0 +1,185 @@
+/* pages/index/index.wxss */
+.clock-card {
+  text-align: center;
+}
+
+.clock-time {
+  font-size: 96rpx;
+  font-weight: 700;
+  color: #007AFF;
+  margin-bottom: 16rpx;
+  font-variant-numeric: tabular-nums;
+}
+
+.clock-date {
+  font-size: 32rpx;
+  color: #3C3C43;
+  margin-bottom: 48rpx;
+}
+
+.clock-status {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 48rpx;
+  padding: 32rpx;
+  background: #f2f2f7;
+  border-radius: 20rpx;
+}
+
+.status-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.status-label {
+  font-size: 28rpx;
+  color: #8E8E93;
+}
+
+.status-value {
+  font-weight: 600;
+  font-size: 32rpx;
+}
+
+.clock-actions {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.clock-location {
+  font-size: 28rpx;
+  color: #8E8E93;
+  padding: 16rpx;
+  background: #f2f2f7;
+  border-radius: 16rpx;
+}
+
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24rpx;
+  margin-bottom: 32rpx;
+}
+
+.quick-action-item {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 32rpx 16rpx;
+  text-align: center;
+  box-shadow: 0 4rpx 24rpx rgba(0, 0, 0, 0.08);
+}
+
+.action-icon {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}
+
+.action-label {
+  font-size: 24rpx;
+  color: #3C3C43;
+  position: relative;
+}
+
+.badge {
+  position: absolute;
+  top: -16rpx;
+  right: -16rpx;
+  background: #FF3B30;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  min-width: 36rpx;
+  text-align: center;
+}
+
+.card-link {
+  color: #007AFF;
+  font-size: 28rpx;
+}
+
+.attendance-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.attendance-item {
+  display: grid;
+  grid-template-columns: 120rpx 1fr;
+  gap: 24rpx;
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #E5E5EA;
+}
+
+.attendance-item:last-child {
+  border-bottom: none;
+}
+
+.attendance-date {
+  text-align: center;
+}
+
+.attendance-day {
+  font-size: 48rpx;
+  font-weight: 600;
+}
+
+.attendance-month {
+  font-size: 24rpx;
+  color: #8E8E93;
+}
+
+.attendance-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.attendance-time {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  font-size: 28rpx;
+  color: #3C3C43;
+}
+
+.clock-actions button {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6rpx;
+  padding: 20rpx 12rpx;
+  font-size: 26rpx;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.clock-actions button text {
+  font-size: 26rpx;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.clock-actions button text:first-child {
+  font-size: 28rpx;
+  margin-right: 4rpx;
+}
+
+.app-footer {
+  text-align: center;
+  padding: 32rpx;
+  color: #8E8E93;
+  font-size: 24rpx;
+  margin-top: 48rpx;
+}
+
+
+

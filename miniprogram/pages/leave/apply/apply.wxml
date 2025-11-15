@@ -1,0 +1,47 @@
+<!-- pages/leave/apply/apply.wxml -->
+<view class="container">
+  <view class="form-group">
+    <view class="form-label">开始日期 *</view>
+    <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
+      <view class="picker">
+        <text>{{startDate || '请选择开始日期'}}</text>
+        <text class="picker-icon">📅</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-group">
+    <view class="form-label">结束日期 *</view>
+    <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
+      <view class="picker">
+        <text>{{endDate || '请选择结束日期'}}</text>
+        <text class="picker-icon">📅</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-group">
+    <view class="form-label">请假天数 *</view>
+    <input 
+      class="form-input" 
+      type="digit" 
+      value="{{days}}" 
+      bindinput="onDaysInput"
+      placeholder="例如：0.5, 1, 2.5"
+    />
+  </view>
+
+  <view class="form-group">
+    <view class="form-label">请假原因 *</view>
+    <textarea 
+      class="form-input textarea" 
+      value="{{reason}}" 
+      bindinput="onReasonInput"
+      placeholder="请输入请假原因"
+      maxlength="500"
+    />
+  </view>
+
+  <button class="btn btn-primary btn-block" bindtap="submitForm">提交申请</button>
+</view>
+

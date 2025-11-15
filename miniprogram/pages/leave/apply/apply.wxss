@@ -1,0 +1,20 @@
+/* pages/leave/apply/apply.wxss */
+.textarea {
+  min-height: 200rpx;
+  padding: 24rpx 32rpx;
+}
+
+.picker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  font-size: 32rpx;
+}
+
+.picker-icon {
+  font-size: 32rpx;
+}
+

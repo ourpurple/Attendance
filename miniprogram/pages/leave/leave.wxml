@@ -1,0 +1,148 @@
+<!-- pages/leave/leave.wxml -->
+<view class="container">
+  <button class="btn btn-primary btn-block" bindtap="goToApply">申请请假</button>
+
+  <view class="leave-list" wx:if="{{leaveList && leaveList.length > 0}}">
+    <view class="list-item" wx:for="{{leaveList}}" wx:key="id">
+      <view class="list-item-header">
+        <text class="list-item-title">{{item.startDate}} ~ {{item.endDate}}</text>
+      </view>
+      <view class="list-item-status">
+        <text class="label">状态:</text>
+        <text class="status-badge status-{{item.statusClass}}">{{item.statusName}}</text>
+      </view>
+      <view class="list-item-content">
+        <view><text class="label">天数:</text> {{item.days}}天</view>
+        <view><text class="label">原因:</text> {{item.reason}}</view>
+        <view><text class="label">申请时间:</text> {{item.createdAt}}</view>
+      </view>
+      <view class="list-item-footer">
+        <button 
+          class="btn btn-secondary btn-small" 
+          wx:if="{{item.canCancel}}"
+          bindtap="cancelLeave"
+          data-id="{{item.id}}"
+        >
+          撤回申请
+        </button>
+        <button 
+          class="btn btn-primary btn-small" 
+          wx:if="{{item.canView}}"
+          bindtap="viewDetail"
+          data-id="{{item.id}}"
+        >
+          详情
+        </button>
+        <button 
+          class="btn btn-danger btn-small" 
+          wx:if="{{item.canDelete}}"
+          bindtap="deleteLeave"
+          data-id="{{item.id}}"
+        >
+          删除
+        </button>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <view class="empty-state-icon">🏖️</view>
+    <view class="empty-state-text">暂无请假记录</view>
+  </view>
+</view>
+
+<!-- 详情弹窗 -->
+<view class="detail-modal-overlay" wx:if="{{showDetailModal}}" bindtap="closeDetailModal">
+  <view class="detail-modal" catchtap="stopPropagation">
+    <view class="detail-modal-header">
+      <text class="detail-modal-title">{{detailTitle}}</text>
+      <text class="detail-modal-close" bindtap="closeDetailModal">×</text>
+    </view>
+    
+    <view class="detail-modal-content" wx:if="{{detailData}}">
+      <view class="detail-item">
+        <text class="detail-label">状态:</text>
+        <text class="detail-value">{{detailData.status}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">申请人:</text>
+        <text class="detail-value">{{detailData.applicant}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">开始日期:</text>
+        <text class="detail-value">{{detailData.startDate}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">结束日期:</text>
+        <text class="detail-value">{{detailData.endDate}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">天数:</text>
+        <text class="detail-value">{{detailData.days}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">原因:</text>
+        <text class="detail-value">{{detailData.reason}}</text>
+      </view>
+      
+      <!-- 部门审批 -->
+      <block wx:if="{{detailData.deptApprover}}">
+        <view class="detail-section-divider"></view>
+        <view class="detail-section-title">部门审批</view>
+        <view class="detail-item">
+          <text class="detail-label">审批人:</text>
+          <text class="detail-value">{{detailData.deptApprover}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">时间:</text>
+          <text class="detail-value">{{detailData.deptApprovedAt}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">意见:</text>
+          <text class="detail-value">{{detailData.deptComment || '无'}}</text>
+        </view>
+      </block>
+      
+      <!-- 副总审批 -->
+      <block wx:if="{{detailData.vpApprover}}">
+        <view class="detail-section-divider"></view>
+        <view class="detail-section-title">副总审批</view>
+        <view class="detail-item">
+          <text class="detail-label">审批人:</text>
+          <text class="detail-value">{{detailData.vpApprover}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">时间:</text>
+          <text class="detail-value">{{detailData.vpApprovedAt}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">意见:</text>
+          <text class="detail-value">{{detailData.vpComment || '无'}}</text>
+        </view>
+      </block>
+      
+      <!-- 总经理审批 -->
+      <block wx:if="{{detailData.gmApprover}}">
+        <view class="detail-section-divider"></view>
+        <view class="detail-section-title">总经理审批</view>
+        <view class="detail-item">
+          <text class="detail-label">审批人:</text>
+          <text class="detail-value">{{detailData.gmApprover}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">时间:</text>
+          <text class="detail-value">{{detailData.gmApprovedAt}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">意见:</text>
+          <text class="detail-value">{{detailData.gmComment || '无'}}</text>
+        </view>
+      </block>
+    </view>
+    
+    <view class="detail-modal-footer">
+      <button class="btn btn-primary btn-block" bindtap="closeDetailModal">关闭</button>
+    </view>
+  </view>
+</view>
+

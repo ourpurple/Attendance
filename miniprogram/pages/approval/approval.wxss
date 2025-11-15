@@ -1,0 +1,152 @@
+/* pages/approval/approval.wxss */
+.tabs {
+  display: flex;
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 8rpx;
+  margin-bottom: 32rpx;
+}
+
+.tab-item {
+  flex: 1;
+  text-align: center;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  position: relative;
+  font-size: 32rpx;
+  color: #8E8E93;
+}
+
+.tab-item.active {
+  background: #007AFF;
+  color: #ffffff;
+}
+
+.tab-badge {
+  position: absolute;
+  top: 8rpx;
+  right: 8rpx;
+  background: #FF3B30;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+  min-width: 36rpx;
+  text-align: center;
+}
+
+.list-item-footer {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 24rpx;
+  padding-top: 24rpx;
+  border-top: 2rpx solid #E5E5EA;
+}
+
+.list-item-footer .btn {
+  flex: 1;
+}
+
+.label {
+  font-weight: 600;
+  margin-right: 8rpx;
+}
+
+/* 详情弹窗 */
+.detail-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40rpx;
+  box-sizing: border-box;
+}
+
+.detail-modal {
+  background: #ffffff;
+  border-radius: 24rpx;
+  width: 100%;
+  max-width: 600rpx;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.detail-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  border-bottom: 2rpx solid #E5E5EA;
+}
+
+.detail-modal-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #000000;
+}
+
+.detail-modal-close {
+  font-size: 48rpx;
+  color: #8E8E93;
+  line-height: 1;
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.detail-modal-content {
+  flex: 1;
+  padding: 32rpx;
+  overflow-y: auto;
+}
+
+.detail-item {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 24rpx;
+  line-height: 1.6;
+}
+
+.detail-label {
+  font-size: 28rpx;
+  color: #8E8E93;
+  min-width: 140rpx;
+  flex-shrink: 0;
+}
+
+.detail-value {
+  font-size: 28rpx;
+  color: #000000;
+  flex: 1;
+  word-break: break-all;
+}
+
+.detail-section-divider {
+  height: 2rpx;
+  background: #E5E5EA;
+  margin: 32rpx 0 24rpx 0;
+}
+
+.detail-section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #000000;
+  margin-bottom: 24rpx;
+}
+
+.detail-modal-footer {
+  padding: 24rpx 32rpx;
+  border-top: 2rpx solid #E5E5EA;
+}
+

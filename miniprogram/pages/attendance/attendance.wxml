@@ -1,0 +1,41 @@
+<!-- pages/attendance/attendance.wxml -->
+<view class="container">
+  <!-- 月份选择 -->
+  <view class="date-filter">
+    <picker mode="date" fields="month" value="{{selectedMonth}}" bindchange="onMonthChange">
+      <view class="picker">
+        <text>{{selectedMonth}}</text>
+        <text class="picker-icon">📅</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 考勤列表 -->
+  <view class="attendance-list" wx:if="{{attendanceList && attendanceList.length > 0}}">
+    <view class="list-item" wx:for="{{attendanceList}}" wx:key="id">
+      <view class="list-item-header">
+        <text class="list-item-title">{{item.date}}</text>
+        <text wx:if="{{item.workHours}}">{{item.workHours}}小时</text>
+      </view>
+      <view class="list-item-content">
+        <view class="attendance-row">
+          <text>上班: {{item.checkinTime || '-'}}</text>
+          <text class="status-badge status-warning" wx:if="{{item.isLate}}">迟到</text>
+        </view>
+        <view class="attendance-row">
+          <text>下班: {{item.checkoutTime || '-'}}</text>
+          <text class="status-badge status-warning" wx:if="{{item.isEarlyLeave}}">早退</text>
+        </view>
+        <view class="attendance-location" wx:if="{{item.location}}">
+          <text>📍 {{item.location}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <view class="empty-state-icon">📝</view>
+    <view class="empty-state-text">本月暂无考勤记录</view>
+  </view>
+</view>
+

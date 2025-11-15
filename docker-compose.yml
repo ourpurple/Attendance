@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  attendance-app:
+    build: .
+    container_name: attendance-system
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./attendance.db:/app/attendance.db
+      - ./logs:/app/logs
+    environment:
+      - DATABASE_URL=sqlite:///./attendance.db
+      - SECRET_KEY=${SECRET_KEY:-change-this-in-production}
+      - DEBUG=False
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: attendance-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - attendance-app
+    restart: unless-stopped
+
+
+

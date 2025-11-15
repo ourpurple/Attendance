@@ -1,0 +1,46 @@
+<!-- pages/stats/stats.wxml -->
+<view class="container">
+  <!-- 月份选择 -->
+  <view class="date-filter">
+    <picker mode="date" fields="month" value="{{selectedMonth}}" bindchange="onMonthChange">
+      <view class="picker">
+        <text>{{selectedMonth}}</text>
+        <text class="picker-icon">📅</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 统计卡片 -->
+  <view class="stats-grid" wx:if="{{stats}}">
+    <view class="stat-card">
+      <view class="stat-value">{{stats.present_days || 0}}</view>
+      <view class="stat-label">出勤天数</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.work_hours ? stats.work_hours.toFixed(1) : '0.0'}}</view>
+      <view class="stat-label">工作时长(h)</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.late_days || 0}}</view>
+      <view class="stat-label">迟到次数</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.early_leave_days || 0}}</view>
+      <view class="stat-label">早退次数</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.leave_days || 0}}</view>
+      <view class="stat-label">请假天数</view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-value">{{stats.overtime_days_display || 0}}</view>
+      <view class="stat-label">加班天数</view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:else>
+    <view class="empty-state-icon">📊</view>
+    <view class="empty-state-text">暂无统计数据</view>
+  </view>
+</view>
+

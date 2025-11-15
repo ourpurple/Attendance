@@ -1,0 +1,19 @@
+/* pages/stats/stats.wxss */
+.date-filter {
+  margin-bottom: 32rpx;
+}
+
+.picker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  font-size: 32rpx;
+}
+
+.picker-icon {
+  font-size: 32rpx;
+}
+

@@ -1,0 +1,77 @@
+/* pages/mine/mine.wxss */
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 32rpx;
+  margin-bottom: 32rpx;
+}
+
+.user-avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #007AFF;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48rpx;
+  font-weight: 600;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-bottom: 8rpx;
+}
+
+.user-role {
+  font-size: 28rpx;
+  color: #8E8E93;
+}
+
+.menu-list {
+  background: #ffffff;
+  border-radius: 24rpx;
+  overflow: hidden;
+  margin-bottom: 32rpx;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 2rpx solid #E5E5EA;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-icon {
+  font-size: 48rpx;
+  margin-right: 24rpx;
+}
+
+.menu-label {
+  flex: 1;
+  font-size: 32rpx;
+}
+
+.menu-arrow {
+  font-size: 48rpx;
+  color: #8E8E93;
+}
+
+.app-footer {
+  text-align: center;
+  padding: 32rpx;
+  color: #8E8E93;
+  font-size: 24rpx;
+  margin-top: 48rpx;
+}
+

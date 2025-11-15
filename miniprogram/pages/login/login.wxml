@@ -1,0 +1,59 @@
+<!-- pages/login/login.wxml -->
+<view class="login-container">
+  <view class="login-header">
+    <text class="login-title">考勤系统</text>
+    <text class="login-subtitle">员工移动端</text>
+    <text class="company-name">河南新盟科教有限公司</text>
+  </view>
+
+  <view class="login-form">
+    <!-- 微信绑定提示 -->
+    <view class="wechat-binding-tip" wx:if="{{isWechatBinding}}">
+      <text class="tip-icon">🔗</text>
+      <text class="tip-text">首次使用，请输入账号密码完成绑定</text>
+    </view>
+    
+    <!-- 普通登录提示（自动绑定微信） -->
+    <view class="wechat-binding-tip wechat-binding-tip-info" wx:if="{{!isWechatBinding}}">
+      <text class="tip-icon">💡</text>
+      <text class="tip-text">登录成功后自动绑定微信，下次可直接使用微信登录</text>
+    </view>
+
+    <view class="form-group">
+      <input 
+        class="form-input" 
+        type="text" 
+        placeholder="请输入用户名" 
+        value="{{username}}"
+        bindinput="onUsernameInput"
+      />
+    </view>
+
+    <view class="form-group">
+      <input 
+        class="form-input" 
+        type="password" 
+        placeholder="请输入密码" 
+        value="{{password}}"
+        bindinput="onPasswordInput"
+      />
+    </view>
+
+    <button class="btn btn-primary" bindtap="handleLogin">
+      {{isWechatBinding ? '绑定并登录' : '登录'}}
+    </button>
+
+    <!-- 微信登录按钮 -->
+    <button class="btn btn-wechat" bindtap="handleWechatLogin" wx:if="{{!isWechatBinding}}">
+      <text class="wechat-icon">💬</text>
+      <text>微信快速登录</text>
+    </button>
+
+    <view class="error-message" wx:if="{{errorMessage}}">
+      {{errorMessage}}
+    </view>
+  </view>
+</view>
+
+
+

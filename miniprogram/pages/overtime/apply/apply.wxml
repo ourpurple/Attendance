@@ -1,0 +1,108 @@
+<!-- pages/overtime/apply/apply.wxml -->
+<view class="container">
+  <view class="form-group">
+    <view class="form-label">加班类型 *</view>
+    <picker 
+      mode="selector" 
+      range="{{['半天', '整天', '自定义时长']}}"
+      value="{{overtimeTypeIndex}}"
+      bindchange="onTypeChange"
+    >
+      <view class="picker">
+        <text>{{overtimeTypeText || '请选择加班类型'}}</text>
+        <text class="picker-icon">▼</text>
+      </view>
+    </picker>
+  </view>
+
+  <!-- 自定义时间段 -->
+  <view wx:if="{{showCustomTime}}">
+    <view class="form-group">
+      <view class="form-label">加班日期 *</view>
+      <picker mode="date" value="{{date}}" bindchange="onDateChange">
+        <view class="picker">
+          <text>{{date || '请选择日期'}}</text>
+          <text class="picker-icon">📅</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-group">
+      <view class="form-label">开始时间 *</view>
+      <picker mode="time" value="{{startTime}}" bindchange="onStartTimeChange">
+        <view class="picker">
+          <text>{{startTime || '请选择开始时间'}}</text>
+          <text class="picker-icon">🕐</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-group">
+      <view class="form-label">结束时间 *</view>
+      <picker mode="time" value="{{endTime}}" bindchange="onEndTimeChange">
+        <view class="picker">
+          <text>{{endTime || '请选择结束时间'}}</text>
+          <text class="picker-icon">🕐</text>
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 快捷选择 -->
+  <view wx:if="{{showQuickSelect}}">
+    <view class="form-group">
+      <view class="form-label">加班日期 *</view>
+      <picker mode="date" value="{{date}}" bindchange="onDateChange">
+        <view class="picker">
+          <text>{{date || '请选择日期'}}</text>
+          <text class="picker-icon">📅</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-group">
+      <view class="form-label">加班时段 *</view>
+      <radio-group bindchange="onTimePeriodChange">
+        <view class="radio-group">
+          <view 
+            class="radio-label" 
+            wx:for="{{timePeriodOptions}}" 
+            wx:key="value"
+          >
+            <radio 
+              value="{{item.value}}" 
+              checked="{{timePeriod === item.value}}"
+            />
+            <text>{{item.label}}</text>
+          </view>
+        </view>
+      </radio-group>
+    </view>
+  </view>
+
+  <view class="form-group">
+    <view class="form-label">加班天数 *</view>
+    <input 
+      class="form-input" 
+      type="digit" 
+      value="{{days}}" 
+      bindinput="onDaysInput"
+      placeholder="只能填整数或x.5天（如1, 1.5, 2, 2.5）"
+    />
+    <view class="form-hint">只能填整数或x.5天（如1, 1.5, 2, 2.5）</view>
+  </view>
+
+  <view class="form-group">
+    <view class="form-label">加班原因 *</view>
+    <textarea 
+      class="form-input textarea" 
+      value="{{reason}}" 
+      bindinput="onReasonInput"
+      placeholder="请输入加班原因"
+      maxlength="500"
+    />
+  </view>
+
+  <button class="btn btn-primary btn-block" bindtap="submitForm">提交申请</button>
+</view>
+

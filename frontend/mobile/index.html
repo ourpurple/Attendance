@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="format-detection" content="telephone=no">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>考勤系统 | 新盟科教</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录页面 -->
+        <div id="login-page" class="page active">
+            <div class="login-container">
+                <div class="login-header">
+                    <h1>考勤系统</h1>
+                    <p>员工移动端</p>
+                    <p class="company-name">河南新盟科教有限公司</p>
+                </div>
+                <form id="login-form" class="login-form">
+                    <div class="form-group">
+                        <input type="text" id="username" placeholder="用户名" required autocomplete="username">
+                    </div>
+                    <div class="form-group">
+                        <input type="password" id="password" placeholder="密码" required autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-block">登录</button>
+                    <div id="login-error" class="error-message"></div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 主页面 -->
+        <div id="main-page" class="page">
+            <!-- 头部 -->
+            <header class="app-header">
+                <div class="header-content">
+                    <h1 class="header-title">考勤系统 <span class="company-short">新盟科教</span></h1>
+                    <div class="user-avatar" onclick="toggleUserMenu()">
+                        <span id="user-initial"></span>
+                    </div>
+                </div>
+                <div id="user-menu" class="user-menu">
+                    <div class="user-menu-header">
+                        <div class="user-name" id="header-user-name"></div>
+                        <div class="user-role" id="header-user-role"></div>
+                    </div>
+                    <button class="menu-item" onclick="showChangePasswordModal()">
+                        <span>🔒</span>
+                        <span>修改密码</span>
+                    </button>
+                    <button class="menu-item" onclick="logout()">
+                        <span>🚪</span>
+                        <span>退出登录</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 主内容 -->
+            <main class="main-content">
+                <!-- 首页 -->
+                <div id="home-content" class="content-section active">
+                    <!-- 打卡卡片 -->
+                    <div class="card clock-card">
+                        <div class="clock-time" id="current-time">00:00:00</div>
+                        <div class="clock-date" id="current-date"></div>
+                        <div class="clock-status" id="clock-status">
+                            <div class="status-item">
+                                <span>上班</span>
+                                <span id="checkin-status">未打卡</span>
+                            </div>
+                            <div class="status-item">
+                                <span>下班</span>
+                                <span id="checkout-status">未打卡</span>
+                            </div>
+                        </div>
+                        <div class="clock-actions">
+                            <button id="checkin-btn" class="btn btn-primary btn-large" onclick="checkin()">
+                                <span>📍</span>
+                                <span>上班打卡</span>
+                            </button>
+                            <button id="checkout-btn" class="btn btn-secondary btn-large" onclick="checkout()">
+                                <span>📍</span>
+                                <span>下班打卡</span>
+                            </button>
+                        </div>
+                        <div id="clock-location" class="clock-location"></div>
+                    </div>
+
+                    <!-- 快捷功能 -->
+                    <div class="quick-actions">
+                        <div class="quick-action-item" onclick="showSection('leave')">
+                            <div class="action-icon">🏖️</div>
+                            <div class="action-label">请假申请</div>
+                        </div>
+                        <div class="quick-action-item" onclick="showSection('overtime')">
+                            <div class="action-icon">⏰</div>
+                            <div class="action-label">加班申请</div>
+                        </div>
+                        <div class="quick-action-item approval-only" onclick="showSection('approval')" style="display: none;">
+                            <div class="action-icon">✅</div>
+                            <div class="action-label">
+                                <span>我的审批</span>
+                                <span id="pending-count" class="badge">0</span>
+                            </div>
+                        </div>
+                        <div class="quick-action-item" onclick="showSection('stats')">
+                            <div class="action-icon">📊</div>
+                            <div class="action-label">我的统计</div>
+                        </div>
+                    </div>
+
+                    <!-- 最近记录 -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>最近考勤</h3>
+                            <a href="#" onclick="showSection('attendance')">查看更多</a>
+                        </div>
+                        <div id="recent-attendance" class="attendance-list"></div>
+                    </div>
+                </div>
+
+                <!-- 考勤记录 -->
+                <div id="attendance-content" class="content-section">
+                    <div class="section-header">
+                        <button class="back-btn" onclick="showSection('home')">← 返回</button>
+                        <h2>考勤记录</h2>
+                    </div>
+                    <div class="date-filter">
+                        <input type="month" id="attendance-month" onchange="loadAttendanceByMonth()">
+                    </div>
+                    <div id="attendance-list" class="list-container"></div>
+                </div>
+
+                <!-- 请假申请 -->
+                <div id="leave-content" class="content-section">
+                    <div class="section-header">
+                        <button class="back-btn" onclick="showSection('home')">← 返回</button>
+                        <h2>请假管理</h2>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="showNewLeaveForm()">申请请假</button>
+                    <div id="leave-list" class="list-container"></div>
+                </div>
+
+                <!-- 加班申请 -->
+                <div id="overtime-content" class="content-section">
+                    <div class="section-header">
+                        <button class="back-btn" onclick="showSection('home')">← 返回</button>
+                        <h2>加班管理</h2>
+                    </div>
+                    <button class="btn btn-primary btn-block" onclick="showNewOvertimeForm()">申请加班</button>
+                    <div id="overtime-list" class="list-container"></div>
+                </div>
+
+                <!-- 审批管理 -->
+                <div id="approval-content" class="content-section">
+                    <div class="section-header">
+                        <button class="back-btn" onclick="showSection('home')">← 返回</button>
+                        <h2>待我审批</h2>
+                    </div>
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="switchApprovalTab('leave')">
+                            请假审批
+                            <span class="tab-badge" id="leave-tab-badge" style="display: none;">0</span>
+                        </button>
+                        <button class="tab-btn" onclick="switchApprovalTab('overtime')">
+                            加班审批
+                            <span class="tab-badge" id="overtime-tab-badge" style="display: none;">0</span>
+                        </button>
+                    </div>
+                    <div id="approval-leave-list" class="list-container"></div>
+                    <div id="approval-overtime-list" class="list-container" style="display:none;"></div>
+                </div>
+
+                <!-- 我的统计 -->
+                <div id="stats-content" class="content-section">
+                    <div class="section-header">
+                        <button class="back-btn" onclick="showSection('home')">← 返回</button>
+                        <h2>我的统计</h2>
+                    </div>
+                    <div class="date-filter">
+                        <input type="month" id="stats-month" onchange="loadMyStats()">
+                    </div>
+                    <div id="stats-cards" class="stats-grid"></div>
+                </div>
+            </main>
+
+            <!-- 底部导航 -->
+            <nav class="bottom-nav">
+                <a href="#" class="nav-item active" onclick="showSection('home')">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-label">首页</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showSection('attendance')">
+                    <span class="nav-icon">📝</span>
+                    <span class="nav-label">考勤</span>
+                </a>
+                <a href="#" class="nav-item approval-only" onclick="showSection('approval')" style="display: none;">
+                    <span class="nav-icon">✅</span>
+                    <span class="nav-label">审批</span>
+                </a>
+                <a href="#" class="nav-item" onclick="showSection('stats')">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-label">统计</span>
+                </a>
+            </nav>
+        </div>
+        
+        <!-- 版权信息 -->
+        <footer class="app-footer">
+            <p>&copy; 2025 河南新盟科教有限公司 All Rights Reserved</p>
+        </footer>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modal-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+

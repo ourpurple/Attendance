@@ -1,0 +1,35 @@
+/* pages/attendance/attendance.wxss */
+.date-filter {
+  margin-bottom: 32rpx;
+}
+
+.picker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 32rpx;
+  background: #ffffff;
+  border-radius: 20rpx;
+  font-size: 32rpx;
+}
+
+.picker-icon {
+  font-size: 32rpx;
+}
+
+.attendance-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+  font-size: 28rpx;
+}
+
+.attendance-location {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+  border-top: 2rpx solid #E5E5EA;
+  font-size: 24rpx;
+  color: #8E8E93;
+}
+

@@ -1,0 +1,161 @@
+/* pages/login/login.wxss */
+.login-container {
+  min-height: 100vh;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 40rpx 32rpx;
+  padding-bottom: 60rpx;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.login-header {
+  text-align: center;
+  color: #ffffff;
+  margin-bottom: 40rpx;
+  margin-top: 60rpx;
+  flex-shrink: 0;
+}
+
+.login-title {
+  display: block;
+  font-size: 56rpx;
+  font-weight: 700;
+  margin-bottom: 12rpx;
+}
+
+.login-subtitle {
+  display: block;
+  font-size: 28rpx;
+  opacity: 0.9;
+  margin-bottom: 8rpx;
+}
+
+.company-name {
+  display: block;
+  font-size: 24rpx;
+  opacity: 0.8;
+  margin-top: 12rpx;
+}
+
+.login-form {
+  background: #ffffff;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx;
+  box-shadow: 0 16rpx 64rpx rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+/* 表单组 */
+.form-group {
+  margin-bottom: 32rpx;
+}
+
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  padding: 0 24rpx;
+  background-color: #f5f5f5;
+  border: 2rpx solid #e0e0e0;
+  border-radius: 12rpx;
+  font-size: 30rpx;
+  box-sizing: border-box;
+  transition: all 0.3s;
+}
+
+.form-input:focus {
+  border-color: #667eea;
+  background-color: #ffffff;
+}
+
+/* 按钮样式 */
+.btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  border-radius: 12rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.btn-primary {
+  background-color: #667eea;
+  color: #ffffff;
+}
+
+.btn-primary:active {
+  background-color: #5568d3;
+}
+
+.error-message {
+  color: #FF3B30;
+  font-size: 26rpx;
+  margin-top: 20rpx;
+  text-align: center;
+  line-height: 1.5;
+  min-height: 40rpx;
+}
+
+/* 微信绑定提示 */
+.wechat-binding-tip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  background-color: #e3f2fd;
+  padding: 20rpx 24rpx;
+  border-radius: 12rpx;
+  margin-bottom: 32rpx;
+}
+
+.wechat-binding-tip-info {
+  background-color: #f0f7ff;
+}
+
+.tip-icon {
+  font-size: 32rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.tip-text {
+  font-size: 24rpx;
+  color: #1976d2;
+  line-height: 1.5;
+  flex: 1;
+}
+
+/* 微信登录按钮 */
+.btn-wechat {
+  background-color: #07c160;
+  color: #fff;
+  border: none;
+  margin-top: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+  border-radius: 12rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: 30rpx;
+  padding: 0;
+}
+
+.btn-wechat:active {
+  background-color: #06ad56;
+}
+
+.wechat-icon {
+  font-size: 32rpx;
+}
+
+
+

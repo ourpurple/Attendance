@@ -1,0 +1,226 @@
+<!-- pages/approval/approval.wxml -->
+<view class="container" wx:if="{{hasApprovalPermission}}">
+  <!-- 标签切换 -->
+  <view class="tabs">
+    <view 
+      class="tab-item {{currentTab === 'leave' ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="leave"
+    >
+      <text>请假审批</text>
+      <text class="tab-badge" wx:if="{{leaveCount > 0}}">{{leaveCount}}</text>
+    </view>
+    <view 
+      class="tab-item {{currentTab === 'overtime' ? 'active' : ''}}"
+      bindtap="switchTab"
+      data-tab="overtime"
+    >
+      <text>加班审批</text>
+      <text class="tab-badge" wx:if="{{overtimeCount > 0}}">{{overtimeCount}}</text>
+    </view>
+  </view>
+
+  <!-- 请假审批列表 -->
+  <view wx:if="{{currentTab === 'leave'}}">
+    <block wx:if="{{leaveList && leaveList.length > 0}}">
+      <view class="list-item" wx:for="{{leaveList}}" wx:key="id">
+        <view class="list-item-header">
+          <text class="list-item-title">{{item.startDate}} ~ {{item.endDate}}</text>
+          <text class="status-badge status-pending">{{item.statusName}}</text>
+        </view>
+        <view class="list-item-content">
+          <view><text class="label">天数:</text> {{item.days}}天</view>
+          <view><text class="label">原因:</text> {{item.reason}}</view>
+        </view>
+        <view class="list-item-footer">
+          <button class="btn btn-primary btn-small" bindtap="viewLeaveDetail" data-id="{{item.id}}">详情</button>
+          <button class="btn btn-success btn-small" bindtap="approveLeave" data-id="{{item.id}}" data-approved="{{true}}">批准</button>
+          <button class="btn btn-danger btn-small" bindtap="approveLeave" data-id="{{item.id}}" data-approved="{{false}}">拒绝</button>
+        </view>
+      </view>
+    </block>
+
+    <view class="empty-state" wx:else>
+      <view class="empty-state-icon">✅</view>
+      <view class="empty-state-text">暂无待审批请假</view>
+    </view>
+  </view>
+
+  <!-- 加班审批列表 -->
+  <view wx:if="{{currentTab === 'overtime'}}">
+    <block wx:if="{{overtimeList && overtimeList.length > 0}}">
+      <view class="list-item" wx:for="{{overtimeList}}" wx:key="id">
+        <view class="list-item-header">
+          <text class="list-item-title">{{item.startTime}} ~ {{item.endTime}}</text>
+          <text class="status-badge status-pending">待审批</text>
+        </view>
+        <view class="list-item-content">
+          <view><text class="label">天数:</text> {{item.days}}天</view>
+          <view><text class="label">原因:</text> {{item.reason}}</view>
+        </view>
+        <view class="list-item-footer">
+          <button class="btn btn-primary btn-small" bindtap="viewOvertimeDetail" data-id="{{item.id}}">详情</button>
+          <button class="btn btn-success btn-small" bindtap="approveOvertime" data-id="{{item.id}}" data-approved="{{true}}">批准</button>
+          <button class="btn btn-danger btn-small" bindtap="approveOvertime" data-id="{{item.id}}" data-approved="{{false}}">拒绝</button>
+        </view>
+      </view>
+    </block>
+
+    <view class="empty-state" wx:else>
+      <view class="empty-state-icon">✅</view>
+      <view class="empty-state-text">暂无待审批加班</view>
+    </view>
+  </view>
+</view>
+
+<view class="container" wx:else>
+  <view class="empty-state">
+    <view class="empty-state-icon">🚫</view>
+    <view class="empty-state-text">您没有审批权限</view>
+  </view>
+</view>
+
+<!-- 详情弹窗 -->
+<view class="detail-modal-overlay" wx:if="{{showDetailModal}}" bindtap="closeDetailModal">
+  <view class="detail-modal" catchtap="stopPropagation">
+    <view class="detail-modal-header">
+      <text class="detail-modal-title">{{detailTitle}}</text>
+      <text class="detail-modal-close" bindtap="closeDetailModal">×</text>
+    </view>
+    
+    <view class="detail-modal-content">
+      <!-- 请假详情 -->
+      <block wx:if="{{detailType === 'leave' && detailData}}">
+        <view class="detail-item">
+          <text class="detail-label">状态:</text>
+          <text class="detail-value">{{detailData.status}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">申请人:</text>
+          <text class="detail-value">{{detailData.applicant}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">开始日期:</text>
+          <text class="detail-value">{{detailData.startDate}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">结束日期:</text>
+          <text class="detail-value">{{detailData.endDate}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">天数:</text>
+          <text class="detail-value">{{detailData.days}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">原因:</text>
+          <text class="detail-value">{{detailData.reason}}</text>
+        </view>
+        
+        <!-- 部门审批 -->
+        <block wx:if="{{detailData.deptApprover}}">
+          <view class="detail-section-divider"></view>
+          <view class="detail-section-title">部门审批</view>
+          <view class="detail-item">
+            <text class="detail-label">审批人:</text>
+            <text class="detail-value">{{detailData.deptApprover}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">时间:</text>
+            <text class="detail-value">{{detailData.deptApprovedAt}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">意见:</text>
+            <text class="detail-value">{{detailData.deptComment || '无'}}</text>
+          </view>
+        </block>
+        
+        <!-- 副总审批 -->
+        <block wx:if="{{detailData.vpApprover}}">
+          <view class="detail-section-divider"></view>
+          <view class="detail-section-title">副总审批</view>
+          <view class="detail-item">
+            <text class="detail-label">审批人:</text>
+            <text class="detail-value">{{detailData.vpApprover}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">时间:</text>
+            <text class="detail-value">{{detailData.vpApprovedAt}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">意见:</text>
+            <text class="detail-value">{{detailData.vpComment || '无'}}</text>
+          </view>
+        </block>
+        
+        <!-- 总经理审批 -->
+        <block wx:if="{{detailData.gmApprover}}">
+          <view class="detail-section-divider"></view>
+          <view class="detail-section-title">总经理审批</view>
+          <view class="detail-item">
+            <text class="detail-label">审批人:</text>
+            <text class="detail-value">{{detailData.gmApprover}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">时间:</text>
+            <text class="detail-value">{{detailData.gmApprovedAt}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">意见:</text>
+            <text class="detail-value">{{detailData.gmComment || '无'}}</text>
+          </view>
+        </block>
+      </block>
+      
+      <!-- 加班详情 -->
+      <block wx:if="{{detailType === 'overtime' && detailData}}">
+        <view class="detail-item">
+          <text class="detail-label">状态:</text>
+          <text class="detail-value">{{detailData.status}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">申请人:</text>
+          <text class="detail-value">{{detailData.applicant}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">开始时间:</text>
+          <text class="detail-value">{{detailData.startTime}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">结束时间:</text>
+          <text class="detail-value">{{detailData.endTime}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">天数:</text>
+          <text class="detail-value">{{detailData.days}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">原因:</text>
+          <text class="detail-value">{{detailData.reason}}</text>
+        </view>
+        
+        <!-- 审批信息 -->
+        <block wx:if="{{detailData.approver}}">
+          <view class="detail-section-divider"></view>
+          <view class="detail-section-title">审批信息</view>
+          <view class="detail-item">
+            <text class="detail-label">审批人:</text>
+            <text class="detail-value">{{detailData.approver}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">时间:</text>
+            <text class="detail-value">{{detailData.approvedAt}}</text>
+          </view>
+          <view class="detail-item">
+            <text class="detail-label">意见:</text>
+            <text class="detail-value">{{detailData.comment || '无'}}</text>
+          </view>
+        </block>
+      </block>
+    </view>
+    
+    <view class="detail-modal-footer">
+      <button class="btn btn-primary btn-block" bindtap="closeDetailModal">关闭</button>
+    </view>
+  </view>
+</view>
+

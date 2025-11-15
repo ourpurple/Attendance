@@ -1,0 +1,95 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <!-- 打卡卡片 -->
+  <view class="card clock-card">
+    <view class="clock-time">{{currentTime}}</view>
+    <view class="clock-date">{{currentDate}}</view>
+    
+    <view class="clock-status">
+      <view class="status-item">
+        <text class="status-label">上班</text>
+        <text class="status-value">{{checkinStatus}}</text>
+      </view>
+      <view class="status-item">
+        <text class="status-label">下班</text>
+        <text class="status-value">{{checkoutStatus}}</text>
+      </view>
+    </view>
+
+    <view class="clock-actions">
+      <button class="btn btn-primary" bindtap="checkin" disabled="{{checkinDisabled}}">
+        <text>📍</text>
+        <text>上班打卡</text>
+      </button>
+      <button class="btn btn-secondary" bindtap="checkout" disabled="{{checkoutDisabled}}">
+        <text>📍</text>
+        <text>下班打卡</text>
+      </button>
+    </view>
+
+    <view class="clock-location" wx:if="{{location}}">位置: {{location}}</view>
+  </view>
+
+  <!-- 快捷功能 -->
+  <view class="quick-actions">
+    <view class="quick-action-item" bindtap="goToLeave">
+      <view class="action-icon">🏖️</view>
+      <view class="action-label">请假申请</view>
+    </view>
+    <view class="quick-action-item" bindtap="goToOvertime">
+      <view class="action-icon">⏰</view>
+      <view class="action-label">加班申请</view>
+    </view>
+    <view class="quick-action-item approval-only" bindtap="goToApproval" wx:if="{{hasApprovalPermission}}">
+      <view class="action-icon">✅</view>
+      <view class="action-label">
+        <text>我的审批</text>
+        <text class="badge" wx:if="{{pendingCount > 0}}">{{pendingCount}}</text>
+      </view>
+    </view>
+    <view class="quick-action-item" bindtap="goToStats">
+      <view class="action-icon">📊</view>
+      <view class="action-label">我的统计</view>
+    </view>
+  </view>
+
+  <!-- 最近考勤 -->
+  <view class="card">
+    <view class="card-header">
+      <text class="card-title">最近考勤</text>
+      <text class="card-link" bindtap="goToAttendance">查看更多</text>
+    </view>
+
+    <view class="attendance-list" wx:if="{{recentAttendance && recentAttendance.length > 0}}">
+      <view class="attendance-item" wx:for="{{recentAttendance}}" wx:key="id">
+        <view class="attendance-date">
+          <view class="attendance-day">{{item.day}}</view>
+          <view class="attendance-month">{{item.month}}月</view>
+        </view>
+        <view class="attendance-info">
+          <view class="attendance-time">
+            <text>上班: {{item.checkinTime || '-'}}</text>
+            <text class="status-badge status-warning" wx:if="{{item.isLate}}">迟到</text>
+          </view>
+          <view class="attendance-time">
+            <text>下班: {{item.checkoutTime || '-'}}</text>
+            <text class="status-badge status-warning" wx:if="{{item.isEarlyLeave}}">早退</text>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="empty-state" wx:else>
+      <view class="empty-state-icon">📝</view>
+      <view class="empty-state-text">暂无考勤记录</view>
+    </view>
+  </view>
+  
+  <!-- 版权信息 -->
+  <view class="app-footer">
+    <text>© 2025 河南新盟科教有限公司 All Rights Reserved</text>
+  </view>
+</view>
+
+
+

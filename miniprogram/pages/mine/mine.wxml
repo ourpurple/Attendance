@@ -1,0 +1,32 @@
+<!-- pages/mine/mine.wxml -->
+<view class="container">
+  <!-- 用户信息 -->
+  <view class="user-info card" wx:if="{{userInfo}}">
+    <view class="user-avatar">
+      <text>{{userInfo.real_name.charAt(0)}}</text>
+    </view>
+    <view class="user-details">
+      <view class="user-name">{{userInfo.real_name}}</view>
+      <view class="user-role">{{getRoleName(userInfo.role)}}</view>
+    </view>
+  </view>
+
+  <!-- 功能菜单 -->
+  <view class="menu-list">
+    <view class="menu-item" bindtap="changePassword">
+      <view class="menu-icon">🔒</view>
+      <view class="menu-label">修改密码</view>
+      <view class="menu-arrow">›</view>
+    </view>
+    <view class="menu-item" bindtap="logout">
+      <view class="menu-icon">🚪</view>
+      <view class="menu-label">退出登录</view>
+      <view class="menu-arrow">›</view>
+    </view>
+  </view>
+
+  <!-- 版权信息 -->
+  <view class="app-footer">
+    <text>© 2025 河南新盟科教有限公司 All Rights Reserved</text>
+  </view>
+</view>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>考勤管理系统 - 管理后台 | 新盟科教</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 登录页面 -->
+        <div id="login-page" class="page active">
+            <div class="login-container">
+                <div class="login-card">
+                    <h1>考勤管理系统</h1>
+                    <p class="subtitle">管理后台</p>
+                    <p class="company-name">河南新盟科教有限公司</p>
+                    <form id="login-form">
+                        <div class="form-group">
+                            <input type="text" id="username" placeholder="用户名" required>
+                        </div>
+                        <div class="form-group">
+                            <input type="password" id="password" placeholder="密码" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">登录</button>
+                    </form>
+                    <div id="login-error" class="error-message"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主界面 -->
+        <div id="main-page" class="page">
+            <!-- 侧边栏 -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <h2>考勤系统</h2>
+                    <p class="company-short">新盟科教</p>
+                </div>
+                <nav class="sidebar-nav">
+                    <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                        <span class="icon">📊</span>
+                        <span>仪表盘</span>
+                    </a>
+                    <a href="#users" class="nav-item" data-page="users">
+                        <span class="icon">👥</span>
+                        <span>用户管理</span>
+                    </a>
+                    <a href="#departments" class="nav-item" data-page="departments">
+                        <span class="icon">🏢</span>
+                        <span>部门管理</span>
+                    </a>
+                    <a href="#attendance" class="nav-item" data-page="attendance">
+                        <span class="icon">📝</span>
+                        <span>考勤记录</span>
+                    </a>
+                    <a href="#leave" class="nav-item" data-page="leave">
+                        <span class="icon">🏖️</span>
+                        <span>请假管理</span>
+                    </a>
+                    <a href="#overtime" class="nav-item" data-page="overtime">
+                        <span class="icon">⏰</span>
+                        <span>加班管理</span>
+                    </a>
+                    <a href="#policies" class="nav-item" data-page="policies">
+                        <span class="icon">⚙️</span>
+                        <span>策略管理</span>
+                    </a>
+                    <a href="#holidays" class="nav-item" data-page="holidays">
+                        <span class="icon">📅</span>
+                        <span>节假日配置</span>
+                    </a>
+                    <a href="#statistics" class="nav-item" data-page="statistics">
+                        <span class="icon">📈</span>
+                        <span>统计分析</span>
+                    </a>
+                </nav>
+                <div class="sidebar-footer">
+                    <div class="user-info">
+                        <span id="current-user-name"></span>
+                    </div>
+                    <button id="logout-btn" class="btn btn-secondary">退出登录</button>
+                    <div class="copyright">
+                        <p>&copy; 2025 河南新盟科教有限公司</p>
+                        <p>All Rights Reserved</p>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 主内容区 -->
+            <main class="main-content">
+                <!-- 仪表盘 -->
+                <div id="dashboard-content" class="content-section active">
+                    <h2>仪表盘</h2>
+                    <div class="dashboard-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">👥</div>
+                            <div class="stat-info">
+                                <h3 id="total-users">0</h3>
+                                <p>总用户数</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">✅</div>
+                            <div class="stat-info">
+                                <h3 id="today-attendance">0</h3>
+                                <p>今日出勤</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">🏖️</div>
+                            <div class="stat-info">
+                                <h3 id="pending-leaves">0</h3>
+                                <p>待审批请假</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">⏰</div>
+                            <div class="stat-info">
+                                <h3 id="pending-overtimes">0</h3>
+                                <p>待审批加班</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 用户管理 -->
+                <div id="users-content" class="content-section">
+                    <div class="section-header">
+                        <h2>用户管理</h2>
+                        <button class="btn btn-primary" onclick="showAddUserModal()">添加用户</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="users-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>姓名</th>
+                                    <th>邮箱</th>
+                                    <th>角色</th>
+                                    <th>部门</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 部门管理 -->
+                <div id="departments-content" class="content-section">
+                    <div class="section-header">
+                        <h2>部门管理</h2>
+                        <button class="btn btn-primary" onclick="showAddDepartmentModal()">添加部门</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="departments-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>部门名称</th>
+                                    <th>描述</th>
+                                    <th>部门主任</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="departments-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 考勤记录 -->
+                <div id="attendance-content" class="content-section">
+                    <div class="section-header">
+                        <h2>考勤记录</h2>
+                        <div class="filters attendance-filters">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="attendance-query-type" value="month" checked onchange="toggleAttendanceQueryType()">
+                                    按月查询
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="attendance-query-type" value="custom" onchange="toggleAttendanceQueryType()">
+                                    自定义日期
+                                </label>
+                            </div>
+                            <div id="attendance-month-filter" style="display: flex; gap: 10px; align-items: center;">
+                                <input type="month" id="attendance-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="attendance-user-filter" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                            </div>
+                            <div id="attendance-date-filter" style="display: none; gap: 10px; align-items: center;">
+                                <input type="date" id="attendance-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <input type="date" id="attendance-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="attendance-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table id="attendance-table">
+                            <thead>
+                                <tr>
+                                    <th>日期</th>
+                                    <th>员工</th>
+                                    <th>上班打卡</th>
+                                    <th>上班位置</th>
+                                    <th>下班打卡</th>
+                                    <th>下班位置</th>
+                                    <th>工时</th>
+                                    <th>迟到</th>
+                                    <th>早退</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 请假管理 -->
+                <div id="leave-content" class="content-section">
+                    <div class="section-header">
+                        <h2>请假管理</h2>
+                        <div class="filters leave-filters">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="leave-query-type" value="month" checked onchange="toggleLeaveQueryType()">
+                                    按月查询
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="leave-query-type" value="custom" onchange="toggleLeaveQueryType()">
+                                    自定义日期
+                                </label>
+                            </div>
+                            <div id="leave-month-filter" style="display: flex; gap: 10px; align-items: center;">
+                                <input type="month" id="leave-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="leave-user-filter" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadLeaveApplications()">查询</button>
+                            </div>
+                            <div id="leave-date-filter" style="display: none;">
+                                <input type="date" id="leave-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <input type="date" id="leave-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="leave-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadLeaveApplications()">查询</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table id="leave-table">
+                            <thead>
+                                <tr>
+                                    <th>申请人</th>
+                                    <th>开始日期</th>
+                                    <th>结束日期</th>
+                                    <th>天数</th>
+                                    <th>原因</th>
+                                    <th>申请时间</th>
+                                    <th>状态</th>
+                                    <th>审批人</th>
+                                    <th>审批时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leave-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 加班管理 -->
+                <div id="overtime-content" class="content-section">
+                    <div class="section-header">
+                        <h2>加班管理</h2>
+                        <div class="filters overtime-filters">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="overtime-query-type" value="month" checked onchange="toggleOvertimeQueryType()">
+                                    按月查询
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="overtime-query-type" value="custom" onchange="toggleOvertimeQueryType()">
+                                    自定义日期
+                                </label>
+                            </div>
+                            <div id="overtime-month-filter" style="display: flex; gap: 10px; align-items: center;">
+                                <input type="month" id="overtime-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="overtime-user-filter" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadOvertimeApplications()">查询</button>
+                            </div>
+                            <div id="overtime-date-filter" style="display: none;">
+                                <input type="date" id="overtime-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <input type="date" id="overtime-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="overtime-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadOvertimeApplications()">查询</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table id="overtime-table">
+                            <thead>
+                                <tr>
+                                    <th>申请人</th>
+                                    <th>开始时间</th>
+                                    <th>结束时间</th>
+                                    <th>加班天数</th>
+                                    <th>原因</th>
+                                    <th>申请时间</th>
+                                    <th>状态</th>
+                                    <th>审批人</th>
+                                    <th>审批时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="overtime-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 策略管理 -->
+                <div id="policies-content" class="content-section">
+                    <div class="section-header">
+                        <h2>打卡策略</h2>
+                        <button class="btn btn-primary" onclick="showAddPolicyModal()">添加策略</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="policies-table">
+                            <thead>
+                                <tr>
+                                    <th>策略名称</th>
+                                    <th>上班时间</th>
+                                    <th>下班时间</th>
+                                    <th>打卡时段</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="policies-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 节假日配置 -->
+                <div id="holidays-content" class="content-section">
+                    <div class="section-header">
+                        <h2>节假日配置</h2>
+                        <button class="btn btn-primary" onclick="showAddHolidayModal()">添加节假日</button>
+                    </div>
+                    <div class="filters" style="margin-bottom: 20px;">
+                        <select id="holiday-year-filter" onchange="loadHolidays()">
+                            <option value="">全部年份</option>
+                            <!-- 年份选项将通过JavaScript动态生成 -->
+                        </select>
+                    </div>
+                    <div class="table-container">
+                        <table id="holidays-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>日期</th>
+                                    <th>名称</th>
+                                    <th>类型</th>
+                                    <th>说明</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="holidays-table-body">
+                                <!-- 动态加载 -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 统计分析 -->
+                <div id="statistics-content" class="content-section">
+                    <div class="section-header">
+                        <h2>统计分析</h2>
+                        <div class="filters">
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="date-type" value="month" checked onchange="toggleDateType()">
+                                    按月统计
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="date-type" value="custom" onchange="toggleDateType()">
+                                    自定义日期
+                                </label>
+                            </div>
+                            <div id="month-selector" style="display: flex; gap: 10px;">
+                                <input type="month" id="stats-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <button class="btn btn-primary" onclick="loadAllStatistics()">查询</button>
+                            </div>
+                            <div id="date-selector" style="display: none; gap: 10px;">
+                                <input type="date" id="stats-start-date">
+                                <input type="date" id="stats-end-date">
+                                <button class="btn btn-primary" onclick="loadAllStatistics()">查询</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 统计分类标签 -->
+                    <div class="tabs">
+                        <button class="tab-btn active" onclick="switchStatsTab('overall')">总统计</button>
+                        <button class="tab-btn" onclick="switchStatsTab('attendance')">出勤统计</button>
+                        <button class="tab-btn" onclick="switchStatsTab('leave')">请假统计</button>
+                        <button class="tab-btn" onclick="switchStatsTab('overtime')">加班统计</button>
+                    </div>
+                    
+                    <!-- 总统计 -->
+                    <div id="overall-stats" class="stats-tab-content active">
+                        <div class="stats-cards">
+                            <div class="stat-card">
+                                <div class="stat-value" id="stats-total-users">0</div>
+                                <div class="stat-label">总员工数</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="total-attendance-rate">0%</div>
+                                <div class="stat-label">出勤率</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="total-leave-days">0</div>
+                                <div class="stat-label">总请假天数</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value" id="total-overtime-days">0</div>
+                                <div class="stat-label">总加班天数</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 出勤统计 -->
+                    <div id="attendance-stats" class="stats-tab-content">
+                        <div class="table-container">
+                            <table id="attendance-stats-table">
+                                <thead>
+                                    <tr>
+                                        <th>姓名</th>
+                                        <th>部门</th>
+                                        <th>应出勤</th>
+                                        <th>实际出勤</th>
+                                        <th>迟到</th>
+                                        <th>早退</th>
+                                        <th>缺勤</th>
+                                        <th>工作时长(h)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="attendance-stats-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 请假统计 -->
+                    <div id="leave-stats" class="stats-tab-content">
+                        <div class="table-container">
+                            <table id="leave-stats-table">
+                                <thead>
+                                    <tr>
+                                        <th>姓名</th>
+                                        <th>部门</th>
+                                        <th>请假天数</th>
+                                        <th>请假次数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="leave-stats-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 加班统计 -->
+                    <div id="overtime-stats" class="stats-tab-content">
+                        <div class="table-container">
+                            <table id="overtime-stats-table">
+                                <thead>
+                                    <tr>
+                                        <th>姓名</th>
+                                        <th>部门</th>
+                                        <th>加班天数</th>
+                                        <th>加班次数</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="overtime-stats-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- 模态框容器 -->
+    <div id="modal-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
+
+
