@@ -149,6 +149,11 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     document.getElementById('login-error').textContent = '';
 });
 
+// 修改密码
+document.getElementById('change-password-btn').addEventListener('click', () => {
+    showChangePasswordModal();
+});
+
 // 导航切换
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', (e) => {
@@ -1471,6 +1476,110 @@ function handleModalConfirm() {
     }
     closeModal();
 }
+
+// ==================== 密码修改 ====================
+function showChangePasswordModal() {
+    const modalContainer = document.getElementById('modal-container');
+    modalContainer.innerHTML = '';
+    modalContainer.style.display = 'none';
+    
+    const content = `
+        <form id="change-password-form" style="display: flex; flex-direction: column; gap: 16px;">
+            <div class="form-group">
+                <label for="old-password">原密码</label>
+                <input type="password" id="old-password" required placeholder="请输入原密码">
+            </div>
+            <div class="form-group">
+                <label for="new-password">新密码</label>
+                <input type="password" id="new-password" required placeholder="请输入新密码（至少6位）" minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="confirm-password">确认新密码</label>
+                <input type="password" id="confirm-password" required placeholder="请再次输入新密码" minlength="6">
+            </div>
+            <div id="change-password-error" class="error-message" style="display: none;"></div>
+        </form>
+    `;
+    
+    modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="closeModal(event)">
+            <div class="modal" onclick="event.stopPropagation()">
+                <div class="modal-header">
+                    <h3>修改密码</h3>
+                    <button class="modal-close" onclick="closeModal()" title="关闭">×</button>
+                </div>
+                <div class="modal-content">
+                    ${content}
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button class="btn btn-primary" onclick="handleChangePassword()" id="change-password-submit-btn">确定</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modalContainer.style.display = 'flex';
+}
+
+async function handleChangePassword() {
+    const oldPassword = document.getElementById('old-password').value;
+    const newPassword = document.getElementById('new-password').value;
+    const confirmPassword = document.getElementById('confirm-password').value;
+    const errorEl = document.getElementById('change-password-error');
+    const submitBtn = document.getElementById('change-password-submit-btn');
+    
+    // 验证输入
+    if (!oldPassword || !newPassword || !confirmPassword) {
+        errorEl.textContent = '请填写所有字段';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword.length < 6) {
+        errorEl.textContent = '新密码长度至少为6位';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+        errorEl.textContent = '两次输入的新密码不一致';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    if (oldPassword === newPassword) {
+        errorEl.textContent = '新密码不能与原密码相同';
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    // 禁用提交按钮，防止重复提交
+    submitBtn.disabled = true;
+    submitBtn.textContent = '提交中...';
+    
+    try {
+        errorEl.style.display = 'none';
+        await apiRequest('/users/me/change-password', {
+            method: 'POST',
+            body: JSON.stringify({
+                old_password: oldPassword,
+                new_password: newPassword
+            })
+        });
+        
+        alert('密码修改成功！');
+        closeModal();
+    } catch (error) {
+        errorEl.textContent = error.message || '密码修改失败';
+        errorEl.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = '确定';
+    }
+}
+
+// 将函数暴露到全局作用域
+window.handleChangePassword = handleChangePassword;
 
 // ==================== 自定义确认对话框 ====================
 function showConfirmDialog(title, message, onConfirm, onCancel) {
