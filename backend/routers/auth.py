@@ -87,11 +87,20 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
             # 绑定openid到当前用户
             user.wechat_openid = openid
             db.commit()
-        except HTTPException:
+            print(f"✅ 用户 {user.username} 成功绑定微信OpenID")
+        except HTTPException as e:
+            # 如果是code失效的错误，提供更友好的错误信息
+            if "invalid code" in str(e.detail) or "code been used" in str(e.detail):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="微信授权码已失效，请重新获取"
+                )
+            # 其他HTTP异常直接抛出
             raise
         except Exception as e:
             # 如果绑定失败，不影响登录，只记录错误
             print(f"绑定微信OpenID失败: {str(e)}")
+            # 不抛出异常，允许用户继续登录
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(

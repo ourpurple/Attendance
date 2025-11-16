@@ -112,52 +112,124 @@ Page({
     wx.showLoading({ title: this.data.isWechatBinding ? '绑定中...' : '登录中...' });
 
     try {
-      // 先尝试获取微信 code（用于绑定）
+      // 如果是微信绑定模式，优先获取新的微信 code（旧的code可能已过期）
       let wechatCode = null;
-      try {
-        const loginRes = await app.getWechatCode();
-        if (loginRes.code) {
-          wechatCode = loginRes.code;
+      if (this.data.isWechatBinding) {
+        try {
+          // 先尝试获取新的微信 code
+          const loginRes = await app.getWechatCode();
+          if (loginRes.code) {
+            wechatCode = loginRes.code;
+            // 更新保存的code
+            wx.setStorageSync('wechat_code', loginRes.code);
+          }
+        } catch (error) {
+          console.warn('获取微信code失败:', error);
+          // 如果获取新code失败，尝试使用保存的code
+          const savedCode = wx.getStorageSync('wechat_code');
+          if (savedCode) {
+            wechatCode = savedCode;
+          }
         }
-      } catch (error) {
-        console.warn('获取微信code失败，将不进行绑定:', error);
-        // 获取微信code失败不影响登录，继续执行
-      }
-
-      // 如果已经有保存的微信code（从自动登录流程来的），优先使用
-      const savedCode = wx.getStorageSync('wechat_code');
-      if (savedCode) {
-        wechatCode = savedCode;
+      } else {
+        // 非绑定模式，尝试获取微信 code（用于绑定）
+        try {
+          const loginRes = await app.getWechatCode();
+          if (loginRes.code) {
+            wechatCode = loginRes.code;
+          }
+        } catch (error) {
+          console.warn('获取微信code失败，将不进行绑定:', error);
+          // 获取微信code失败不影响登录，继续执行
+        }
       }
 
       // 执行登录（如果提供了微信code，会自动绑定）
-      await app.login(username, password, wechatCode);
-      
-      // 清除保存的微信code（已绑定）
-      if (wechatCode) {
-        wx.removeStorageSync('wechat_code');
-      }
-      
-      wx.hideLoading();
-      
-      // 如果成功绑定了微信，显示提示
-      if (wechatCode) {
-        wx.showToast({
-          title: '登录成功，已绑定微信',
-          icon: 'success',
-          duration: 2000
-        });
+      try {
+        await app.login(username, password, wechatCode);
         
-        // 延迟跳转，让用户看到提示
-        setTimeout(() => {
+        // 清除保存的微信code（已绑定）
+        if (wechatCode) {
+          wx.removeStorageSync('wechat_code');
+        }
+        
+        wx.hideLoading();
+        
+        // 如果成功绑定了微信，显示提示
+        if (wechatCode) {
+          wx.showToast({
+            title: '登录成功，已绑定微信',
+            icon: 'success',
+            duration: 2000
+          });
+          
+          // 延迟跳转，让用户看到提示
+          setTimeout(() => {
+            wx.switchTab({
+              url: '/pages/index/index'
+            });
+          }, 1500);
+        } else {
           wx.switchTab({
             url: '/pages/index/index'
           });
-        }, 1500);
-      } else {
-        wx.switchTab({
-          url: '/pages/index/index'
-        });
+        }
+      } catch (loginError) {
+        // 如果登录失败是因为code失效，尝试重新获取code
+        if (loginError.detail && loginError.detail.includes('invalid code')) {
+          console.log('微信code已失效，尝试重新获取...');
+          
+          // 清除旧的code
+          wx.removeStorageSync('wechat_code');
+          
+          // 重新获取code并重试
+          try {
+            const loginRes = await app.getWechatCode();
+            if (loginRes.code) {
+              // 使用新的code重试登录
+              await app.login(username, password, loginRes.code);
+              
+              wx.removeStorageSync('wechat_code');
+              wx.hideLoading();
+              
+              wx.showToast({
+                title: '登录成功，已绑定微信',
+                icon: 'success',
+                duration: 2000
+              });
+              
+              setTimeout(() => {
+                wx.switchTab({
+                  url: '/pages/index/index'
+                });
+              }, 1500);
+              return;
+            }
+          } catch (retryError) {
+            console.error('重新获取code失败:', retryError);
+          }
+        }
+        
+        // 如果绑定失败但不影响登录，继续执行
+        if (loginError.detail && loginError.detail.includes('获取微信OpenID失败')) {
+          // code失效，但不影响登录，允许用户继续
+          wx.hideLoading();
+          wx.showModal({
+            title: '提示',
+            content: '微信绑定失败（code已过期），但登录成功。下次登录时可重新绑定微信。',
+            showCancel: false,
+            confirmText: '知道了',
+            success: () => {
+              wx.switchTab({
+                url: '/pages/index/index'
+              });
+            }
+          });
+          return;
+        }
+        
+        // 其他错误，抛出异常
+        throw loginError;
       }
     } catch (error) {
       wx.hideLoading();
