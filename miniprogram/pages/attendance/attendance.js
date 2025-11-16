@@ -53,7 +53,7 @@ Page({
       const formatTime = (dateStr) => {
         if (!dateStr) return null;
         try {
-          const date = new Date(dateStr);
+        const date = new Date(dateStr);
           // 手动格式化，避免安卓微信显示时区信息
           const hours = String(date.getHours()).padStart(2, '0');
           const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -66,7 +66,7 @@ Page({
 
       const formatDate = (dateStr) => {
         try {
-          const date = new Date(dateStr);
+        const date = new Date(dateStr);
           // 手动格式化日期为中文格式，避免安卓微信显示英文
           const year = date.getFullYear();
           const month = date.getMonth() + 1;

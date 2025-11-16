@@ -280,46 +280,46 @@ Page({
         }
       } else {
         // 非绑定模式，尝试获取微信 code（用于绑定）
-        try {
-          const loginRes = await app.getWechatCode();
-          if (loginRes.code) {
-            wechatCode = loginRes.code;
-          }
-        } catch (error) {
-          console.warn('获取微信code失败，将不进行绑定:', error);
-          // 获取微信code失败不影响登录，继续执行
+      try {
+        const loginRes = await app.getWechatCode();
+        if (loginRes.code) {
+          wechatCode = loginRes.code;
         }
+      } catch (error) {
+        console.warn('获取微信code失败，将不进行绑定:', error);
+        // 获取微信code失败不影响登录，继续执行
+      }
       }
 
       // 执行登录（如果提供了微信code，会自动绑定）
       try {
-        await app.login(username, password, wechatCode);
+      await app.login(username, password, wechatCode);
+      
+      // 清除保存的微信code（已绑定）
+      if (wechatCode) {
+        wx.removeStorageSync('wechat_code');
+      }
+      
+      wx.hideLoading();
+      
+      // 如果成功绑定了微信，显示提示
+      if (wechatCode) {
+        wx.showToast({
+          title: '登录成功，已绑定微信',
+          icon: 'success',
+          duration: 2000
+        });
         
-        // 清除保存的微信code（已绑定）
-        if (wechatCode) {
-          wx.removeStorageSync('wechat_code');
-        }
-        
-        wx.hideLoading();
-        
-        // 如果成功绑定了微信，显示提示
-        if (wechatCode) {
-          wx.showToast({
-            title: '登录成功，已绑定微信',
-            icon: 'success',
-            duration: 2000
-          });
-          
-          // 延迟跳转，让用户看到提示
-          setTimeout(() => {
-            wx.switchTab({
-              url: '/pages/index/index'
-            });
-          }, 1500);
-        } else {
+        // 延迟跳转，让用户看到提示
+        setTimeout(() => {
           wx.switchTab({
             url: '/pages/index/index'
           });
+        }, 1500);
+      } else {
+        wx.switchTab({
+          url: '/pages/index/index'
+        });
         }
       } catch (loginError) {
         // 如果登录失败是因为code失效，尝试重新获取code
@@ -449,7 +449,7 @@ Page({
         });
       } else {
         // 其他错误，直接显示
-        this.setData({ 
+      this.setData({
           errorMessage: errorMsg,
           showNetworkTest: false
         });

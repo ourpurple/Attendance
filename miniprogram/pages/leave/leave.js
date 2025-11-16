@@ -76,6 +76,63 @@ Page({
         }
       };
 
+      // 格式化时间范围（智能省略重复的年份和日期）
+      const formatTimeRange = (startStr, endStr) => {
+        if (!startStr || !endStr) return '';
+        try {
+          // 处理时区问题：确保日期字符串格式正确
+          const normalizeDateStr = (dateStr) => {
+            if (!dateStr) return '';
+            // 如果包含 'T'，直接使用；否则添加 'T00:00:00'
+            if (dateStr.includes('T')) {
+              return dateStr.split('.')[0]; // 移除毫秒部分
+            }
+            return dateStr + 'T00:00:00';
+          };
+          
+          const normalizedStartStr = normalizeDateStr(startStr);
+          const normalizedEndStr = normalizeDateStr(endStr);
+          
+          const startDate = new Date(normalizedStartStr);
+          const endDate = new Date(normalizedEndStr);
+          
+          const startYear = startDate.getFullYear();
+          const startMonth = startDate.getMonth() + 1;
+          const startDay = startDate.getDate();
+          const startHours = String(startDate.getHours()).padStart(2, '0');
+          const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
+          
+          const endYear = endDate.getFullYear();
+          const endMonth = endDate.getMonth() + 1;
+          const endDay = endDate.getDate();
+          const endHours = String(endDate.getHours()).padStart(2, '0');
+          const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+          
+          let startPart = `${startYear}/${String(startMonth).padStart(2, '0')}/${String(startDay).padStart(2, '0')} ${startHours}:${startMinutes}`;
+          let endPart = '';
+          
+          // 如果年份相同
+          if (startYear === endYear) {
+            // 如果日期也相同
+            if (startMonth === endMonth && startDay === endDay) {
+              // 只显示时间
+              endPart = `${endHours}:${endMinutes}`;
+            } else {
+              // 只省略年份
+              endPart = `${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
+            }
+          } else {
+            // 年份不同，显示完整日期时间
+            endPart = `${endYear}/${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
+          }
+          
+          return `${startPart} ~ ${endPart}`;
+        } catch (error) {
+          console.error('格式化时间范围失败:', error, startStr, endStr);
+          return `${formatDate(startStr)} ~ ${formatDate(endStr)}`;
+        }
+      };
+
       const getStatusName = (status) => {
         const statusMap = {
           'pending': '待审批',
@@ -129,6 +186,7 @@ Page({
         
         return {
           ...leave,
+          timeRange: formatTimeRange(leave.start_date, leave.end_date), // 使用智能格式化时间范围
           startDate: formatDate(leave.start_date),
           endDate: formatDate(leave.end_date),
           createdAt: formatDateTime(leave.created_at),
@@ -273,6 +331,63 @@ Page({
           return dateStr;
         }
       };
+
+      // 格式化时间范围（智能省略重复的年份和日期）
+      const formatTimeRange = (startStr, endStr) => {
+        if (!startStr || !endStr) return '';
+        try {
+          // 处理时区问题：确保日期字符串格式正确
+          const normalizeDateStr = (dateStr) => {
+            if (!dateStr) return '';
+            // 如果包含 'T'，直接使用；否则添加 'T00:00:00'
+            if (dateStr.includes('T')) {
+              return dateStr.split('.')[0]; // 移除毫秒部分
+            }
+            return dateStr + 'T00:00:00';
+          };
+          
+          const normalizedStartStr = normalizeDateStr(startStr);
+          const normalizedEndStr = normalizeDateStr(endStr);
+          
+          const startDate = new Date(normalizedStartStr);
+          const endDate = new Date(normalizedEndStr);
+          
+          const startYear = startDate.getFullYear();
+          const startMonth = startDate.getMonth() + 1;
+          const startDay = startDate.getDate();
+          const startHours = String(startDate.getHours()).padStart(2, '0');
+          const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
+          
+          const endYear = endDate.getFullYear();
+          const endMonth = endDate.getMonth() + 1;
+          const endDay = endDate.getDate();
+          const endHours = String(endDate.getHours()).padStart(2, '0');
+          const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+          
+          let startPart = `${startYear}/${String(startMonth).padStart(2, '0')}/${String(startDay).padStart(2, '0')} ${startHours}:${startMinutes}`;
+          let endPart = '';
+          
+          // 如果年份相同
+          if (startYear === endYear) {
+            // 如果日期也相同
+            if (startMonth === endMonth && startDay === endDay) {
+              // 只显示时间
+              endPart = `${endHours}:${endMinutes}`;
+            } else {
+              // 只省略年份
+              endPart = `${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
+            }
+          } else {
+            // 年份不同，显示完整日期时间
+            endPart = `${endYear}/${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
+          }
+          
+          return `${startPart} ~ ${endPart}`;
+        } catch (error) {
+          console.error('格式化时间范围失败:', error, startStr, endStr);
+          return `${formatDate(startStr)} ~ ${formatDate(endStr)}`;
+        }
+      };
       
       const getStatusName = (status) => {
         const statusMap = {
@@ -295,6 +410,7 @@ Page({
         detailData: {
           status: getStatusName(leave.status),
           applicant: leave.applicant_name || `用户${leave.user_id}`,
+          timeRange: formatTimeRange(leave.start_date, leave.end_date), // 使用智能格式化时间范围
           startDate: formatDate(leave.start_date),
           endDate: formatDate(leave.end_date),
           days: `${leave.days}天`,

@@ -51,6 +51,50 @@ Page({
         }
       };
 
+      // 格式化时间范围（智能省略重复的年份和日期）
+      const formatTimeRange = (startStr, endStr) => {
+        if (!startStr || !endStr) return '';
+        try {
+          const startDate = new Date(startStr);
+          const endDate = new Date(endStr);
+          
+          const startYear = startDate.getFullYear();
+          const startMonth = startDate.getMonth() + 1;
+          const startDay = startDate.getDate();
+          const startHours = String(startDate.getHours()).padStart(2, '0');
+          const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
+          
+          const endYear = endDate.getFullYear();
+          const endMonth = endDate.getMonth() + 1;
+          const endDay = endDate.getDate();
+          const endHours = String(endDate.getHours()).padStart(2, '0');
+          const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+          
+          let startPart = `${startYear}/${startMonth}/${startDay} ${startHours}:${startMinutes}`;
+          let endPart = '';
+          
+          // 如果年份相同
+          if (startYear === endYear) {
+            // 如果日期也相同
+            if (startMonth === endMonth && startDay === endDay) {
+              // 只显示时间
+              endPart = `${endHours}:${endMinutes}`;
+            } else {
+              // 只省略年份
+              endPart = `${endMonth}/${endDay} ${endHours}:${endMinutes}`;
+            }
+          } else {
+            // 年份不同，显示完整日期时间
+            endPart = `${endYear}/${endMonth}/${endDay} ${endHours}:${endMinutes}`;
+          }
+          
+          return `${startPart} ~ ${endPart}`;
+        } catch (error) {
+          console.error('格式化时间范围失败:', error, startStr, endStr);
+          return `${formatDateTime(startStr)} ~ ${formatDateTime(endStr)}`;
+        }
+      };
+
       const getStatusName = (status) => {
         const statusMap = {
           'pending': '待审批',
@@ -85,6 +129,7 @@ Page({
         
         return {
           ...ot,
+          timeRange: formatTimeRange(ot.start_time, ot.end_time), // 使用智能格式化时间范围
           startTime: formatDateTime(ot.start_time),
           endTime: formatDateTime(ot.end_time),
           createdAt: formatDateTime(ot.created_at),

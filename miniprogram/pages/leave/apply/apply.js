@@ -4,9 +4,23 @@ const app = getApp();
 Page({
   data: {
     startDate: '',
+    startTimeNode: '09:00', // 默认9:00
+    startTimeNodeIndex: 0,
     endDate: '',
-    days: '',
+    endTimeNode: '17:30', // 默认17:30
+    endTimeNodeIndex: 1,
+    calculatedDays: '0', // 计算出的请假天数
     reason: '',
+    // 开始时间节点选项（9:00默认、14:00）
+    startTimeNodes: [
+      { value: '09:00', label: '09:00' },
+      { value: '14:00', label: '14:00' }
+    ],
+    // 结束时间节点选项（12:00、17:30默认）
+    endTimeNodes: [
+      { value: '12:00', label: '12:00' },
+      { value: '17:30', label: '17:30' }
+    ],
     vpOptions: [{ id: '', name: '系统自动分配' }],
     gmOptions: [{ id: '', name: '系统自动分配' }],
     vpIndex: 0,
@@ -27,6 +41,9 @@ Page({
     
     // 加载审批人列表
     await this.loadApprovers();
+    
+    // 初始计算请假天数
+    this.calculateLeaveDays();
   },
 
   // 加载审批人列表（仅副总需要）
@@ -80,24 +97,35 @@ Page({
   // 开始日期改变
   onStartDateChange(e) {
     this.setData({ startDate: e.detail.value });
-    this.calculateDays();
+    this.calculateLeaveDays();
+  },
+
+  // 开始时间节点改变
+  onStartTimeNodeChange(e) {
+    const index = parseInt(e.detail.value);
+    const node = this.data.startTimeNodes[index];
+    this.setData({
+      startTimeNodeIndex: index,
+      startTimeNode: node.value
+    });
+    this.calculateLeaveDays();
   },
 
   // 结束日期改变
   onEndDateChange(e) {
     this.setData({ endDate: e.detail.value });
-    this.calculateDays();
+    this.calculateLeaveDays();
   },
 
-  // 天数改变
-  onDaysInput(e) {
-    const days = parseFloat(e.detail.value) || 0;
-    // 只有副总才显示审批人选择器，且3天以上需要总经理审批
-    const showGmSelector = this.data.showVpSelector && days > 3;
-    this.setData({ 
-      days: e.detail.value,
-      showGmSelector: showGmSelector
+  // 结束时间节点改变
+  onEndTimeNodeChange(e) {
+    const index = parseInt(e.detail.value);
+    const node = this.data.endTimeNodes[index];
+    this.setData({
+      endTimeNodeIndex: index,
+      endTimeNode: node.value
     });
+    this.calculateLeaveDays();
   },
 
   // 副总选择改变
@@ -125,25 +153,138 @@ Page({
     this.setData({ reason: e.detail.value });
   },
 
-  // 计算天数
-  calculateDays() {
-    const { startDate, endDate } = this.data;
-    if (startDate && endDate) {
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      if (end >= start) {
-        const diffTime = Math.abs(end - start);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-        this.setData({ days: diffDays.toString() });
-      }
+  // 计算请假天数
+  calculateLeaveDays() {
+    const { startDate, startTimeNode, endDate, endTimeNode } = this.data;
+    
+    if (!startDate || !startTimeNode || !endDate || !endTimeNode) {
+      this.setData({ calculatedDays: '0' });
+      return;
     }
+    
+    // 确保日期格式正确
+    const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
+    const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
+    
+    const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
+    const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
+    
+    if (endDateObj < startDateObj) {
+      this.setData({ calculatedDays: '0' });
+      return;
+    }
+    
+    const days = this.calculateLeaveDaysByRules(normalizedStartDate, startTimeNode, normalizedEndDate, endTimeNode);
+    this.setData({ calculatedDays: days.toFixed(1) });
+    
+    // 更新审批人选择器可见性
+    this.updateApproverVisibility();
+  },
+
+  // 根据规则计算请假天数
+  calculateLeaveDaysByRules(startDate, startTime, endDate, endTime) {
+    // 确保日期格式正确（YYYY-MM-DD）
+    const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
+    const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
+    
+    // 如果是同一天
+    if (normalizedStartDate === normalizedEndDate) {
+      return this.calculateSingleDayLeave(startTime, endTime);
+    }
+    
+    // 跨天情况
+    let totalDays = 0;
+    
+    // 使用标准日期格式，避免时区问题
+    const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
+    const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
+    const currentDate = new Date(startDateObj);
+    
+    // 格式化日期字符串用于比较（YYYY-MM-DD格式）
+    const formatDateStr = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
+    const startDateStr = formatDateStr(startDateObj);
+    const endDateStr = formatDateStr(endDateObj);
+    
+    // 确保循环能正确执行
+    let loopCount = 0;
+    const maxLoops = 100; // 防止无限循环
+    
+    while (currentDate <= endDateObj && loopCount < maxLoops) {
+      const currentDateStr = formatDateStr(currentDate);
+      
+      if (currentDateStr === startDateStr) {
+        // 起始日：根据开始时间节点计算
+        // 9点开始算请假的，起始日算一天
+        // 14点开始算请假的，算半天
+        let firstDayDays = 0;
+        if (startTime === '09:00') {
+          firstDayDays = 1.0;
+        } else if (startTime === '14:00') {
+          firstDayDays = 0.5;
+        }
+        totalDays += firstDayDays;
+      } else if (currentDateStr === endDateStr) {
+        // 结尾日：根据结束时间节点计算
+        // 到12点的算半天
+        // 到17:30的算一天
+        let lastDayDays = 0;
+        if (endTime === '12:00') {
+          lastDayDays = 0.5;
+        } else if (endTime === '17:30') {
+          lastDayDays = 1.0;
+        }
+        totalDays += lastDayDays;
+      } else {
+        // 中间天数：每天的算一天
+        totalDays += 1.0;
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+      loopCount++;
+    }
+    
+    return Math.round(totalDays * 10) / 10;
+  },
+
+  // 计算单一天的请假天数
+  calculateSingleDayLeave(startTime, endTime) {
+    // 单日请假规则：
+    // 9:00-12:00 = 0.5天
+    // 14:00-17:30 = 0.5天
+    // 9:00-17:30 = 1天
+    
+    if (startTime === '09:00' && endTime === '12:00') {
+      return 0.5;
+    } else if (startTime === '14:00' && endTime === '17:30') {
+      return 0.5;
+    } else if (startTime === '09:00' && endTime === '17:30') {
+      return 1.0;
+    }
+    
+    return 0;
+  },
+
+  // 更新审批人选择器可见性
+  updateApproverVisibility() {
+    const { calculatedDays, showVpSelector } = this.data;
+    const days = parseFloat(calculatedDays) || 0;
+    
+    // 只有副总才显示审批人选择器，且3天以上需要总经理审批
+    const showGmSelector = showVpSelector && days > 3;
+    this.setData({ showGmSelector });
   },
 
   // 提交申请
   async submitForm() {
-    const { startDate, endDate, days, reason } = this.data;
+    const { startDate, startTimeNode, endDate, endTimeNode, calculatedDays, reason } = this.data;
 
-    if (!startDate || !endDate || !days || !reason) {
+    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason) {
       wx.showToast({
         title: '请填写所有必填项',
         icon: 'none'
@@ -151,9 +292,27 @@ Page({
       return;
     }
 
-    if (new Date(endDate) < new Date(startDate)) {
+    // 确保日期格式正确
+    const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
+    const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
+    
+    const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
+    const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
+
+    if (endDateObj < startDateObj) {
       wx.showToast({
         title: '结束日期不能早于开始日期',
+        icon: 'none'
+      });
+      return;
+    }
+
+    // 获取计算出的请假天数
+    const days = parseFloat(calculatedDays) || 0;
+    
+    if (days <= 0) {
+      wx.showToast({
+        title: '请选择有效的时间节点',
         icon: 'none'
       });
       return;
@@ -162,10 +321,14 @@ Page({
     wx.showLoading({ title: '提交中...' });
 
     try {
+      // 构建开始和结束日期时间
+      const startDateTime = `${normalizedStartDate}T${startTimeNode}:00`;
+      const endDateTime = `${normalizedEndDate}T${endTimeNode}:00`;
+      
       const requestData = {
-        start_date: startDate + 'T00:00:00',
-        end_date: endDate + 'T23:59:59',
-        days: parseFloat(days),
+        start_date: startDateTime,
+        end_date: endDateTime,
+        days: days,
         reason: reason
       };
       

@@ -25,7 +25,7 @@
     <block wx:if="{{leaveList && leaveList.length > 0}}">
       <view class="list-item" wx:for="{{leaveList}}" wx:key="id">
         <view class="list-item-header">
-          <text class="list-item-title">{{item.startDate}} ~ {{item.endDate}}</text>
+          <text class="list-item-title">{{item.timeRange}}</text>
           <text class="status-badge status-pending">{{item.statusName}}</text>
         </view>
         <view class="list-item-content">
@@ -54,7 +54,7 @@
     <block wx:if="{{overtimeList && overtimeList.length > 0}}">
       <view class="list-item" wx:for="{{overtimeList}}" wx:key="id">
         <view class="list-item-header">
-          <text class="list-item-title">{{item.startTime}} ~ {{item.endTime}}</text>
+          <text class="list-item-title">{{item.timeRange}}</text>
           <text class="status-badge status-pending">待审批</text>
         </view>
         <view class="list-item-content">
@@ -106,12 +106,8 @@
           <text class="detail-value">{{detailData.applicant}}</text>
         </view>
         <view class="detail-item">
-          <text class="detail-label">开始日期:</text>
-          <text class="detail-value">{{detailData.startDate}}</text>
-        </view>
-        <view class="detail-item">
-          <text class="detail-label">结束日期:</text>
-          <text class="detail-value">{{detailData.endDate}}</text>
+          <text class="detail-label">请假时间:</text>
+          <text class="detail-value">{{detailData.timeRange}}</text>
         </view>
         <view class="detail-item">
           <text class="detail-label">天数:</text>
@@ -188,12 +184,8 @@
           <text class="detail-value">{{detailData.applicant}}</text>
         </view>
         <view class="detail-item">
-          <text class="detail-label">开始时间:</text>
-          <text class="detail-value">{{detailData.startTime}}</text>
-        </view>
-        <view class="detail-item">
-          <text class="detail-label">结束时间:</text>
-          <text class="detail-value">{{detailData.endTime}}</text>
+          <text class="detail-label">加班时间:</text>
+          <text class="detail-value">{{detailData.timeRange}}</text>
         </view>
         <view class="detail-item">
           <text class="detail-label">天数:</text>

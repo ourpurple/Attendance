@@ -48,10 +48,6 @@ Page({
       // 确保返回的数据是对象而不是 null
       const safeStats = data && typeof data === 'object' && data !== null ? data : {};
       
-      // 调试日志
-      console.log('统计数据:', safeStats);
-      console.log('加班天数:', safeStats.overtime_days, typeof safeStats.overtime_days);
-      
       // 确保所有数值字段都是正确的类型
       if (safeStats.overtime_days !== undefined && safeStats.overtime_days !== null) {
         safeStats.overtime_days = parseFloat(safeStats.overtime_days) || 0;

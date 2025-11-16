@@ -5,7 +5,7 @@
     <view class="clock-time">{{currentTime}}</view>
     <view class="clock-date">{{currentDate}}</view>
     
-    <view class="clock-status" wx:if="{{isWorkday}}">
+    <view class="clock-status" wx:if="{{showClockStatus}}">
       <view class="status-item">
         <text class="status-label">上班</text>
         <text class="status-value">{{checkinStatus}}</text>
@@ -27,7 +27,7 @@
       </button>
     </view>
 
-    <view class="clock-location" wx:if="{{location}}">位置: {{location}}</view>
+    <view class="clock-location" wx:if="{{location}}">{{location}}</view>
   </view>
 
   <!-- 快捷功能 -->

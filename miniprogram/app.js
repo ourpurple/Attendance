@@ -480,7 +480,7 @@ App({
                 errorDetail = isAndroid
                   ? '网络请求失败（安卓设备），请检查：\n1. 微信公众平台是否配置了合法域名（request合法域名）\n2. 域名是否正确：oa.ruoshui-edu.cn（不要加/api）\n3. 是否使用HTTPS协议\n4. 网络连接是否正常\n5. 尝试清除小程序缓存后重试'
                   : '网络请求失败，请检查网络连接和域名配置';
-              }
+            }
             } else if (err.errMsg.includes('abort') || err.errMsg.includes('取消')) {
               errorMessage = '请求已取消';
               errorDetail = '请求被取消，请重试';
@@ -710,8 +710,8 @@ App({
               errorDetail = `网络错误: ${err.errMsg}`;
               if (isAndroid) {
                 errorDetail += '\n\n（安卓设备）建议检查：\n1. 微信公众平台域名配置\n2. 网络权限设置\n3. 清除小程序缓存';
-              }
             }
+          }
           } else {
             // 没有错误信息的情况
             errorDetail = isAndroid

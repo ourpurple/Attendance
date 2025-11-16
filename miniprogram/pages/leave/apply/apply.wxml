@@ -11,6 +11,22 @@
   </view>
 
   <view class="form-group">
+    <view class="form-label">开始时间节点 *</view>
+    <picker 
+      mode="selector" 
+      range="{{startTimeNodes}}"
+      range-key="label"
+      value="{{startTimeNodeIndex}}"
+      bindchange="onStartTimeNodeChange"
+    >
+      <view class="picker">
+        <text>{{startTimeNodes[startTimeNodeIndex].label || '请选择开始时间节点'}}</text>
+        <text class="picker-icon">🕐</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-group">
     <view class="form-label">结束日期 *</view>
     <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
       <view class="picker">
@@ -21,14 +37,25 @@
   </view>
 
   <view class="form-group">
-    <view class="form-label">请假天数 *</view>
-    <input 
-      class="form-input" 
-      type="digit" 
-      value="{{days}}" 
-      bindinput="onDaysInput"
-      placeholder="例如：0.5, 1, 2.5"
-    />
+    <view class="form-label">结束时间节点 *</view>
+    <picker 
+      mode="selector" 
+      range="{{endTimeNodes}}"
+      range-key="label"
+      value="{{endTimeNodeIndex}}"
+      bindchange="onEndTimeNodeChange"
+    >
+      <view class="picker">
+        <text>{{endTimeNodes[endTimeNodeIndex].label || '请选择结束时间节点'}}</text>
+        <text class="picker-icon">🕐</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-group">
+    <view class="form-label">计算出的请假天数</view>
+    <view class="form-display">{{calculatedDays}} 天</view>
+    <view class="form-hint">系统根据日期和时间节点自动计算</view>
   </view>
 
   <view class="form-group">

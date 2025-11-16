@@ -5,7 +5,7 @@
   <view class="overtime-list" wx:if="{{overtimeList && overtimeList.length > 0}}">
     <view class="list-item" wx:for="{{overtimeList}}" wx:key="id">
       <view class="list-item-header">
-        <text class="list-item-title">{{item.startTime}} ~ {{item.endTime}}</text>
+        <text class="list-item-title">{{item.timeRange}}</text>
       </view>
       <view class="list-item-status">
         <text class="label">状态:</text>

@@ -753,8 +753,7 @@ async function loadLeaveApplications() {
             return `
                 <tr>
                     <td>${userMap[leave.user_id]}</td>
-                    <td>${formatDate(leave.start_date)}</td>
-                    <td>${formatDate(leave.end_date)}</td>
+                    <td>${formatTimeRange(leave.start_date, leave.end_date)}</td>
                     <td>${leave.days}</td>
                     <td>${leave.reason}</td>
                     <td>${formatDateTime(leave.created_at)}</td>
@@ -931,8 +930,7 @@ async function loadOvertimeApplications() {
             return `
                 <tr>
                     <td>${userMap[ot.user_id]}</td>
-                    <td>${formatDateTime(ot.start_time)}</td>
-                    <td>${formatDateTime(ot.end_time)}</td>
+                    <td>${formatTimeRange(ot.start_time, ot.end_time)}</td>
                     <td>${ot.days}天</td>
                     <td>${ot.reason}</td>
                     <td>${formatDateTime(ot.created_at)}</td>
@@ -1235,8 +1233,7 @@ window.showLeaveDetails = async function(userId, userName) {
                         <table class="table" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th>开始日期</th>
-                                    <th>结束日期</th>
+                                    <th>请假时间</th>
                                     <th>天数</th>
                                     <th>原因</th>
                                     <th>申请时间</th>
@@ -1245,8 +1242,7 @@ window.showLeaveDetails = async function(userId, userName) {
                             <tbody>
                                 ${leaves.map(leave => `
                                     <tr>
-                                        <td>${formatDate(leave.start_date)}</td>
-                                        <td>${formatDate(leave.end_date)}</td>
+                                        <td>${formatTimeRange(leave.start_date, leave.end_date)}</td>
                                         <td>${leave.days}</td>
                                         <td>${leave.reason || '-'}</td>
                                         <td>${formatDateTime(leave.created_at)}</td>
@@ -1315,8 +1311,7 @@ window.showOvertimeDetails = async function(userId, userName) {
                         <table class="table" style="width: 100%;">
                             <thead>
                                 <tr>
-                                    <th>开始时间</th>
-                                    <th>结束时间</th>
+                                    <th>加班时间</th>
                                     <th>天数</th>
                                     <th>原因</th>
                                     <th>申请时间</th>
@@ -1325,8 +1320,7 @@ window.showOvertimeDetails = async function(userId, userName) {
                             <tbody>
                                 ${overtimes.map(ot => `
                                     <tr>
-                                        <td>${formatDateTime(ot.start_time)}</td>
-                                        <td>${formatDateTime(ot.end_time)}</td>
+                                        <td>${formatTimeRange(ot.start_time, ot.end_time)}</td>
                                         <td>${ot.days}</td>
                                         <td>${ot.reason || '-'}</td>
                                         <td>${formatDateTime(ot.created_at)}</td>
@@ -1418,6 +1412,63 @@ function formatDateTime(dateStr) {
         hour: '2-digit',
         minute: '2-digit'
     });
+}
+
+// 格式化时间范围（智能省略重复的年份和日期）
+function formatTimeRange(startStr, endStr) {
+    if (!startStr || !endStr) return '';
+    try {
+        // 处理时区问题：确保日期字符串格式正确
+        const normalizeDateStr = (dateStr) => {
+            if (!dateStr) return '';
+            // 如果包含 'T'，直接使用；否则添加 'T00:00:00'
+            if (dateStr.includes('T')) {
+                return dateStr.split('.')[0]; // 移除毫秒部分
+            }
+            return dateStr + 'T00:00:00';
+        };
+        
+        const normalizedStartStr = normalizeDateStr(startStr);
+        const normalizedEndStr = normalizeDateStr(endStr);
+        
+        const startDate = new Date(normalizedStartStr);
+        const endDate = new Date(normalizedEndStr);
+        
+        const startYear = startDate.getFullYear();
+        const startMonth = startDate.getMonth() + 1;
+        const startDay = startDate.getDate();
+        const startHours = String(startDate.getHours()).padStart(2, '0');
+        const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
+        
+        const endYear = endDate.getFullYear();
+        const endMonth = endDate.getMonth() + 1;
+        const endDay = endDate.getDate();
+        const endHours = String(endDate.getHours()).padStart(2, '0');
+        const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+        
+        let startPart = `${startYear}/${String(startMonth).padStart(2, '0')}/${String(startDay).padStart(2, '0')} ${startHours}:${startMinutes}`;
+        let endPart = '';
+        
+        // 如果年份相同
+        if (startYear === endYear) {
+            // 如果日期也相同
+            if (startMonth === endMonth && startDay === endDay) {
+                // 只显示时间
+                endPart = `${endHours}:${endMinutes}`;
+            } else {
+                // 只省略年份
+                endPart = `${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
+            }
+        } else {
+            // 年份不同，显示完整日期时间
+            endPart = `${endYear}/${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
+        }
+        
+        return `${startPart} ~ ${endPart}`;
+    } catch (error) {
+        console.error('格式化时间范围失败:', error, startStr, endStr);
+        return `${formatDate(startStr)} ~ ${formatDate(endStr)}`;
+    }
 }
 
 function formatTime(dateStr) {
@@ -2519,8 +2570,7 @@ window.viewLeaveDetail = async function(id) {
     const content = `
         <div style="line-height: 1.8;">
             <p><strong>申请人：</strong>${userMap[leave.user_id]}</p>
-            <p><strong>开始日期：</strong>${formatDate(leave.start_date)}</p>
-            <p><strong>结束日期：</strong>${formatDate(leave.end_date)}</p>
+            <p><strong>请假时间：</strong>${formatTimeRange(leave.start_date, leave.end_date)}</p>
             <p><strong>天数：</strong>${leave.days}天</p>
             <p><strong>原因：</strong>${leave.reason}</p>
             <p><strong>状态：</strong><span class="status-badge status-${getLeaveStatusClass(leave.status)}">${getLeaveStatusName(leave.status)}</span></p>
@@ -2577,8 +2627,7 @@ window.viewOvertimeDetail = async function(id) {
     const content = `
         <div style="line-height: 1.8;">
             <p><strong>申请人：</strong>${userMap[overtime.user_id]}</p>
-            <p><strong>开始时间：</strong>${formatDateTime(overtime.start_time)}</p>
-            <p><strong>结束时间：</strong>${formatDateTime(overtime.end_time)}</p>
+            <p><strong>加班时间：</strong>${formatTimeRange(overtime.start_time, overtime.end_time)}</p>
             <p><strong>天数：</strong>${overtime.days}天</p>
             <p><strong>原因：</strong>${overtime.reason}</p>
             <p><strong>状态：</strong><span class="status-badge status-${overtime.status}">${getOvertimeStatusName(overtime.status)}</span></p>

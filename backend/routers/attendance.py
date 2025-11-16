@@ -122,6 +122,20 @@ def checkin(
     policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
     
     checkin_time = datetime.now()
+    
+    # 验证打卡时间是否在策略允许的范围内
+    if policy:
+        rules = get_policy_for_date(policy, checkin_time)
+        checkin_start = datetime.strptime(rules['checkin_start_time'], "%H:%M").time()
+        checkin_end = datetime.strptime(rules['checkin_end_time'], "%H:%M").time()
+        checkin_time_only = checkin_time.time()
+        
+        if checkin_time_only < checkin_start or checkin_time_only > checkin_end:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"当前时间不在上班打卡时间范围内（{rules['checkin_start_time']} - {rules['checkin_end_time']}）"
+            )
+    
     late = is_late(checkin_time, policy) if policy else False
     
     if existing_attendance:
@@ -187,6 +201,20 @@ def checkout(
     policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
     
     checkout_time = datetime.now()
+    
+    # 验证打卡时间是否在策略允许的范围内
+    if policy:
+        rules = get_policy_for_date(policy, checkout_time)
+        checkout_start = datetime.strptime(rules['checkout_start_time'], "%H:%M").time()
+        checkout_end = datetime.strptime(rules['checkout_end_time'], "%H:%M").time()
+        checkout_time_only = checkout_time.time()
+        
+        if checkout_time_only < checkout_start or checkout_time_only > checkout_end:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"当前时间不在下班打卡时间范围内（{rules['checkout_start_time']} - {rules['checkout_end_time']}）"
+            )
+    
     early = is_early_leave(checkout_time, policy) if policy else False
     
     # 更新记录
