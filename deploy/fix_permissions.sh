@@ -1,7 +1,20 @@
 #!/bin/bash
 # 修复数据库权限问题
 
-PROJECT_DIR="/www/wwwroot/attendance-system"
+# 自动检测项目目录（如果脚本在项目目录的 deploy 子目录中）
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PARENT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# 优先使用环境变量，否则尝试自动检测
+if [ -n "$ATTENDANCE_PROJECT_DIR" ]; then
+    PROJECT_DIR="$ATTENDANCE_PROJECT_DIR"
+elif [ -f "$PARENT_DIR/attendance.db" ] || [ -f "$PARENT_DIR/backend/main.py" ]; then
+    PROJECT_DIR="$PARENT_DIR"
+else
+    # 默认路径
+    PROJECT_DIR="/www/wwwroot/attendance-system"
+fi
+
 SERVICE_NAME="attendance-backend"
 
 echo "=========================================="
@@ -59,18 +72,35 @@ echo "✅ 项目目录权限已设置: $PROJECT_DIR"
 echo ""
 echo "设置数据库文件权限..."
 if [ -f "$PROJECT_DIR/attendance.db" ]; then
+    # 先检查当前权限
+    echo "当前权限："
+    ls -l "$PROJECT_DIR/attendance.db"
+    
     chown www:www "$PROJECT_DIR/attendance.db"
     chmod 664 "$PROJECT_DIR/attendance.db"
-    echo "✅ 数据库文件权限已设置: $PROJECT_DIR/attendance.db"
     
-    # 显示当前权限
+    # 确保数据库文件所在目录也有写权限（SQLite 需要创建临时文件）
+    chmod 775 "$(dirname "$PROJECT_DIR/attendance.db")"
+    
+    echo "✅ 数据库文件权限已设置: $PROJECT_DIR/attendance.db"
+    echo "更新后权限："
     ls -l "$PROJECT_DIR/attendance.db"
 else
     echo "⚠️  数据库文件不存在，创建它..."
     touch "$PROJECT_DIR/attendance.db"
     chown www:www "$PROJECT_DIR/attendance.db"
     chmod 664 "$PROJECT_DIR/attendance.db"
+    
+    # 确保数据库文件所在目录也有写权限
+    chmod 775 "$(dirname "$PROJECT_DIR/attendance.db")"
+    
     echo "✅ 数据库文件已创建并设置权限"
+    
+    # 如果数据库文件是空的，可能需要初始化
+    if [ ! -s "$PROJECT_DIR/attendance.db" ]; then
+        echo "⚠️  数据库文件为空，可能需要初始化："
+        echo "   cd $PROJECT_DIR && source venv/bin/activate && python3 init_db.py"
+    fi
 fi
 
 # 设置日志目录权限
@@ -98,9 +128,20 @@ if command -v getenforce &> /dev/null; then
     selinux_status=$(getenforce)
     if [ "$selinux_status" = "Enforcing" ]; then
         echo ""
-        echo "⚠️  SELinux 处于强制模式，可能需要设置上下文："
-        echo "   sudo chcon -R -t httpd_sys_rw_content_t $PROJECT_DIR"
+        echo "⚠️  SELinux 处于强制模式，正在设置上下文..."
+        if command -v chcon &> /dev/null; then
+            chcon -R -t httpd_sys_rw_content_t "$PROJECT_DIR" 2>/dev/null || {
+                echo "⚠️  无法自动设置 SELinux 上下文，请手动执行："
+                echo "   sudo chcon -R -t httpd_sys_rw_content_t $PROJECT_DIR"
+            }
+        fi
     fi
+fi
+
+# 检查 AppArmor（Ubuntu/Debian）
+if [ -f /etc/apparmor.d/usr.sbin.mysqld ] || command -v aa-status &> /dev/null; then
+    echo ""
+    echo "ℹ️  如果使用 AppArmor，可能需要配置相关策略"
 fi
 
 # 重启服务
