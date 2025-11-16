@@ -49,7 +49,10 @@
     </button>
 
     <view class="error-message" wx:if="{{errorMessage}}">
-      {{errorMessage}}
+      <text class="error-text">{{errorMessage}}</text>
+      <button class="btn btn-link" bindtap="testNetwork" wx:if="{{showNetworkTest}}">
+        测试网络连接
+      </button>
     </view>
   </view>
 </view>

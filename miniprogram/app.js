@@ -12,7 +12,99 @@ App({
     shortName: '新盟科教'
   },
 
+  // 缓存系统信息，避免频繁调用
+  _systemInfoCache: null,
+  _systemInfoCacheTime: 0,
+  _systemInfoCacheTimeout: 60000, // 缓存60秒
+
+  // 获取系统信息（使用新API，兼容旧API，带缓存）
+  getSystemInfo() {
+    // 检查缓存
+    const now = Date.now();
+    if (this._systemInfoCache && (now - this._systemInfoCacheTime) < this._systemInfoCacheTimeout) {
+      return this._systemInfoCache;
+    }
+
+    let systemInfo = null;
+    
+    // 检查新API是否可用
+    const hasNewAPI = typeof wx.getDeviceInfo === 'function' && 
+                      typeof wx.getAppBaseInfo === 'function' && 
+                      typeof wx.getWindowInfo === 'function';
+    
+    if (hasNewAPI) {
+      try {
+        // 使用新API
+        const deviceInfo = wx.getDeviceInfo();
+        const appBaseInfo = wx.getAppBaseInfo();
+        const windowInfo = wx.getWindowInfo();
+        
+        // 确保返回的对象不为空且有效
+        if (deviceInfo && appBaseInfo && windowInfo && 
+            typeof deviceInfo === 'object' && 
+            typeof appBaseInfo === 'object' && 
+            typeof windowInfo === 'object') {
+          systemInfo = {
+            platform: deviceInfo.platform || 'unknown',
+            system: deviceInfo.system || '',
+            version: appBaseInfo.version || '',
+            SDKVersion: appBaseInfo.SDKVersion || '',
+            // 保留其他可能用到的字段
+            screenWidth: windowInfo.screenWidth || 0,
+            screenHeight: windowInfo.screenHeight || 0,
+            pixelRatio: windowInfo.pixelRatio || 1
+          };
+        }
+      } catch (error) {
+        // 如果新API调用失败，降级使用旧API
+        // 静默处理，避免触发微信内部错误上报
+        try {
+          systemInfo = wx.getSystemInfoSync();
+        } catch (e) {
+          // 忽略错误
+        }
+      }
+    }
+    
+    // 如果新API失败，降级使用旧API（兼容旧版本微信）
+    if (!systemInfo) {
+      try {
+        systemInfo = wx.getSystemInfoSync();
+      } catch (error) {
+        // 返回默认值，避免程序崩溃
+        systemInfo = {
+          platform: 'unknown',
+          system: '',
+          version: '',
+          SDKVersion: '',
+          screenWidth: 0,
+          screenHeight: 0,
+          pixelRatio: 1
+        };
+      }
+    }
+
+    // 缓存结果
+    if (systemInfo) {
+      this._systemInfoCache = systemInfo;
+      this._systemInfoCacheTime = now;
+    }
+
+    return systemInfo || {
+      platform: 'unknown',
+      system: '',
+      version: '',
+      SDKVersion: '',
+      screenWidth: 0,
+      screenHeight: 0,
+      pixelRatio: 1
+    };
+  },
+
   onLaunch() {
+    // 添加全局错误处理，捕获微信内部错误
+    this.setupErrorHandler();
+    
     // 从本地存储恢复 token
     const token = wx.getStorageSync('token');
     if (token) {
@@ -22,6 +114,40 @@ App({
     
     // 尝试微信自动登录
     this.wechatAutoLogin();
+  },
+
+  // 设置全局错误处理
+  setupErrorHandler() {
+    // 捕获未处理的错误
+    const originalError = console.error;
+    console.error = function(...args) {
+      // 过滤掉微信内部的错误，避免影响用户体验
+      const errorMsg = args.join(' ');
+      if (errorMsg.includes('Java bridge method invocation error') ||
+          errorMsg.includes('Java object is gone') ||
+          errorMsg.includes('reportQualityData')) {
+        // 静默处理微信内部错误，不输出到控制台
+        return;
+      }
+      // 其他错误正常输出
+      originalError.apply(console, args);
+    };
+
+    // 捕获未处理的 Promise 错误
+    if (typeof wx.onError === 'function') {
+      wx.onError((error) => {
+        // 过滤微信内部错误
+        if (error && (
+          error.includes('Java bridge method invocation error') ||
+          error.includes('Java object is gone') ||
+          error.includes('reportQualityData')
+        )) {
+          return; // 静默处理
+        }
+        // 其他错误可以记录或上报
+        console.warn('未处理的错误:', error);
+      });
+    }
   },
 
   // 微信自动登录
@@ -60,10 +186,41 @@ App({
   // 微信登录（通过 OpenID）
   wechatLogin(code) {
     return new Promise((resolve, reject) => {
-      wx.request({
+      // 获取系统信息，针对不同平台和微信版本优化配置
+      const systemInfo = this.getSystemInfo();
+      const isAndroid = systemInfo.platform === 'android';
+      
+      // 解析微信版本号
+      const wechatVersion = systemInfo.version || '';
+      const versionParts = wechatVersion.split('.').map(v => parseInt(v) || 0);
+      const majorVersion = versionParts[0] || 0;
+      const minorVersion = versionParts[1] || 0;
+      const patchVersion = versionParts[2] || 0;
+      const isNewWechatVersion = majorVersion > 8 || 
+                                 (majorVersion === 8 && minorVersion > 0) ||
+                                 (majorVersion === 8 && minorVersion === 0 && patchVersion >= 64);
+      
+      // 构建请求配置
+      const wechatRequestConfig = {
         url: `${this.globalData.apiBaseUrl}/auth/wechat-login`,
         method: 'POST',
         data: { code },
+        timeout: isAndroid ? 60000 : 30000, // 安卓使用更长的超时时间
+        enableCache: false, // 禁用缓存
+      };
+      
+      // HTTP/2 配置：新版本微信（8.0.64+）在安卓上可能有HTTP/2问题
+      if (isAndroid && isNewWechatVersion) {
+        wechatRequestConfig.enableHttp2 = false;
+        console.log('⚠️ 安卓 + 新版本微信(8.0.64+)，禁用HTTP/2');
+      } else if (isAndroid) {
+        wechatRequestConfig.enableHttp2 = false;
+      } else {
+        wechatRequestConfig.enableHttp2 = true;
+      }
+      
+      wx.request({
+        ...wechatRequestConfig,
         success: (res) => {
           if (res.statusCode === 200) {
             // 已绑定，自动登录成功
@@ -123,11 +280,41 @@ App({
         }
       }
 
-      wx.request({
+      // 获取系统信息，针对不同平台和微信版本优化配置
+      const systemInfo = this.getSystemInfo();
+      const isAndroid = systemInfo.platform === 'android';
+      
+      // 解析微信版本号
+      const wechatVersion = systemInfo.version || '';
+      const versionParts = wechatVersion.split('.').map(v => parseInt(v) || 0);
+      const majorVersion = versionParts[0] || 0;
+      const minorVersion = versionParts[1] || 0;
+      const patchVersion = versionParts[2] || 0;
+      const isNewWechatVersion = majorVersion > 8 || 
+                                 (majorVersion === 8 && minorVersion > 0) ||
+                                 (majorVersion === 8 && minorVersion === 0 && patchVersion >= 64);
+      
+      // 构建请求配置
+      const checkRequestConfig = {
         url: `${this.globalData.apiBaseUrl}/users/me`,
         header: {
           'Authorization': `Bearer ${this.globalData.token}`
         },
+        timeout: isAndroid ? 60000 : 30000,
+        enableCache: false,
+      };
+      
+      // HTTP/2 配置
+      if (isAndroid && isNewWechatVersion) {
+        checkRequestConfig.enableHttp2 = false;
+      } else if (isAndroid) {
+        checkRequestConfig.enableHttp2 = false;
+      } else {
+        checkRequestConfig.enableHttp2 = true;
+      }
+      
+      wx.request({
+        ...checkRequestConfig,
         success: (res) => {
           if (res.statusCode === 200) {
             this.globalData.userInfo = res.data;
@@ -163,13 +350,58 @@ App({
       const loginUrl = `${this.globalData.apiBaseUrl}/auth/login`;
       console.log('🔐 登录请求:', loginUrl, { username, hasWechatCode: !!wechatCode });
 
-      wx.request({
+      // 获取系统信息，针对不同平台和微信版本优化配置
+      const systemInfo = this.getSystemInfo();
+      const isAndroid = systemInfo.platform === 'android';
+      
+      // 解析微信版本号，处理版本兼容性
+      const wechatVersion = systemInfo.version || '';
+      const versionParts = wechatVersion.split('.').map(v => parseInt(v) || 0);
+      const majorVersion = versionParts[0] || 0;
+      const minorVersion = versionParts[1] || 0;
+      const patchVersion = versionParts[2] || 0;
+      
+      // 微信8.0.64及更高版本可能需要特殊处理
+      const isNewWechatVersion = majorVersion > 8 || 
+                                 (majorVersion === 8 && minorVersion > 0) ||
+                                 (majorVersion === 8 && minorVersion === 0 && patchVersion >= 64);
+      
+      console.log('微信版本信息:', {
+        version: wechatVersion,
+        major: majorVersion,
+        minor: minorVersion,
+        patch: patchVersion,
+        isNewVersion: isNewWechatVersion,
+        platform: systemInfo.platform
+      });
+      
+      // 构建请求配置
+      const loginRequestConfig = {
         url: loginUrl,
         method: 'POST',
         data: requestData,
         header: {
           'Content-Type': 'application/json'
         },
+        timeout: isAndroid ? 60000 : 30000, // 安卓使用更长的超时时间
+        enableCache: false, // 禁用缓存
+      };
+      
+      // HTTP/2 配置：新版本微信（8.0.64+）在安卓上可能有HTTP/2问题
+      if (isAndroid && isNewWechatVersion) {
+        // 安卓 + 新版本微信，禁用HTTP/2
+        loginRequestConfig.enableHttp2 = false;
+        console.log('⚠️ 安卓 + 新版本微信(8.0.64+)，禁用HTTP/2');
+      } else if (isAndroid) {
+        // 安卓旧版本，也禁用HTTP/2（更安全）
+        loginRequestConfig.enableHttp2 = false;
+      } else {
+        // iOS或其他平台，启用HTTP/2
+        loginRequestConfig.enableHttp2 = true;
+      }
+      
+      wx.request({
+        ...loginRequestConfig,
         success: (res) => {
           console.log('🔐 登录响应:', res.statusCode, res.data);
           
@@ -209,22 +441,70 @@ App({
         },
         fail: (err) => {
           console.error('❌ 登录请求失败:', err);
+          console.error('❌ 错误详情:', JSON.stringify(err, null, 2));
           
-          // 提供更详细的错误信息
-          let errorMessage = '登录失败，请检查网络连接';
+          // 获取系统信息
+          const systemInfo = this.getSystemInfo();
+          const isAndroid = systemInfo.platform === 'android';
+          
+          // 提供更详细的错误信息，特别是针对安卓
+          let errorMessage = '登录失败';
+          let errorDetail = '';
           
           if (err.errMsg) {
-            if (err.errMsg.includes('timeout')) {
-              errorMessage = '请求超时，请检查网络连接';
-            } else if (err.errMsg.includes('fail')) {
-              errorMessage = '网络请求失败，请检查：\n1. 网络连接是否正常\n2. 服务器地址是否正确\n3. 微信公众平台是否配置了合法域名';
+            console.error('错误信息:', err.errMsg);
+            
+            if (err.errMsg.includes('timeout') || err.errMsg.includes('超时')) {
+              errorMessage = '请求超时';
+              errorDetail = isAndroid
+                ? '网络连接超时（安卓设备），请检查：\n1. 网络连接是否正常\n2. 是否在微信公众平台配置了合法域名\n3. 服务器响应是否正常\n\n建议：\n1. 检查微信公众平台域名配置\n2. 尝试切换网络（WiFi/移动数据）\n3. 清除小程序缓存'
+                : '网络连接超时，请检查网络连接或稍后重试';
+            } else if (err.errMsg.includes('fail') || err.errMsg.includes('失败')) {
+              errorMessage = '网络请求失败';
+              
+              // 检查是否是域名问题
+              if (err.errMsg.includes('domain') || err.errMsg.includes('域名') || err.errMsg.includes('不在以下 request 合法域名')) {
+                errorDetail = '域名配置错误（这是最常见的原因），请检查：\n1. 登录微信公众平台\n2. 开发版：开发→开发管理→开发设置→服务器域名\n3. 正式版：设置→基本设置→服务器域名\n4. 在"request合法域名"中添加：oa.ruoshui-edu.cn\n5. 注意：只需要域名，不要加/api\n6. 保存后等待几分钟生效';
+              } else if (err.errMsg.includes('ssl') || err.errMsg.includes('证书') || err.errMsg.includes('certificate') || err.errMsg.includes('ERR_CERT') || err.errMsg.includes('CERT_DATE')) {
+                // SSL证书错误，特别是证书日期无效
+                if (err.errMsg.includes('ERR_CERT_DATE_INVALID') || err.errMsg.includes('CERT_DATE')) {
+                  errorDetail = '❌ SSL证书日期无效！\n\n这是微信8.0.64+版本更严格的证书验证导致的。\n\n可能的原因：\n1. SSL证书已过期\n2. SSL证书还未生效（开始日期在未来）\n3. 服务器系统时间不正确\n4. 证书链不完整\n\n解决步骤：\n1. 检查服务器SSL证书有效期\n2. 确保证书未过期且已生效\n3. 检查服务器系统时间是否正确\n4. 确保证书链完整（包含中间证书）\n5. 重新申请或更新SSL证书\n6. 重启服务器后重试';
+                } else {
+                  errorDetail = 'SSL证书错误，请检查：\n1. 服务器SSL证书是否有效\n2. 证书是否过期\n3. 证书链是否完整\n4. 是否支持TLS 1.2及以上版本\n5. 服务器系统时间是否正确';
+                }
+              } else if (err.errMsg.includes('connect') || err.errMsg.includes('连接') || err.errMsg.includes('network')) {
+                errorDetail = isAndroid
+                  ? '无法连接到服务器（安卓设备），请检查：\n1. 网络连接是否正常\n2. 服务器是否正常运行\n3. 是否在微信公众平台配置了合法域名\n4. 尝试切换网络（WiFi/移动数据）\n5. 清除小程序缓存'
+                  : '无法连接到服务器，请检查网络连接';
+              } else {
+                errorDetail = isAndroid
+                  ? '网络请求失败（安卓设备），请检查：\n1. 微信公众平台是否配置了合法域名（request合法域名）\n2. 域名是否正确：oa.ruoshui-edu.cn（不要加/api）\n3. 是否使用HTTPS协议\n4. 网络连接是否正常\n5. 尝试清除小程序缓存后重试'
+                  : '网络请求失败，请检查网络连接和域名配置';
+              }
+            } else if (err.errMsg.includes('abort') || err.errMsg.includes('取消')) {
+              errorMessage = '请求已取消';
+              errorDetail = '请求被取消，请重试';
+            } else {
+              errorDetail = `网络错误: ${err.errMsg}`;
+              if (isAndroid) {
+                errorDetail += '\n\n（安卓设备）最可能的原因：\n1. 未在微信公众平台配置合法域名\n2. 域名配置不正确\n\n解决步骤：\n1. 登录微信公众平台\n2. 配置"request合法域名"为：oa.ruoshui-edu.cn\n3. 保存并等待生效\n4. 清除小程序缓存后重试';
+              }
             }
+          } else {
+            // 没有错误信息的情况
+            errorDetail = isAndroid
+              ? '网络请求失败（安卓设备），最可能的原因：\n\n❌ 未在微信公众平台配置合法域名\n\n解决步骤：\n1. 登录微信公众平台（mp.weixin.qq.com）\n2. 开发版：开发→开发管理→开发设置→服务器域名\n3. 正式版：设置→基本设置→服务器域名\n4. 在"request合法域名"中添加：\n   oa.ruoshui-edu.cn\n5. 保存后等待几分钟生效\n6. 清除小程序缓存后重试'
+              : '网络请求失败，请检查网络连接和域名配置';
           }
           
           reject({
-            detail: errorMessage,
+            detail: errorDetail || errorMessage,
             message: errorMessage,
-            error: err
+            errMsg: err.errMsg,
+            platform: systemInfo.platform,
+            system: systemInfo.system,
+            SDKVersion: systemInfo.SDKVersion,
+            originalError: err
           });
         }
       });
@@ -254,11 +534,35 @@ App({
         }
       }
       
-      // 打印请求日志（小程序中可以直接打印，不影响性能）
-      console.log('📤 请求:', method, url, data);
-      console.log('📤 Token:', this.globalData.token ? '已设置' : '未设置');
+      // 打印请求日志（生产环境可以减少日志输出）
+      // 使用 try-catch 包裹，避免日志输出触发微信内部错误
+      try {
+        console.log('📤 请求:', method, url);
+        if (this.globalData.token) {
+          console.log('📤 Token: 已设置');
+        }
+      } catch (e) {
+        // 静默处理日志错误
+      }
       
-      wx.request({
+      // 获取系统信息，针对不同平台和微信版本优化配置
+      const systemInfo = this.getSystemInfo();
+      const isAndroid = systemInfo.platform === 'android';
+      
+      // 解析微信版本号，处理版本兼容性
+      const wechatVersion = systemInfo.version || '';
+      const versionParts = wechatVersion.split('.').map(v => parseInt(v) || 0);
+      const majorVersion = versionParts[0] || 0;
+      const minorVersion = versionParts[1] || 0;
+      const patchVersion = versionParts[2] || 0;
+      
+      // 微信8.0.64及更高版本可能需要特殊处理
+      const isNewWechatVersion = majorVersion > 8 || 
+                                 (majorVersion === 8 && minorVersion > 0) ||
+                                 (majorVersion === 8 && minorVersion === 0 && patchVersion >= 64);
+      
+      // 构建请求配置
+      const requestConfig = {
         url: `${this.globalData.apiBaseUrl}${url}`,
         method,
         data,
@@ -266,6 +570,38 @@ App({
           'Content-Type': 'application/json',
           'Authorization': this.globalData.token ? `Bearer ${this.globalData.token}` : ''
         },
+        timeout: isAndroid ? 60000 : 30000, // 安卓使用更长的超时时间
+        enableCache: false, // 禁用缓存，避免安卓缓存问题
+      };
+      
+      // HTTP/2 配置：新版本微信（8.0.64+）在安卓上可能有HTTP/2问题
+      if (isAndroid && isNewWechatVersion) {
+        // 安卓 + 新版本微信，禁用HTTP/2
+        requestConfig.enableHttp2 = false;
+        console.log('⚠️ 安卓 + 新版本微信(8.0.64+)，禁用HTTP/2');
+      } else if (isAndroid) {
+        // 安卓旧版本，也禁用HTTP/2（更安全）
+        requestConfig.enableHttp2 = false;
+      } else {
+        // iOS或其他平台，启用HTTP/2
+        requestConfig.enableHttp2 = true;
+      }
+      
+      // 确保使用HTTPS
+      if (!requestConfig.url.startsWith('https://')) {
+        console.warn('⚠️ 建议使用HTTPS协议');
+      }
+      
+      console.log('📤 请求配置:', {
+        url: requestConfig.url,
+        method: requestConfig.method,
+        platform: systemInfo.platform,
+        timeout: requestConfig.timeout,
+        enableHttp2: requestConfig.enableHttp2
+      });
+      
+      wx.request({
+        ...requestConfig,
         success: (res) => {
           // 打印响应日志
           console.log('✅ 响应:', res.statusCode, res.data);
@@ -327,7 +663,71 @@ App({
         },
         fail: (err) => {
           console.error('❌ 请求失败:', err);
-          reject(err);
+          
+          // 获取系统信息
+          const systemInfo = this.getSystemInfo();
+          const isAndroid = systemInfo.platform === 'android';
+          
+          // 提供更详细的错误信息，特别是针对安卓
+          let errorMessage = '网络请求失败';
+          let errorDetail = '';
+          
+          if (err.errMsg) {
+            console.error('错误信息:', err.errMsg);
+            console.error('系统信息:', {
+              platform: systemInfo.platform,
+              system: systemInfo.system,
+              version: systemInfo.version,
+              SDKVersion: systemInfo.SDKVersion
+            });
+            
+            if (err.errMsg.includes('timeout') || err.errMsg.includes('超时')) {
+              errorMessage = '请求超时';
+              errorDetail = isAndroid 
+                ? '网络连接超时（安卓设备），请检查：\n1. 网络连接是否正常\n2. 是否在微信公众平台配置了合法域名\n3. 服务器响应是否正常'
+                : '网络连接超时，请检查网络连接或稍后重试';
+            } else if (err.errMsg.includes('fail') || err.errMsg.includes('失败')) {
+              errorMessage = '网络请求失败';
+              
+              // 检查是否是域名或SSL问题
+              if (err.errMsg.includes('domain') || err.errMsg.includes('域名') || err.errMsg.includes('不在以下 request 合法域名')) {
+                errorDetail = '域名配置错误，请检查：\n1. 微信公众平台是否配置了合法域名\n2. 域名是否正确（只需要域名，不需要加/api）\n3. 是否使用HTTPS协议\n4. 开发版/体验版需要在"开发管理-开发设置"中配置\n5. 正式版需要在"设置-基本设置-服务器域名"中配置';
+              } else if (err.errMsg.includes('ssl') || err.errMsg.includes('证书') || err.errMsg.includes('certificate')) {
+                errorDetail = 'SSL证书错误，请检查：\n1. 服务器SSL证书是否有效\n2. 证书是否过期\n3. 证书链是否完整\n4. 是否支持TLS 1.2及以上版本';
+              } else if (err.errMsg.includes('connect') || err.errMsg.includes('连接') || err.errMsg.includes('network')) {
+                errorDetail = isAndroid
+                  ? '无法连接到服务器（安卓设备），请检查：\n1. 网络连接是否正常\n2. 服务器是否正常运行\n3. 防火墙设置是否正确\n4. 是否在微信公众平台配置了合法域名\n5. 尝试切换网络（WiFi/移动数据）'
+                  : '无法连接到服务器，请检查：\n1. 网络连接是否正常\n2. 服务器是否正常运行\n3. 防火墙设置是否正确';
+              } else {
+                errorDetail = isAndroid
+                  ? '网络请求失败（安卓设备），请检查：\n1. 网络连接是否正常\n2. 服务器地址是否正确\n3. 微信公众平台是否配置了合法域名（request合法域名）\n4. 是否使用HTTPS协议\n5. 尝试清除小程序缓存后重试'
+                  : '网络请求失败，请检查：\n1. 网络连接是否正常\n2. 服务器地址是否正确\n3. 微信公众平台是否配置了合法域名\n4. 是否使用HTTPS协议';
+              }
+            } else if (err.errMsg.includes('abort') || err.errMsg.includes('取消')) {
+              errorMessage = '请求已取消';
+              errorDetail = '请求被取消，请重试';
+            } else {
+              errorDetail = `网络错误: ${err.errMsg}`;
+              if (isAndroid) {
+                errorDetail += '\n\n（安卓设备）建议检查：\n1. 微信公众平台域名配置\n2. 网络权限设置\n3. 清除小程序缓存';
+              }
+            }
+          } else {
+            // 没有错误信息的情况
+            errorDetail = isAndroid
+              ? '网络请求失败（安卓设备），可能原因：\n1. 未在微信公众平台配置合法域名\n2. 网络连接问题\n3. 服务器响应异常\n\n建议：\n1. 检查微信公众平台域名配置\n2. 尝试切换网络\n3. 清除小程序缓存'
+              : '网络请求失败，请检查网络连接';
+          }
+          
+          reject({
+            message: errorMessage,
+            detail: errorDetail,
+            errMsg: err.errMsg,
+            platform: systemInfo.platform,
+            system: systemInfo.system,
+            SDKVersion: systemInfo.SDKVersion,
+            originalError: err
+          });
         }
       });
     });
