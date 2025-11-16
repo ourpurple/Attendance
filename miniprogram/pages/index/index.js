@@ -30,13 +30,17 @@ Page({
       const token = wx.getStorageSync('token');
       if (token) {
         app.globalData.token = token;
-        // 验证 token 是否有效
+        // 验证 token 是否有效，并获取用户信息
         app.checkLoginStatus().then((isValid) => {
           if (!isValid) {
             // token 无效，跳转到登录页
             wx.redirectTo({
               url: '/pages/login/login'
             });
+          } else {
+            // token 有效，用户信息已加载，检查权限并加载数据
+            this.checkApprovalPermission();
+            this.loadData();
           }
         });
       } else {
@@ -48,9 +52,30 @@ Page({
       return;
     }
     
-    // 检查审批权限
-    this.checkApprovalPermission();
+    // 如果有 token 但没有用户信息，先获取用户信息
+    if (!app.globalData.userInfo) {
+      app.checkLoginStatus().then((isValid) => {
+        if (isValid) {
+          // 用户信息已加载，检查权限并加载数据
+          this.checkApprovalPermission();
+          this.loadData();
+        } else {
+          // token 无效，跳转到登录页
+          wx.redirectTo({
+            url: '/pages/login/login'
+          });
+        }
+      });
+      return;
+    }
     
+    // 用户信息已存在，直接检查权限并加载数据
+    this.checkApprovalPermission();
+    this.loadData();
+  },
+  
+  // 加载页面数据（提取为独立方法，便于复用）
+  loadData() {
     // 确保数据已初始化，避免渲染时出错
     this.setData({
       recentAttendance: this.data.recentAttendance || [],

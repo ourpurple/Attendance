@@ -16,16 +16,57 @@ Page({
   },
 
   onLoad() {
-    this.checkApprovalPermission();
+    // onLoad 时先不检查权限，等 onShow 时再检查（确保用户信息已加载）
   },
 
   onShow() {
     if (!app.globalData.token) {
-      wx.redirectTo({
-        url: '/pages/login/login'
+      // 先检查本地 token
+      const token = wx.getStorageSync('token');
+      if (token) {
+        app.globalData.token = token;
+        // 验证 token 并获取用户信息
+        app.checkLoginStatus().then((isValid) => {
+          if (!isValid) {
+            wx.redirectTo({
+              url: '/pages/login/login'
+            });
+          } else {
+            // 用户信息已加载，检查权限并加载数据
+            this.checkAndLoadData();
+          }
+        });
+      } else {
+        wx.redirectTo({
+          url: '/pages/login/login'
+        });
+      }
+      return;
+    }
+    
+    // 如果有 token 但没有用户信息，先获取用户信息
+    if (!app.globalData.userInfo) {
+      app.checkLoginStatus().then((isValid) => {
+        if (isValid) {
+          // 用户信息已加载，检查权限并加载数据
+          this.checkAndLoadData();
+        } else {
+          wx.redirectTo({
+            url: '/pages/login/login'
+          });
+        }
       });
       return;
     }
+    
+    // 用户信息已存在，直接检查权限并加载数据
+    this.checkAndLoadData();
+  },
+  
+  // 检查权限并加载数据
+  checkAndLoadData() {
+    // 先检查权限
+    const hasPermission = this.checkApprovalPermission();
     
     // 确保数据已初始化，避免渲染时出错
     this.setData({
@@ -35,13 +76,14 @@ Page({
       overtimeCount: this.data.overtimeCount || 0
     });
     
-    if (this.data.hasApprovalPermission) {
+    // 如果有权限，加载数据
+    if (hasPermission) {
       this.loadPendingCount();
       this.loadPendingLeaves();
     }
   },
 
-  // 检查审批权限
+  // 检查审批权限，返回是否有权限
   checkApprovalPermission() {
     const userInfo = app.globalData.userInfo;
     if (userInfo) {
@@ -59,6 +101,12 @@ Page({
           });
         }, 1500);
       }
+      
+      return hasPermission;
+    } else {
+      // 用户信息不存在，暂时设置为 false
+      this.setData({ hasApprovalPermission: false });
+      return false;
     }
   },
 
