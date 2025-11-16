@@ -147,6 +147,16 @@
   color: #3C3C43;
 }
 
+.attendance-location {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #8E8E93;
+}
+
+.location-text {
+  word-break: break-all;
+}
+
 .clock-actions button {
   flex: 1;
   display: flex;

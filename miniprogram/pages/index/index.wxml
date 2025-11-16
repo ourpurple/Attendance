@@ -71,9 +71,15 @@
             <text>上班: {{item.checkinTime || '-'}}</text>
             <text class="status-badge status-warning" wx:if="{{item.isLate}}">迟到</text>
           </view>
+          <view class="attendance-location" wx:if="{{item.checkinLocation}}">
+            <text class="location-text">📍 {{item.checkinLocation}}</text>
+          </view>
           <view class="attendance-time">
             <text>下班: {{item.checkoutTime || '-'}}</text>
             <text class="status-badge status-warning" wx:if="{{item.isEarlyLeave}}">早退</text>
+          </view>
+          <view class="attendance-location" wx:if="{{item.checkoutLocation}}">
+            <text class="location-text">📍 {{item.checkoutLocation}}</text>
           </view>
         </view>
       </view>

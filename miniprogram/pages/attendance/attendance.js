@@ -96,7 +96,8 @@ Page({
           workHours: att.work_hours ? att.work_hours.toFixed(1) : null,
           isLate: att.is_late,
           isEarlyLeave: att.is_early_leave,
-          location: att.location || att.address || ''
+          checkinLocation: att.checkin_location || null,
+          checkoutLocation: att.checkout_location || null
         };
       }).filter(item => item !== null);
 

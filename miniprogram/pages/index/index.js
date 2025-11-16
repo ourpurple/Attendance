@@ -579,7 +579,9 @@ Page({
           checkinTime: formatTime(att.checkin_time),
           checkoutTime: formatTime(att.checkout_time),
           isLate: att.is_late,
-          isEarlyLeave: att.is_early_leave
+          isEarlyLeave: att.is_early_leave,
+          checkinLocation: att.checkin_location || null,
+          checkoutLocation: att.checkout_location || null
         };
       }).filter(item => item !== null);
 

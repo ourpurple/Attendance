@@ -1244,11 +1244,13 @@ async function loadRecentAttendance() {
                             <strong>${att.checkin_time ? formatTime(att.checkin_time) : '-'}</strong>
                             ${att.is_late ? '<span class="status-badge status-warning">迟到</span>' : ''}
                         </div>
+                        ${att.checkin_location ? `<div class="attendance-location"><span>📍 ${att.checkin_location}</span></div>` : ''}
                         <div class="attendance-time">
                             <span>下班:</span>
                             <strong>${att.checkout_time ? formatTime(att.checkout_time) : '-'}</strong>
                             ${att.is_early_leave ? '<span class="status-badge status-warning">早退</span>' : ''}
                         </div>
+                        ${att.checkout_location ? `<div class="attendance-location"><span>📍 ${att.checkout_location}</span></div>` : ''}
                     </div>
                 </div>
             `;
@@ -1327,10 +1329,12 @@ async function loadAttendanceByMonth() {
                         <span>上班: ${att.checkin_time ? formatTime(att.checkin_time) : '-'}</span>
                         ${att.is_late ? '<span class="status-badge status-warning">迟到</span>' : ''}
                     </div>
+                    ${att.checkin_location ? `<div class="attendance-location" style="margin-bottom: 8px; color: #666; font-size: 0.9em;"><span>📍 ${att.checkin_location}</span></div>` : ''}
                     <div style="display: flex; justify-content: space-between;">
                         <span>下班: ${att.checkout_time ? formatTime(att.checkout_time) : '-'}</span>
                         ${att.is_early_leave ? '<span class="status-badge status-warning">早退</span>' : ''}
                     </div>
+                    ${att.checkout_location ? `<div class="attendance-location" style="margin-top: 8px; color: #666; font-size: 0.9em;"><span>📍 ${att.checkout_location}</span></div>` : ''}
                 </div>
             </div>
         `).join('');
