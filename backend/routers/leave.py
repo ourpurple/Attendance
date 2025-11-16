@@ -7,6 +7,11 @@ from ..database import get_db
 from ..models import LeaveApplication, User, UserRole, LeaveStatus
 from ..schemas import LeaveApplicationCreate, LeaveApplicationUpdate, LeaveApplicationResponse, LeaveApproval
 from ..security import get_current_user, get_current_active_admin
+from ..approval_assigner import (
+    assign_vice_president_for_leave,
+    assign_general_manager_for_leave,
+    can_approve_leave
+)
 
 router = APIRouter(prefix="/leave", tags=["请假管理"])
 
@@ -41,8 +46,23 @@ def create_leave_application(
         end_date=leave_create.end_date,
         days=leave_create.days,
         reason=leave_create.reason,
-        status=LeaveStatus.PENDING
+        status=LeaveStatus.PENDING,
+        assigned_vp_id=leave_create.assigned_vp_id,
+        assigned_gm_id=leave_create.assigned_gm_id
     )
+    
+    # 如果未手动指定，根据规则自动分配
+    if not leave.assigned_vp_id and leave.days > 1:
+        # 需要副总审批的申请，自动分配副总
+        assigned_vp_id = assign_vice_president_for_leave(leave, current_user, db)
+        if assigned_vp_id:
+            leave.assigned_vp_id = assigned_vp_id
+    
+    if not leave.assigned_gm_id and leave.days > 3:
+        # 需要总经理审批的申请，自动分配总经理
+        assigned_gm_id = assign_general_manager_for_leave(leave, db)
+        if assigned_gm_id:
+            leave.assigned_gm_id = assigned_gm_id
     
     db.add(leave)
     db.commit()
@@ -66,6 +86,10 @@ def get_my_leave_applications(
     # 收集所有审批人ID，便于查询姓名
     approver_ids = set()
     for leave in leaves:
+        if leave.assigned_vp_id:
+            approver_ids.add(leave.assigned_vp_id)
+        if leave.assigned_gm_id:
+            approver_ids.add(leave.assigned_gm_id)
         if leave.dept_approver_id:
             approver_ids.add(leave.dept_approver_id)
         if leave.vp_approver_id:
@@ -81,6 +105,8 @@ def get_my_leave_applications(
     responses = []
     for leave in leaves:
         data = LeaveApplicationResponse.from_orm(leave).dict()
+        data["assigned_vp_name"] = approver_map.get(leave.assigned_vp_id)
+        data["assigned_gm_name"] = approver_map.get(leave.assigned_gm_id)
         data["dept_approver_name"] = approver_map.get(leave.dept_approver_id)
         data["vp_approver_name"] = approver_map.get(leave.vp_approver_id)
         data["gm_approver_name"] = approver_map.get(leave.gm_approver_id)
@@ -143,11 +169,20 @@ def get_pending_leave_applications(
             LeaveApplication.status == LeaveStatus.PENDING
         )
     elif current_user.role == UserRole.VICE_PRESIDENT:
-        # 副总：查看部门主任已批准待副总审批的申请
-        query = query.filter(LeaveApplication.status == LeaveStatus.DEPT_APPROVED)
+        # 副总：查看分配给自己的、部门主任已批准待副总审批的申请
+        query = query.filter(
+            LeaveApplication.status == LeaveStatus.DEPT_APPROVED,
+            LeaveApplication.assigned_vp_id == current_user.id
+        )
     elif current_user.role == UserRole.GENERAL_MANAGER:
-        # 总经理：查看副总已批准待总经理审批的申请
-        query = query.filter(LeaveApplication.status == LeaveStatus.VP_APPROVED)
+        # 总经理：查看分配给自己的、副总已批准待总经理审批的申请
+        # 如果未指定总经理，则所有总经理都可以看到
+        query = query.filter(
+            LeaveApplication.status == LeaveStatus.VP_APPROVED
+        ).filter(
+            (LeaveApplication.assigned_gm_id == current_user.id) |
+            (LeaveApplication.assigned_gm_id.is_(None))
+        )
     elif current_user.role == UserRole.ADMIN:
         # 管理员：查看所有待审批的申请
         query = query.filter(LeaveApplication.status.in_([
@@ -214,6 +249,16 @@ def get_leave_application(
     leave_dict["applicant_name"] = applicant_name
     
     # 查询审批人姓名
+    if leave.assigned_vp_id:
+        assigned_vp = db.query(User).filter(User.id == leave.assigned_vp_id).first()
+        if assigned_vp:
+            leave_dict["assigned_vp_name"] = assigned_vp.real_name
+    
+    if leave.assigned_gm_id:
+        assigned_gm = db.query(User).filter(User.id == leave.assigned_gm_id).first()
+        if assigned_gm:
+            leave_dict["assigned_gm_name"] = assigned_gm.real_name
+    
     if leave.dept_approver_id:
         dept_approver = db.query(User).filter(User.id == leave.dept_approver_id).first()
         if dept_approver:
@@ -289,6 +334,14 @@ def approve_leave_application(
     # 获取申请人信息
     applicant = db.query(User).filter(User.id == leave.user_id).first()
     
+    # 检查审批权限
+    can_approve, reason = can_approve_leave(leave, current_user, db)
+    if not can_approve:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=reason
+        )
+    
     # 根据角色和当前状态进行审批
     now = datetime.now()
     
@@ -298,13 +351,6 @@ def approve_leave_application(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="该申请不在待部门主任审批状态"
-            )
-        
-        # 检查是否是本部门的员工
-        if applicant.department_id != current_user.department_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="只能审批本部门员工的申请"
             )
         
         leave.dept_approver_id = current_user.id
@@ -321,13 +367,7 @@ def approve_leave_application(
             leave.status = LeaveStatus.REJECTED
     
     elif current_user.role == UserRole.VICE_PRESIDENT:
-        # 副总审批
-        if leave.status != LeaveStatus.DEPT_APPROVED:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="该申请不在待副总审批状态"
-            )
-        
+        # 副总审批（权限已在 can_approve_leave 中检查）
         leave.vp_approver_id = current_user.id
         leave.vp_approved_at = now
         leave.vp_comment = approval.comment
@@ -342,13 +382,7 @@ def approve_leave_application(
             leave.status = LeaveStatus.REJECTED
     
     elif current_user.role == UserRole.GENERAL_MANAGER:
-        # 总经理审批
-        if leave.status != LeaveStatus.VP_APPROVED:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="该申请不在待总经理审批状态"
-            )
-        
+        # 总经理审批（权限已在 can_approve_leave 中检查）
         leave.gm_approver_id = current_user.id
         leave.gm_approved_at = now
         leave.gm_comment = approval.comment

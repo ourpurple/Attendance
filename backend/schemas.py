@@ -194,7 +194,8 @@ class LeaveApplicationBase(BaseModel):
 
 
 class LeaveApplicationCreate(LeaveApplicationBase):
-    pass
+    assigned_vp_id: Optional[int] = None  # 手动指定的副总审批人ID
+    assigned_gm_id: Optional[int] = None  # 手动指定的总经理审批人ID
 
 
 class LeaveApplicationUpdate(BaseModel):
@@ -209,6 +210,10 @@ class LeaveApplicationResponse(LeaveApplicationBase):
     user_id: int
     applicant_name: Optional[str] = None
     status: LeaveStatus
+    assigned_vp_id: Optional[int] = None
+    assigned_vp_name: Optional[str] = None
+    assigned_gm_id: Optional[int] = None
+    assigned_gm_name: Optional[str] = None
     dept_approver_id: Optional[int] = None
     dept_approver_name: Optional[str] = None
     dept_approved_at: Optional[datetime] = None
@@ -258,7 +263,7 @@ class OvertimeApplicationBase(BaseModel):
 
 
 class OvertimeApplicationCreate(OvertimeApplicationBase):
-    pass
+    assigned_approver_id: Optional[int] = None  # 手动指定的审批人ID
 
 
 class OvertimeApplicationUpdate(BaseModel):
@@ -274,6 +279,8 @@ class OvertimeApplicationResponse(OvertimeApplicationBase):
     user_id: int
     applicant_name: Optional[str] = None
     status: OvertimeStatus
+    assigned_approver_id: Optional[int] = None
+    assigned_approver_name: Optional[str] = None
     approver_id: Optional[int] = None
     approver_name: Optional[str] = None
     approved_at: Optional[datetime] = None
@@ -357,5 +364,31 @@ class WorkdayCheck(BaseModel):
     is_workday: bool
     reason: str  # "周末" / "法定节假日" / "调休工作日" / "正常工作日"
     holiday_name: Optional[str] = None
+
+
+# ==================== 副总分管部门相关 ====================
+class VicePresidentDepartmentBase(BaseModel):
+    vice_president_id: int
+    department_id: int
+    is_default: bool = False
+
+
+class VicePresidentDepartmentCreate(VicePresidentDepartmentBase):
+    pass
+
+
+class VicePresidentDepartmentUpdate(BaseModel):
+    is_default: Optional[bool] = None
+
+
+class VicePresidentDepartmentResponse(VicePresidentDepartmentBase):
+    id: int
+    vice_president_name: Optional[str] = None
+    department_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 

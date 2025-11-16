@@ -716,6 +716,47 @@ sudo rm /www/wwwroot/attendance-system/test_write
 3. 项目目录权限不足（需要 775，SQLite 需要创建临时文件）
 4. SELinux 限制（如果启用）
 
+### WebSocket 警告（可忽略）
+
+如果日志中出现以下警告：
+
+```
+WARNING:  Unsupported upgrade request.
+WARNING:  No supported WebSocket library detected. Please use "pip install 'uvicorn[standard]'", or install 'websockets' or 'wsproto' manually.
+```
+
+**说明：**
+- 这些警告是**无害的**，不影响基本的 HTTP API 功能
+- 某些客户端（浏览器、工具）可能会尝试 WebSocket 升级，但应用本身不使用 WebSocket
+- 如果不需要 WebSocket 功能，可以忽略这些警告
+
+**如果需要消除警告（可选）：**
+
+```bash
+# 进入项目目录
+cd /www/wwwroot/attendance-system
+
+# 激活虚拟环境
+source venv/bin/activate
+
+# 确保安装了 uvicorn[standard]（应该已经包含 websockets）
+pip install 'uvicorn[standard]'
+
+# 或者明确安装 websockets
+pip install websockets
+
+# 重启服务
+sudo systemctl restart attendance-backend
+```
+
+**验证安装：**
+
+```bash
+# 检查 websockets 是否已安装
+source venv/bin/activate
+python -c "import websockets; print('websockets 已安装')"
+```
+
 ---
 
 ## 快速命令参考

@@ -7,6 +7,7 @@ from ..database import get_db
 from ..models import OvertimeApplication, User, UserRole, OvertimeStatus
 from ..schemas import OvertimeApplicationCreate, OvertimeApplicationUpdate, OvertimeApplicationResponse, OvertimeApproval
 from ..security import get_current_user, get_current_active_admin
+from ..approval_assigner import assign_approver_for_overtime, can_approve_overtime
 
 router = APIRouter(prefix="/overtime", tags=["加班管理"])
 
@@ -32,8 +33,15 @@ def create_overtime_application(
         hours=overtime_create.hours,
         days=overtime_create.days,
         reason=overtime_create.reason,
-        status=OvertimeStatus.PENDING
+        status=OvertimeStatus.PENDING,
+        assigned_approver_id=overtime_create.assigned_approver_id
     )
+    
+    # 如果未手动指定，根据规则自动分配
+    if not overtime.assigned_approver_id:
+        assigned_approver_id = assign_approver_for_overtime(overtime, current_user, db)
+        if assigned_approver_id:
+            overtime.assigned_approver_id = assigned_approver_id
     
     db.add(overtime)
     db.commit()
@@ -90,7 +98,13 @@ def get_my_overtime_applications(
         OvertimeApplication.user_id == current_user.id
     ).order_by(OvertimeApplication.created_at.desc()).offset(skip).limit(limit).all()
 
-    approver_ids = {ot.approver_id for ot in overtimes if ot.approver_id}
+    approver_ids = set()
+    for ot in overtimes:
+        if ot.assigned_approver_id:
+            approver_ids.add(ot.assigned_approver_id)
+        if ot.approver_id:
+            approver_ids.add(ot.approver_id)
+    
     approver_map = {}
     if approver_ids:
         approvers = db.query(User.id, User.real_name).filter(User.id.in_(approver_ids)).all()
@@ -99,6 +113,7 @@ def get_my_overtime_applications(
     responses = []
     for ot in overtimes:
         data = OvertimeApplicationResponse.from_orm(ot).dict()
+        data["assigned_approver_name"] = approver_map.get(ot.assigned_approver_id)
         data["approver_name"] = approver_map.get(ot.approver_id)
         responses.append(OvertimeApplicationResponse(**data))
 
@@ -123,7 +138,20 @@ def get_pending_overtime_applications(
     
     # 部门主任只能看到本部门的加班申请
     if current_user.role == UserRole.DEPARTMENT_HEAD:
-        query = query.join(User, OvertimeApplication.user_id == User.id).filter(User.department_id == current_user.department_id)
+        query = query.join(User, OvertimeApplication.user_id == User.id).filter(
+            User.department_id == current_user.department_id
+        )
+    # 副总只能看到分配给自己的申请
+    elif current_user.role == UserRole.VICE_PRESIDENT:
+        query = query.filter(
+            OvertimeApplication.assigned_approver_id == current_user.id
+        )
+    # 总经理可以看到所有申请（如果未指定）或分配给自己的申请
+    elif current_user.role == UserRole.GENERAL_MANAGER:
+        query = query.filter(
+            (OvertimeApplication.assigned_approver_id == current_user.id) |
+            (OvertimeApplication.assigned_approver_id.is_(None))
+        )
     
     overtimes = query.order_by(OvertimeApplication.created_at.desc()).offset(skip).limit(limit).all()
     return overtimes
@@ -165,6 +193,7 @@ def get_overtime_application(
         "days": overtime.days,
         "reason": overtime.reason,
         "status": overtime.status,
+        "assigned_approver_id": overtime.assigned_approver_id,
         "approver_id": overtime.approver_id,
         "approved_at": overtime.approved_at,
         "comment": overtime.comment,
@@ -175,6 +204,11 @@ def get_overtime_application(
     overtime_dict["applicant_name"] = applicant_name
     
     # 查询审批人姓名
+    if overtime.assigned_approver_id:
+        assigned_approver = db.query(User).filter(User.id == overtime.assigned_approver_id).first()
+        if assigned_approver:
+            overtime_dict["assigned_approver_name"] = assigned_approver.real_name
+    
     if overtime.approver_id:
         approver = db.query(User).filter(User.id == overtime.approver_id).first()
         if approver:
@@ -237,28 +271,21 @@ def approve_overtime_application(
             detail="加班申请不存在"
         )
     
-    # 只有部门主任及以上可以审批
-    if current_user.role not in [UserRole.DEPARTMENT_HEAD, UserRole.VICE_PRESIDENT, UserRole.GENERAL_MANAGER, UserRole.ADMIN]:
+    # 获取申请人信息
+    applicant = db.query(User).filter(User.id == overtime.user_id).first()
+    if not applicant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="申请人不存在"
+        )
+    
+    # 检查审批权限
+    can_approve, reason = can_approve_overtime(overtime, current_user, db)
+    if not can_approve:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="权限不足"
+            detail=reason
         )
-    
-    # 状态检查
-    if overtime.status != OvertimeStatus.PENDING:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="该申请不在待审批状态"
-        )
-    
-    # 如果是部门主任，检查是否是本部门的员工
-    if current_user.role == UserRole.DEPARTMENT_HEAD:
-        applicant = db.query(User).filter(User.id == overtime.user_id).first()
-        if applicant.department_id != current_user.department_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="只能审批本部门员工的申请"
-            )
     
     # 审批
     overtime.approver_id = current_user.id

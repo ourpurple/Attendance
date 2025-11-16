@@ -139,6 +139,8 @@ class LeaveApplication(Base):
     days = Column(Float, nullable=False, comment="请假天数")
     reason = Column(Text, nullable=False, comment="请假原因")
     status = Column(String(20), default=LeaveStatus.PENDING.value, comment="审批状态")
+    assigned_vp_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的副总审批人ID")
+    assigned_gm_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的总经理审批人ID")
     dept_approver_id = Column(Integer, ForeignKey("users.id"), comment="部门主任审批人ID")
     dept_approved_at = Column(DateTime, comment="部门主任审批时间")
     dept_comment = Column(Text, comment="部门主任审批意见")
@@ -153,6 +155,8 @@ class LeaveApplication(Base):
     
     # 关系
     user = relationship("User", back_populates="leave_applications", foreign_keys=[user_id])
+    assigned_vp = relationship("User", foreign_keys=[assigned_vp_id], post_update=True)
+    assigned_gm = relationship("User", foreign_keys=[assigned_gm_id], post_update=True)
     dept_approver = relationship("User", foreign_keys=[dept_approver_id], post_update=True)
     vp_approver = relationship("User", foreign_keys=[vp_approver_id], post_update=True)
     gm_approver = relationship("User", foreign_keys=[gm_approver_id], post_update=True)
@@ -170,6 +174,7 @@ class OvertimeApplication(Base):
     days = Column(Float, nullable=False, default=0.5, comment="加班天数")
     reason = Column(Text, nullable=False, comment="加班原因")
     status = Column(String(20), default=OvertimeStatus.PENDING.value, comment="审批状态")
+    assigned_approver_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的审批人ID")
     approver_id = Column(Integer, ForeignKey("users.id"), comment="审批人ID")
     approved_at = Column(DateTime, comment="审批时间")
     comment = Column(Text, comment="审批意见")
@@ -178,6 +183,7 @@ class OvertimeApplication(Base):
     
     # 关系
     user = relationship("User", back_populates="overtime_applications", foreign_keys=[user_id])
+    assigned_approver = relationship("User", foreign_keys=[assigned_approver_id], post_update=True)
     approver = relationship("User", foreign_keys=[approver_id], post_update=True)
 
 
@@ -199,5 +205,26 @@ class Holiday(Base):
     description = Column(Text, comment="描述")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class VicePresidentDepartment(Base):
+    """副总分管部门表"""
+    __tablename__ = "vice_president_departments"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    vice_president_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="副总用户ID")
+    department_id = Column(Integer, ForeignKey("departments.id"), nullable=False, comment="分管部门ID")
+    is_default = Column(Boolean, default=False, comment="是否为默认分管（一个部门可以有多个副总，但只有一个默认）")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # 关系
+    vice_president = relationship("User", foreign_keys=[vice_president_id], post_update=True)
+    department = relationship("Department", foreign_keys=[department_id], post_update=True)
+    
+    # 唯一约束：同一个副总不能重复分管同一个部门
+    __table_args__ = (
+        {"sqlite_autoincrement": True},
+    )
 
 
