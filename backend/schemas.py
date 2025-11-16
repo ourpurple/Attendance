@@ -226,6 +226,10 @@ class LeaveApplicationResponse(LeaveApplicationBase):
     gm_approver_name: Optional[str] = None
     gm_approved_at: Optional[datetime] = None
     gm_comment: Optional[str] = None
+    # 待审批人姓名（用于pending状态的申请）
+    pending_dept_head_name: Optional[str] = None
+    pending_vp_name: Optional[str] = None
+    pending_gm_name: Optional[str] = None
     created_at: datetime
     
     class Config:

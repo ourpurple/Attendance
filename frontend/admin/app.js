@@ -171,6 +171,9 @@ function loadPageData(page) {
         case 'departments':
             loadDepartments();
             break;
+        case 'vp-departments':
+            loadVpDepartments();
+            break;
         case 'attendance':
             loadAttendanceUserList();
             initAttendanceQuery();
@@ -236,7 +239,7 @@ async function loadUsers() {
                 <td>${user.id}</td>
                 <td>${user.username}</td>
                 <td>${user.real_name}</td>
-                <td>${user.email || '-'}</td>
+                <td>${user.phone || '-'}</td>
                 <td>${getRoleName(user.role)}</td>
                 <td>${user.department_id ? deptMap[user.department_id] : '-'}</td>
                 <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">
@@ -685,9 +688,10 @@ async function loadLeaveApplications() {
             // 获取最后审批人信息
             let approverName = '-';
             let approvedTime = '-';
+            let currentApprover = ''; // 当前待审批人
             
             if (leave.status === 'approved' || leave.status === 'rejected') {
-                // 根据状态获取对应的审批人
+                // 已完成审批，显示最终审批人
                 if (leave.gm_approver_id) {
                     approverName = userMap[leave.gm_approver_id] || '-';
                     approvedTime = leave.gm_approved_at ? formatDateTime(leave.gm_approved_at) : '-';
@@ -699,13 +703,46 @@ async function loadLeaveApplications() {
                     approvedTime = leave.dept_approved_at ? formatDateTime(leave.dept_approved_at) : '-';
                 }
             } else if (leave.status === 'vp_approved') {
-                // 等待总经理审批，显示副总审批信息
+                // 等待总经理审批，显示副总审批信息和当前待审批人
                 approverName = userMap[leave.vp_approver_id] || '-';
                 approvedTime = leave.vp_approved_at ? formatDateTime(leave.vp_approved_at) : '-';
+                // 当前待审批人：总经理
+                if (leave.assigned_gm_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_gm_name}</span>`;
+                } else if (leave.assigned_gm_id) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_gm_id] || '总经理'}</span>`;
+                } else {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 总经理</span>`;
+                }
             } else if (leave.status === 'dept_approved') {
-                // 等待副总审批，显示部门主任审批信息
+                // 等待副总审批，显示部门主任审批信息和当前待审批人
                 approverName = userMap[leave.dept_approver_id] || '-';
                 approvedTime = leave.dept_approved_at ? formatDateTime(leave.dept_approved_at) : '-';
+                // 当前待审批人：副总
+                if (leave.assigned_vp_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_vp_name}</span>`;
+                } else if (leave.assigned_vp_id) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_vp_id] || '副总'}</span>`;
+                } else {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 副总</span>`;
+                }
+            } else if (leave.status === 'pending') {
+                // 待审批状态，显示当前待审批人
+                if (leave.pending_dept_head_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_dept_head_name}</span>`;
+                } else if (leave.pending_vp_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_vp_name}</span>`;
+                } else if (leave.pending_gm_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_gm_name}</span>`;
+                } else if (leave.assigned_vp_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_vp_name}</span>`;
+                } else if (leave.assigned_gm_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_gm_name}</span>`;
+                } else if (leave.assigned_vp_id) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_vp_id] || '副总'}</span>`;
+                } else if (leave.assigned_gm_id) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_gm_id] || '总经理'}</span>`;
+                }
             }
             
             return `
@@ -716,8 +753,12 @@ async function loadLeaveApplications() {
                     <td>${leave.days}</td>
                     <td>${leave.reason}</td>
                     <td>${formatDateTime(leave.created_at)}</td>
-                    <td><span class="status-badge status-${getLeaveStatusClass(leave.status)}">
-                        ${getLeaveStatusName(leave.status)}</span></td>
+                    <td>
+                        <span class="status-badge status-${getLeaveStatusClass(leave.status)}">
+                            ${getLeaveStatusName(leave.status)}
+                        </span>
+                        ${currentApprover}
+                    </td>
                     <td>${approverName}</td>
                     <td>${approvedTime}</td>
                     <td>
@@ -865,8 +906,19 @@ async function loadOvertimeApplications() {
             // 获取审批人信息
             let approverName = '-';
             let approvedTime = '-';
+            let currentApprover = ''; // 当前待审批人
             
-            if (ot.approver_id) {
+            if (ot.status === 'pending') {
+                // 待审批状态，显示当前待审批人
+                if (ot.assigned_approver_name) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${ot.assigned_approver_name}</span>`;
+                } else if (ot.assigned_approver_id) {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[ot.assigned_approver_id] || '审批人'}</span>`;
+                } else {
+                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 审批人</span>`;
+                }
+            } else if (ot.approver_id) {
+                // 已完成审批
                 approverName = userMap[ot.approver_id] || '-';
                 approvedTime = ot.approved_at ? formatDateTime(ot.approved_at) : '-';
             }
@@ -879,8 +931,12 @@ async function loadOvertimeApplications() {
                     <td>${ot.days}天</td>
                     <td>${ot.reason}</td>
                     <td>${formatDateTime(ot.created_at)}</td>
-                    <td><span class="status-badge status-${ot.status}">
-                        ${getOvertimeStatusName(ot.status)}</span></td>
+                    <td>
+                        <span class="status-badge status-${ot.status}">
+                            ${getOvertimeStatusName(ot.status)}
+                        </span>
+                        ${currentApprover}
+                    </td>
                     <td>${approverName}</td>
                     <td>${approvedTime}</td>
                     <td>
@@ -1206,6 +1262,7 @@ window.showLeaveDetails = async function(userId, userName) {
         }
         
         modalContainer.innerHTML = modalHtml;
+        modalContainer.style.display = 'flex';  // 显示模态框
         console.log('Modal displayed');
     } catch (error) {
         console.error('加载请假明细失败:', error);
@@ -1285,6 +1342,7 @@ window.showOvertimeDetails = async function(userId, userName) {
         }
         
         modalContainer.innerHTML = modalHtml;
+        modalContainer.style.display = 'flex';  // 显示模态框
         console.log('Modal displayed');
     } catch (error) {
         console.error('加载加班明细失败:', error);
@@ -1295,7 +1353,11 @@ window.showOvertimeDetails = async function(userId, userName) {
 // 关闭明细弹窗（全局函数）
 window.closeDetailModal = function(event) {
     if (event && !event.target.classList.contains('modal-overlay')) return;
-    document.getElementById('modal-container').innerHTML = '';
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer) {
+        modalContainer.innerHTML = '';
+        modalContainer.style.display = 'none';  // 隐藏模态框
+    }
 }
 
 // 辅助函数
@@ -1363,10 +1425,18 @@ function formatTime(dateStr) {
 // ==================== 模态框工具函数 ====================
 function showModal(title, content, onConfirm) {
     const modalContainer = document.getElementById('modal-container');
+    // 先关闭之前的 modal，确保干净的状态
+    modalContainer.innerHTML = '';
+    modalContainer.style.display = 'none';
+    
+    // 创建新的 modal，使用更美观的结构
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
-                <h3>${title}</h3>
+                <div class="modal-header">
+                    <h3>${title}</h3>
+                    <button class="modal-close" onclick="closeModal()" title="关闭">×</button>
+                </div>
                 <div class="modal-content">
                     ${content}
                 </div>
@@ -1377,6 +1447,9 @@ function showModal(title, content, onConfirm) {
             </div>
         </div>
     `;
+    
+    // 显示 modal
+    modalContainer.style.display = 'flex';
     
     // 保存确认回调
     window.currentModalCallback = onConfirm;
@@ -1495,42 +1568,91 @@ async function showAddUserModal() {
     ).join('');
     
     const content = `
-        <div class="form-group">
-            <label>用户名 *</label>
-            <input type="text" id="modal-username" class="form-input" required>
+        <div class="form-section">
+            <div class="form-section-title">
+                <span class="form-icon">👤</span>
+                <span>基本信息</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">📝</span>
+                        用户名 <span class="required">*</span>
+                    </label>
+                    <input type="text" id="modal-username" class="form-input" placeholder="请输入用户名" required>
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">✏️</span>
+                        姓名 <span class="required">*</span>
+                    </label>
+                    <input type="text" id="modal-realname" class="form-input" placeholder="请输入真实姓名" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">
+                    <span class="label-icon">🔒</span>
+                    密码 <span class="required">*</span>
+                </label>
+                <input type="password" id="modal-password" class="form-input" placeholder="请输入密码（至少6位）" required>
+                <small class="form-hint">密码长度至少6位字符</small>
+            </div>
         </div>
-        <div class="form-group">
-            <label>姓名 *</label>
-            <input type="text" id="modal-realname" class="form-input" required>
+        
+        <div class="form-section">
+            <div class="form-section-title">
+                <span class="form-icon">📧</span>
+                <span>联系信息</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">📮</span>
+                        邮箱
+                    </label>
+                    <input type="email" id="modal-email" class="form-input" placeholder="example@email.com">
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">📱</span>
+                        手机号
+                    </label>
+                    <input type="text" id="modal-phone" class="form-input" placeholder="请输入手机号" pattern="[0-9]{11}">
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>密码 *</label>
-            <input type="password" id="modal-password" class="form-input" required>
-        </div>
-        <div class="form-group">
-            <label>邮箱</label>
-            <input type="email" id="modal-email" class="form-input">
-        </div>
-        <div class="form-group">
-            <label>手机号</label>
-            <input type="text" id="modal-phone" class="form-input">
-        </div>
-        <div class="form-group">
-            <label>角色 *</label>
-            <select id="modal-role" class="form-input">
-                <option value="employee">员工</option>
-                <option value="department_head">部门主任</option>
-                <option value="vice_president">副总</option>
-                <option value="general_manager">总经理</option>
-                <option value="admin">管理员</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>部门</label>
-            <select id="modal-department" class="form-input">
-                <option value="">无</option>
-                ${deptOptions}
-            </select>
+        
+        <div class="form-section">
+            <div class="form-section-title">
+                <span class="form-icon">⚙️</span>
+                <span>权限设置</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">🎭</span>
+                        角色 <span class="required">*</span>
+                    </label>
+                    <select id="modal-role" class="form-input" required>
+                        <option value="">请选择角色</option>
+                        <option value="employee">👨‍💼 员工</option>
+                        <option value="department_head">👔 部门主任</option>
+                        <option value="vice_president">👨‍💼 副总</option>
+                        <option value="general_manager">👑 总经理</option>
+                        <option value="admin">🔧 管理员</option>
+                    </select>
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">🏢</span>
+                        部门
+                    </label>
+                    <select id="modal-department" class="form-input">
+                        <option value="">无部门</option>
+                        ${deptOptions}
+                    </select>
+                </div>
+            </div>
         </div>
     `;
     
@@ -1544,7 +1666,7 @@ async function showAddUserModal() {
         const department = document.getElementById('modal-department').value;
         
         if (!username || !realname || !password) {
-            alert('请填写必填项');
+            showToast('请填写必填项', 'warning');
             return;
         }
         
@@ -1563,10 +1685,10 @@ async function showAddUserModal() {
             });
             
             closeModal();
-            alert('添加成功');
+            showToast('添加成功', 'success');
             loadUsers();
         } catch (error) {
-            alert('添加失败: ' + error.message);
+            showToast('添加失败: ' + error.message, 'error');
         }
     });
 }
@@ -1792,6 +1914,197 @@ function deleteDepartment(id) {
             .then(() => {
                 alert('删除成功');
                 loadDepartments();
+            })
+            .catch(error => alert('删除失败: ' + error.message));
+    }
+}
+
+// ==================== 分管关系管理 ====================
+async function loadVpDepartments() {
+    try {
+        const vpDepartments = await apiRequest('/vp-departments/');
+        const users = await apiRequest('/users/');
+        const departments = await apiRequest('/departments/');
+        
+        const userMap = {};
+        users.forEach(u => userMap[u.id] = u.real_name);
+        
+        const deptMap = {};
+        departments.forEach(d => deptMap[d.id] = d.name);
+
+        const tbody = document.getElementById('vp-departments-tbody');
+        if (vpDepartments.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: 40px;">
+                        <div style="color: #999;">暂无分管关系配置</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        tbody.innerHTML = vpDepartments.map(vpd => `
+            <tr>
+                <td>${vpd.id}</td>
+                <td>${userMap[vpd.vice_president_id] || '-'}</td>
+                <td>${deptMap[vpd.department_id] || '-'}</td>
+                <td><span class="status-badge ${vpd.is_default ? 'status-active' : 'status-inactive'}">
+                    ${vpd.is_default ? '是' : '否'}</span></td>
+                <td>${formatDateTime(vpd.created_at)}</td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-small btn-primary" onclick="editVpDepartment(${vpd.id})">编辑</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteVpDepartment(${vpd.id})">删除</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('加载分管关系失败:', error);
+        alert('加载分管关系失败: ' + error.message);
+    }
+}
+
+async function showAddVpDepartmentModal() {
+    const users = await apiRequest('/users/');
+    const departments = await apiRequest('/departments/');
+    
+    // 只显示副总角色的用户
+    const vpUsers = users.filter(u => u.role === 'vice_president' && u.is_active);
+    const vpOptions = vpUsers.map(u => 
+        `<option value="${u.id}">${u.real_name}</option>`
+    ).join('');
+    
+    const deptOptions = departments.map(d => 
+        `<option value="${d.id}">${d.name}</option>`
+    ).join('');
+    
+    const content = `
+        <div class="form-group">
+            <label>副总 *</label>
+            <select id="modal-vp-id" class="form-input" required>
+                <option value="">请选择副总</option>
+                ${vpOptions}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>部门 *</label>
+            <select id="modal-dept-id" class="form-input" required>
+                <option value="">请选择部门</option>
+                ${deptOptions}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="modal-is-default">
+                设为默认分管（一个部门只能有一个默认分管副总）
+            </label>
+        </div>
+    `;
+    
+    showModal('添加分管关系', content, async () => {
+        const vpId = document.getElementById('modal-vp-id').value;
+        const deptId = document.getElementById('modal-dept-id').value;
+        const isDefault = document.getElementById('modal-is-default').checked;
+        
+        if (!vpId || !deptId) {
+            alert('请选择副总和部门');
+            return;
+        }
+        
+        try {
+            await apiRequest('/vp-departments/', {
+                method: 'POST',
+                body: JSON.stringify({
+                    vice_president_id: parseInt(vpId),
+                    department_id: parseInt(deptId),
+                    is_default: isDefault
+                })
+            });
+            
+            closeModal();
+            alert('添加成功');
+            loadVpDepartments();
+        } catch (error) {
+            alert('添加失败: ' + error.message);
+        }
+    });
+}
+
+async function editVpDepartment(id) {
+    const vpd = await apiRequest(`/vp-departments/${id}`);
+    const users = await apiRequest('/users/');
+    const departments = await apiRequest('/departments/');
+    
+    // 只显示副总角色的用户
+    const vpUsers = users.filter(u => u.role === 'vice_president' && u.is_active);
+    const vpOptions = vpUsers.map(u => 
+        `<option value="${u.id}" ${u.id === vpd.vice_president_id ? 'selected' : ''}>${u.real_name}</option>`
+    ).join('');
+    
+    const deptOptions = departments.map(d => 
+        `<option value="${d.id}" ${d.id === vpd.department_id ? 'selected' : ''}>${d.name}</option>`
+    ).join('');
+    
+    const content = `
+        <div class="form-group">
+            <label>副总 *</label>
+            <select id="modal-vp-id" class="form-input" required>
+                <option value="">请选择副总</option>
+                ${vpOptions}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>部门 *</label>
+            <select id="modal-dept-id" class="form-input" required>
+                <option value="">请选择部门</option>
+                ${deptOptions}
+            </select>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="modal-is-default" ${vpd.is_default ? 'checked' : ''}>
+                设为默认分管（一个部门只能有一个默认分管副总）
+            </label>
+        </div>
+    `;
+    
+    showModal('编辑分管关系', content, async () => {
+        const vpId = document.getElementById('modal-vp-id').value;
+        const deptId = document.getElementById('modal-dept-id').value;
+        const isDefault = document.getElementById('modal-is-default').checked;
+        
+        if (!vpId || !deptId) {
+            alert('请选择副总和部门');
+            return;
+        }
+        
+        try {
+            await apiRequest(`/vp-departments/${id}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    vice_president_id: parseInt(vpId),
+                    department_id: parseInt(deptId),
+                    is_default: isDefault
+                })
+            });
+            
+            closeModal();
+            alert('更新成功');
+            loadVpDepartments();
+        } catch (error) {
+            alert('更新失败: ' + error.message);
+        }
+    });
+}
+
+function deleteVpDepartment(id) {
+    if (confirm('确定要删除该分管关系吗？')) {
+        apiRequest(`/vp-departments/${id}`, { method: 'DELETE' })
+            .then(() => {
+                alert('删除成功');
+                loadVpDepartments();
             })
             .catch(error => alert('删除失败: ' + error.message));
     }

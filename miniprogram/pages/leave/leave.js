@@ -30,6 +30,17 @@ Page({
     wx.showLoading({ title: '加载中...' });
     
     try {
+      // 获取当前用户信息，用于判断角色
+      let currentUserRole = null;
+      try {
+        const userRes = await app.request({
+          url: '/users/me'
+        });
+        currentUserRole = (userRes.data || userRes).role;
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+      }
+      
       const data = await app.request({
         url: '/leave/my'
       });
@@ -83,6 +94,30 @@ Page({
         if (!leave || typeof leave !== 'object') {
           return null;
         }
+        
+        // 获取待审批人信息
+        let pendingApprover = '';
+        if (leave.status === 'pending') {
+          // 根据申请人角色显示不同的待审批人
+          if (currentUserRole === 'vice_president') {
+            // 副总申请：待副总审批
+            pendingApprover = leave.pending_vp_name || leave.assigned_vp_name ? 
+              `待审批: ${leave.pending_vp_name || leave.assigned_vp_name}` : '待审批: 副总';
+          } else if (currentUserRole === 'general_manager') {
+            // 总经理申请：待总经理审批
+            pendingApprover = leave.pending_gm_name || leave.assigned_gm_name ? 
+              `待审批: ${leave.pending_gm_name || leave.assigned_gm_name}` : '待审批: 总经理';
+          } else {
+            // 员工和部门主任申请：待部门主任审批
+            pendingApprover = leave.pending_dept_head_name ? 
+              `待审批: ${leave.pending_dept_head_name}` : '待审批: 部门主任';
+          }
+        } else if (leave.status === 'dept_approved') {
+          pendingApprover = leave.assigned_vp_name ? `待审批: ${leave.assigned_vp_name}` : '待审批: 副总';
+        } else if (leave.status === 'vp_approved') {
+          pendingApprover = leave.assigned_gm_name ? `待审批: ${leave.assigned_gm_name}` : '待审批: 总经理';
+        }
+        
         return {
           ...leave,
           startDate: formatDate(leave.start_date),
@@ -92,7 +127,8 @@ Page({
           statusClass: getStatusClass(leave.status),
           canCancel: ['pending', 'dept_approved', 'vp_approved'].includes(leave.status),
           canView: ['approved', 'rejected'].includes(leave.status),
-          canDelete: leave.status === 'cancelled'
+          canDelete: leave.status === 'cancelled',
+          pendingApprover: pendingApprover
         };
       }).filter(item => item !== null);
 

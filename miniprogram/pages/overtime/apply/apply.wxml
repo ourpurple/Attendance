@@ -103,6 +103,23 @@
     />
   </view>
 
+  <view class="form-group" wx:if="{{showApproverSelector}}">
+    <view class="form-label">指定副总审批人（可选）</view>
+    <picker 
+      mode="selector" 
+      range="{{approverOptions}}" 
+      range-key="name"
+      value="{{approverIndex}}"
+      bindchange="onApproverChange"
+    >
+      <view class="picker">
+        <text>{{approverOptions[approverIndex] && approverOptions[approverIndex].name ? approverOptions[approverIndex].name : '默认本人审批'}}</text>
+        <text class="picker-icon">▼</text>
+      </view>
+    </picker>
+    <view class="form-hint">默认本人审批，可选择其他副总</view>
+  </view>
+
   <button class="btn btn-primary btn-block" bindtap="submitForm">提交申请</button>
 </view>
 

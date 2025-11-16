@@ -43,6 +43,28 @@ def change_password(
     return None
 
 
+@router.get("/approvers", response_model=List[UserResponse])
+def get_approvers(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取可用的审批人列表（所有登录用户可访问）"""
+    # 只返回部门主任、副总、总经理，且必须激活
+    approvers = db.query(User).filter(
+        User.role.in_([
+            UserRole.DEPARTMENT_HEAD,
+            UserRole.VICE_PRESIDENT,
+            UserRole.GENERAL_MANAGER
+        ]),
+        User.is_active == True
+    ).order_by(
+        User.role,
+        User.id
+    ).all()
+    
+    return approvers
+
+
 @router.get("/", response_model=List[UserResponse])
 def list_users(
     skip: int = 0,

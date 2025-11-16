@@ -7,7 +7,7 @@ import json
 import sqlite3
 import os
 from backend.database import SessionLocal, init_db
-from backend.models import User, Department, AttendancePolicy, UserRole, Holiday
+from backend.models import User, Department, AttendancePolicy, UserRole, Holiday, VicePresidentDepartment
 from backend.security import get_password_hash
 from datetime import datetime
 
@@ -75,10 +75,10 @@ def create_initial_data():
         
         # 创建部门
         departments = [
-            Department(name="营销部", description="市场营销部门"),
+            Department(name="市场营销部", description="市场营销部门"),
             Department(name="编辑出版部", description="编辑出版部门"),
             Department(name="财务部", description="财务管理部门"),
-            Department(name="仓储部", description="仓储物流部门"),
+            Department(name="储运部", description="仓储物流部门"),
             Department(name="办公室", description="行政办公部门"),
         ]
         
@@ -136,14 +136,14 @@ def create_initial_data():
             ),
             
             # ===== 各部门主任 =====
-            # 营销部主任
+            # 市场营销部主任
             User(
                 username="赵强",
                 password_hash=get_password_hash("123456"),
                 real_name="赵强",
                 email="zhaoqiang@example.com",
                 role=UserRole.DEPARTMENT_HEAD,
-                department_id=1,  # 营销部
+                department_id=1,  # 市场营销部
                 is_active=True
             ),
             # 编辑出版部主任
@@ -166,14 +166,14 @@ def create_initial_data():
                 department_id=3,  # 财务部
                 is_active=True
             ),
-            # 仓储部主任
+            # 储运部主任
             User(
                 username="徐卓",
                 password_hash=get_password_hash("123456"),
                 real_name="徐卓",
                 email="xuzhuo@example.com",
                 role=UserRole.DEPARTMENT_HEAD,
-                department_id=4,  # 仓储部
+                department_id=4,  # 储运部
                 is_active=True
             ),
             # 办公室主任
@@ -224,25 +224,168 @@ def create_initial_data():
                 department_id=2,  # 编辑出版部
                 is_active=True
             ),
+            
+            # ===== 市场营销部员工（8人）=====
+            User(
+                username="徐璇",
+                password_hash=get_password_hash("123456"),
+                real_name="徐璇",
+                email="xuxuan@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="徐力",
+                password_hash=get_password_hash("123456"),
+                real_name="徐力",
+                email="xuli@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="刘源",
+                password_hash=get_password_hash("123456"),
+                real_name="刘源",
+                email="liuyuan@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="王浩杰",
+                password_hash=get_password_hash("123456"),
+                real_name="王浩杰",
+                email="wanghaojie@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="张鹏飞",
+                password_hash=get_password_hash("123456"),
+                real_name="张鹏飞",
+                email="zhangpengfei@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="郭泽良",
+                password_hash=get_password_hash("123456"),
+                real_name="郭泽良",
+                email="guozeliang@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="郑亮",
+                password_hash=get_password_hash("123456"),
+                real_name="郑亮",
+                email="zhengliang@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            User(
+                username="黄文露",
+                password_hash=get_password_hash("123456"),
+                real_name="黄文露",
+                email="huangwenlu@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=1,  # 市场营销部
+                is_active=True
+            ),
+            
+            # ===== 办公室员工（2人）=====
+            User(
+                username="胡娜",
+                password_hash=get_password_hash("123456"),
+                real_name="胡娜",
+                email="huna@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=5,  # 办公室
+                is_active=True
+            ),
+            User(
+                username="边岳萌",
+                password_hash=get_password_hash("123456"),
+                real_name="边岳萌",
+                email="bianyuemeng@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=5,  # 办公室
+                is_active=True
+            ),
+            
+            # ===== 财务部员工（3人）=====
+            User(
+                username="刘玉莲",
+                password_hash=get_password_hash("123456"),
+                real_name="刘玉莲",
+                email="liuyulian@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=3,  # 财务部
+                is_active=True
+            ),
+            User(
+                username="李柳琪",
+                password_hash=get_password_hash("123456"),
+                real_name="李柳琪",
+                email="liliuqi@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=3,  # 财务部
+                is_active=True
+            ),
+            User(
+                username="王付巍",
+                password_hash=get_password_hash("123456"),
+                real_name="王付巍",
+                email="wangfuwei@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=3,  # 财务部
+                is_active=True
+            ),
+            
+            # ===== 储运部员工（2人）=====
+            User(
+                username="牛红艳",
+                password_hash=get_password_hash("123456"),
+                real_name="牛红艳",
+                email="niuhongyan@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=4,  # 储运部
+                is_active=True
+            ),
+            User(
+                username="徐永红",
+                password_hash=get_password_hash("123456"),
+                real_name="徐永红",
+                email="xuyonghong@example.com",
+                role=UserRole.EMPLOYEE,
+                department_id=4,  # 储运部
+                is_active=True
+            ),
         ]
         
         for user in users:
             db.add(user)
         
         db.commit()
-        print("✓ 创建了16个用户")
+        print("✓ 创建了29个用户")
         print("  - 1个管理员")
         print("  - 1个总经理")
         print("  - 3个副总")
         print("  - 5个部门主任")
-        print("  - 4个编辑出版部员工")
+        print("  - 19个员工（编辑出版部4人、市场营销部8人、办公室2人、财务部3人、储运部2人）")
         
         # 更新各部门主任
         dept_head_mapping = [
-            ("营销部", "赵强"),
+            ("市场营销部", "赵强"),
             ("编辑出版部", "牛鋆辉"),
             ("财务部", "李平"),
-            ("仓储部", "徐卓"),
+            ("储运部", "徐卓"),
             ("办公室", "徐晓"),
         ]
         
@@ -342,6 +485,47 @@ def create_initial_data():
         db.commit()
         print(f"✓ 已添加 {len(holidays_2025)} 条节假日配置")
         
+        # 创建副总与部门的分管关系
+        print("\n正在创建副总与部门的分管关系...")
+        
+        # 获取副总和部门
+        liya = db.query(User).filter(User.username == "李娅").first()
+        wangsha = db.query(User).filter(User.username == "王莎").first()
+        gaohuiqin = db.query(User).filter(User.username == "郜会芹").first()
+        
+        editing_dept = db.query(Department).filter(Department.name == "编辑出版部").first()
+        office_dept = db.query(Department).filter(Department.name == "办公室").first()
+        marketing_dept = db.query(Department).filter(Department.name == "市场营销部").first()
+        finance_dept = db.query(Department).filter(Department.name == "财务部").first()
+        storage_dept = db.query(Department).filter(Department.name == "储运部").first()
+        
+        # 李娅负责编辑出版部、办公室
+        if liya and editing_dept:
+            vp_dept = VicePresidentDepartment(vice_president_id=liya.id, department_id=editing_dept.id)
+            db.add(vp_dept)
+        if liya and office_dept:
+            vp_dept = VicePresidentDepartment(vice_president_id=liya.id, department_id=office_dept.id)
+            db.add(vp_dept)
+        
+        # 王莎负责市场营销部
+        if wangsha and marketing_dept:
+            vp_dept = VicePresidentDepartment(vice_president_id=wangsha.id, department_id=marketing_dept.id)
+            db.add(vp_dept)
+        
+        # 郜会芹负责财务部、储运部
+        if gaohuiqin and finance_dept:
+            vp_dept = VicePresidentDepartment(vice_president_id=gaohuiqin.id, department_id=finance_dept.id)
+            db.add(vp_dept)
+        if gaohuiqin and storage_dept:
+            vp_dept = VicePresidentDepartment(vice_president_id=gaohuiqin.id, department_id=storage_dept.id)
+            db.add(vp_dept)
+        
+        db.commit()
+        print("✓ 创建了副总与部门的分管关系")
+        print("  - 李娅：编辑出版部、办公室")
+        print("  - 王莎：市场营销部")
+        print("  - 郜会芹：财务部、储运部")
+        
         print("\n" + "=" * 60)
         print("初始化完成！")
         print("=" * 60)
@@ -372,6 +556,34 @@ def create_initial_data():
         print("  用户名: 杨娟    密码: 123456")
         print("  用户名: 王霄    密码: 123456")
         print("  用户名: 王文文  密码: 123456")
+        
+        print("\n【市场营销部员工（8人）】")
+        print("  用户名: 徐璇    密码: 123456")
+        print("  用户名: 徐力    密码: 123456")
+        print("  用户名: 刘源    密码: 123456")
+        print("  用户名: 王浩杰  密码: 123456")
+        print("  用户名: 张鹏飞  密码: 123456")
+        print("  用户名: 郭泽良  密码: 123456")
+        print("  用户名: 郑亮    密码: 123456")
+        print("  用户名: 黄文露  密码: 123456")
+        
+        print("\n【办公室员工（2人）】")
+        print("  用户名: 胡娜    密码: 123456")
+        print("  用户名: 边岳萌  密码: 123456")
+        
+        print("\n【财务部员工（3人）】")
+        print("  用户名: 刘玉莲  密码: 123456")
+        print("  用户名: 李柳琪  密码: 123456")
+        print("  用户名: 王付巍  密码: 123456")
+        
+        print("\n【储运部员工（2人）】")
+        print("  用户名: 牛红艳  密码: 123456")
+        print("  用户名: 徐永红  密码: 123456")
+        
+        print("\n【副总分管关系】")
+        print("  李娅：编辑出版部、办公室")
+        print("  王莎：市场营销部")
+        print("  郜会芹：财务部、储运部")
         
         print("\n" + "=" * 60)
         print("提示：")

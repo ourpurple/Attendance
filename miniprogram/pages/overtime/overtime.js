@@ -72,6 +72,13 @@ Page({
         if (!ot || typeof ot !== 'object') {
           return null;
         }
+        
+        // 获取待审批人信息
+        let pendingApprover = '';
+        if (ot.status === 'pending') {
+          pendingApprover = ot.assigned_approver_name ? `待审批: ${ot.assigned_approver_name}` : '待审批: 审批人';
+        }
+        
         return {
           ...ot,
           startTime: formatDateTime(ot.start_time),
@@ -81,7 +88,8 @@ Page({
           statusClass: getStatusClass(ot.status),
           canCancel: ot.status === 'pending',
           canView: ['approved', 'rejected'].includes(ot.status),
-          canDelete: ot.status === 'cancelled'
+          canDelete: ot.status === 'cancelled',
+          pendingApprover: pendingApprover
         };
       }).filter(item => item !== null);
 

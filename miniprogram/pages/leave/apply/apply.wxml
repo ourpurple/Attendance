@@ -42,6 +42,40 @@
     />
   </view>
 
+  <view class="form-group" wx:if="{{showVpSelector}}">
+    <view class="form-label">指定副总审批人（可选）</view>
+    <picker 
+      mode="selector" 
+      range="{{vpOptions}}" 
+      range-key="name"
+      value="{{vpIndex}}"
+      bindchange="onVpChange"
+    >
+      <view class="picker">
+        <text>{{vpOptions[vpIndex] && vpOptions[vpIndex].name ? vpOptions[vpIndex].name : '系统自动分配'}}</text>
+        <text class="picker-icon">▼</text>
+      </view>
+    </picker>
+    <view class="form-hint">留空则系统自动分配</view>
+  </view>
+
+  <view class="form-group" wx:if="{{showGmSelector}}">
+    <view class="form-label">指定总经理审批人（可选）</view>
+    <picker 
+      mode="selector" 
+      range="{{gmOptions}}" 
+      range-key="name"
+      value="{{gmIndex}}"
+      bindchange="onGmChange"
+    >
+      <view class="picker">
+        <text>{{gmOptions[gmIndex] && gmOptions[gmIndex].name ? gmOptions[gmIndex].name : '系统自动分配'}}</text>
+        <text class="picker-icon">▼</text>
+      </view>
+    </picker>
+    <view class="form-hint">留空则系统自动分配</view>
+  </view>
+
   <button class="btn btn-primary btn-block" bindtap="submitForm">提交申请</button>
 </view>
 

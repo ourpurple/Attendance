@@ -37,11 +37,44 @@ def create_overtime_application(
         assigned_approver_id=overtime_create.assigned_approver_id
     )
     
-    # 如果未手动指定，根据规则自动分配
-    if not overtime.assigned_approver_id:
-        assigned_approver_id = assign_approver_for_overtime(overtime, current_user, db)
-        if assigned_approver_id:
-            overtime.assigned_approver_id = assigned_approver_id
+    # 根据申请人角色自动分配审批人
+    if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+        # 员工及部门主任加班：本部门主任直接审批完成（不需要前端指定）
+        # 自动查找部门主任
+        if current_user.department_id:
+            from ..models import Department
+            dept = db.query(Department).filter(Department.id == current_user.department_id).first()
+            if dept and dept.head_id:
+                head = db.query(User).filter(
+                    User.id == dept.head_id,
+                    User.is_active == True
+                ).first()
+                if head:
+                    overtime.assigned_approver_id = head.id
+    
+    elif current_user.role == UserRole.VICE_PRESIDENT:
+        # 副总加班：副总审批（默认本人，可手动选定其它副总）
+        if not overtime.assigned_approver_id:
+            # 默认本人审批
+            overtime.assigned_approver_id = current_user.id
+        else:
+            # 验证指定的副总是否存在
+            vp = db.query(User).filter(
+                User.id == overtime.assigned_approver_id,
+                User.role == UserRole.VICE_PRESIDENT,
+                User.is_active == True
+            ).first()
+            if not vp:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="指定的副总不存在或未激活"
+                )
+    
+    elif current_user.role == UserRole.GENERAL_MANAGER:
+        # 总经理加班：总经理本人直接审批完成
+        # 不需要分配审批人，状态直接设为已批准（或者保持pending，由总经理本人审批）
+        # 这里保持pending状态，由审批接口处理
+        pass
     
     db.add(overtime)
     db.commit()
@@ -146,15 +179,34 @@ def get_pending_overtime_applications(
         query = query.filter(
             OvertimeApplication.assigned_approver_id == current_user.id
         )
-    # 总经理可以看到所有申请（如果未指定）或分配给自己的申请
+    # 总经理可以看到：
+    # 1. 总经理自己的申请（user_id是自己，assigned_approver_id可能是None）
+    # 2. 分配给自己的申请（assigned_approver_id是自己）
+    # 3. 未指定审批人的申请（assigned_approver_id是None）
     elif current_user.role == UserRole.GENERAL_MANAGER:
         query = query.filter(
+            (OvertimeApplication.user_id == current_user.id) |
             (OvertimeApplication.assigned_approver_id == current_user.id) |
             (OvertimeApplication.assigned_approver_id.is_(None))
         )
     
     overtimes = query.order_by(OvertimeApplication.created_at.desc()).offset(skip).limit(limit).all()
-    return overtimes
+    
+    # 收集所有申请人ID，查询申请人姓名
+    applicant_ids = [ot.user_id for ot in overtimes]
+    applicant_map = {}
+    if applicant_ids:
+        applicants = db.query(User.id, User.real_name).filter(User.id.in_(applicant_ids)).all()
+        applicant_map = {user.id: user.real_name for user in applicants}
+    
+    # 构建响应，添加申请人姓名
+    responses = []
+    for ot in overtimes:
+        data = OvertimeApplicationResponse.from_orm(ot).dict()
+        data["applicant_name"] = applicant_map.get(ot.user_id, f"用户{ot.user_id}")
+        responses.append(OvertimeApplicationResponse(**data))
+    
+    return responses
 
 
 @router.get("/{overtime_id}", response_model=OvertimeApplicationResponse)
@@ -394,6 +446,27 @@ def list_overtime_applications(
         OvertimeApplication.created_at.desc()
     ).offset(skip).limit(limit).all()
     
-    return overtimes
+    # 收集所有审批人ID，便于查询姓名
+    approver_ids = set()
+    for ot in overtimes:
+        if ot.assigned_approver_id:
+            approver_ids.add(ot.assigned_approver_id)
+        if ot.approver_id:
+            approver_ids.add(ot.approver_id)
+    
+    approver_map = {}
+    if approver_ids:
+        approvers = db.query(User.id, User.real_name).filter(User.id.in_(approver_ids)).all()
+        approver_map = {user.id: user.real_name for user in approvers}
+    
+    # 构建响应，添加审批人姓名
+    responses = []
+    for ot in overtimes:
+        data = OvertimeApplicationResponse.from_orm(ot).dict()
+        data["assigned_approver_name"] = approver_map.get(ot.assigned_approver_id)
+        data["approver_name"] = approver_map.get(ot.approver_id)
+        responses.append(OvertimeApplicationResponse(**data))
+    
+    return responses
 
 

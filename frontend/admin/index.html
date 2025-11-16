@@ -50,6 +50,10 @@
                         <span class="icon">🏢</span>
                         <span>部门管理</span>
                     </a>
+                    <a href="#vp-departments" class="nav-item" data-page="vp-departments">
+                        <span class="icon">👔</span>
+                        <span>分管关系</span>
+                    </a>
                     <a href="#attendance" class="nav-item" data-page="attendance">
                         <span class="icon">📝</span>
                         <span>考勤记录</span>
@@ -137,7 +141,7 @@
                                     <th>ID</th>
                                     <th>用户名</th>
                                     <th>姓名</th>
-                                    <th>邮箱</th>
+                                    <th>手机号</th>
                                     <th>角色</th>
                                     <th>部门</th>
                                     <th>状态</th>
@@ -168,6 +172,30 @@
                                 </tr>
                             </thead>
                             <tbody id="departments-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- 分管关系管理 -->
+                <div id="vp-departments-content" class="content-section">
+                    <div class="section-header">
+                        <h2>分管关系管理</h2>
+                        <button class="btn btn-primary" onclick="showAddVpDepartmentModal()">添加分管关系</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="vp-departments-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>副总</th>
+                                    <th>部门</th>
+                                    <th>是否默认</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="vp-departments-tbody">
                             </tbody>
                         </table>
                     </div>

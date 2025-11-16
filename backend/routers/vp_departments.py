@@ -47,6 +47,31 @@ def list_vp_departments(
     return responses
 
 
+@router.get("/{vp_dept_id}", response_model=VicePresidentDepartmentResponse)
+def get_vp_department(
+    vp_dept_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """获取单个副总分管部门关系"""
+    vp_dept = db.query(VicePresidentDepartment).filter(VicePresidentDepartment.id == vp_dept_id).first()
+    if not vp_dept:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="分管关系不存在"
+        )
+    
+    # 添加名称信息
+    vp = db.query(User).filter(User.id == vp_dept.vice_president_id).first()
+    dept = db.query(Department).filter(Department.id == vp_dept.department_id).first()
+    
+    response = VicePresidentDepartmentResponse.from_orm(vp_dept).dict()
+    response["vice_president_name"] = vp.real_name if vp else None
+    response["department_name"] = dept.name if dept else None
+    
+    return VicePresidentDepartmentResponse(**response)
+
+
 @router.post("/", response_model=VicePresidentDepartmentResponse, status_code=status.HTTP_201_CREATED)
 def create_vp_department(
     vp_dept_create: VicePresidentDepartmentCreate,

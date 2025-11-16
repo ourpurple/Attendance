@@ -206,6 +206,16 @@ def can_approve_leave(leave: LeaveApplication, approver: User, db: Session) -> T
     if not applicant:
         return False, "申请人不存在"
     
+    # 特殊处理：副总可以审批自己的申请（如果状态是pending且assigned_vp_id是自己）
+    if approver.role == UserRole.VICE_PRESIDENT and leave.user_id == approver.id:
+        if leave.status == "pending" and leave.assigned_vp_id == approver.id:
+            return True, ""
+    
+    # 特殊处理：总经理可以审批自己的申请（如果状态是pending）
+    if approver.role == UserRole.GENERAL_MANAGER and leave.user_id == approver.id:
+        if leave.status == "pending":
+            return True, ""
+    
     # 根据角色和状态检查
     if approver.role == UserRole.DEPARTMENT_HEAD:
         # 部门主任只能审批本部门的申请
@@ -266,6 +276,15 @@ def can_approve_overtime(overtime: OvertimeApplication, approver: User, db: Sess
     
     if overtime.status != "pending":
         return False, "该申请不在待审批状态"
+    
+    # 特殊处理：副总可以审批自己的申请（如果assigned_approver_id是自己）
+    if approver.role == UserRole.VICE_PRESIDENT and overtime.user_id == approver.id:
+        if overtime.assigned_approver_id == approver.id:
+            return True, ""
+    
+    # 特殊处理：总经理可以审批自己的申请
+    if approver.role == UserRole.GENERAL_MANAGER and overtime.user_id == approver.id:
+        return True, ""
     
     # 根据角色检查
     if approver.role == UserRole.DEPARTMENT_HEAD:

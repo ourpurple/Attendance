@@ -207,6 +207,58 @@ def checkout(
     return attendance
 
 
+@router.get("/check-late")
+def check_late(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """检查当前时间打卡是否会迟到（打卡前调用）"""
+    # 获取活跃的打卡策略
+    policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
+    
+    if not policy:
+        return {"will_be_late": False, "work_start_time": None, "current_time": None}
+    
+    checkin_time = datetime.now()
+    will_be_late = is_late(checkin_time, policy)
+    
+    # 获取工作开始时间
+    rules = get_policy_for_date(policy, checkin_time)
+    work_start = rules.get('work_start_time', '09:00')
+    
+    return {
+        "will_be_late": will_be_late,
+        "work_start_time": work_start,
+        "current_time": checkin_time.strftime("%H:%M:%S")
+    }
+
+
+@router.get("/check-early-leave")
+def check_early_leave(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """检查当前时间打卡是否会早退（打卡前调用）"""
+    # 获取活跃的打卡策略
+    policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
+    
+    if not policy:
+        return {"will_be_early_leave": False, "work_end_time": None, "current_time": None}
+    
+    checkout_time = datetime.now()
+    will_be_early_leave = is_early_leave(checkout_time, policy)
+    
+    # 获取工作结束时间
+    rules = get_policy_for_date(policy, checkout_time)
+    work_end = rules.get('work_end_time', '18:00')
+    
+    return {
+        "will_be_early_leave": will_be_early_leave,
+        "work_end_time": work_end,
+        "current_time": checkout_time.strftime("%H:%M:%S")
+    }
+
+
 @router.get("/my", response_model=List[AttendanceResponse])
 def get_my_attendance(
     start_date: Optional[date] = None,

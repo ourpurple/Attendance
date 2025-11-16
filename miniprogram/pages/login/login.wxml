@@ -2,7 +2,6 @@
 <view class="login-container">
   <view class="login-header">
     <text class="login-title">考勤系统</text>
-    <text class="login-subtitle">员工移动端</text>
     <text class="company-name">河南新盟科教有限公司</text>
   </view>
 

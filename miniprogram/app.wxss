@@ -51,6 +51,11 @@ page {
   color: #ffffff;
 }
 
+.btn-primary:active {
+  background: #0051D5;
+  transform: scale(0.98);
+}
+
 .btn-secondary {
   background: #E5E5EA;
   color: #000000;
@@ -59,6 +64,31 @@ page {
 .btn-success {
   background: #34C759;
   color: #ffffff;
+}
+
+.btn-success:active {
+  background: #28A745;
+  transform: scale(0.98);
+}
+
+/* 按钮禁用状态 - 灰色 */
+button[disabled],
+.btn[disabled] {
+  background: #8E8E93 !important;
+  color: #FFFFFF !important;
+  opacity: 0.6;
+}
+
+.btn-primary[disabled] {
+  background: #8E8E93 !important;
+}
+
+.btn-success[disabled] {
+  background: #8E8E93 !important;
+}
+
+.btn-secondary[disabled] {
+  background: #8E8E93 !important;
 }
 
 .btn-danger {

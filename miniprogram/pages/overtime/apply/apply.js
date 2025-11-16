@@ -14,13 +14,74 @@ Page({
     showCustomTime: false,
     showQuickSelect: false,
     timePeriod: '',  // 选择的时段
-    timePeriodOptions: []  // 时段选项列表
+    timePeriodOptions: [],  // 时段选项列表
+    approverOptions: [{ id: '', name: '系统自动分配' }],
+    approverIndex: 0,
+    assignedApproverId: ''
   },
 
-  onLoad() {
+  async onLoad() {
     // 设置默认日期为今天
     const today = new Date().toISOString().split('T')[0];
     this.setData({ date: today });
+    
+    // 加载审批人列表
+    await this.loadApprovers();
+  },
+
+  // 加载审批人列表（仅副总需要）
+  async loadApprovers() {
+    try {
+      // 获取当前用户信息
+      const userRes = await app.request({
+        url: '/users/me',
+        method: 'GET'
+      });
+      
+      const currentUser = userRes.data || userRes;
+      const userRole = currentUser.role;
+      const isVicePresident = userRole === 'vice_president';
+      
+      // 只有副总需要显示审批人选择器
+      if (!isVicePresident) {
+        this.setData({
+          approverOptions: [{ id: '', name: '系统自动分配' }],
+          showApproverSelector: false
+        });
+        return;
+      }
+      
+      const res = await app.request({
+        url: '/users/approvers',
+        method: 'GET'
+      });
+      
+      const approvers = res.data || res;
+      const vps = approvers.filter(u => u.role === 'vice_president');
+      
+      // 默认选择本人
+      const defaultVpIndex = vps.findIndex(vp => vp.id === currentUser.id);
+      const approverOptions = [{ id: '', name: '默认本人审批' }, ...vps.map(vp => ({ id: vp.id, name: vp.real_name }))];
+      
+      this.setData({
+        approverOptions,
+        approverIndex: defaultVpIndex >= 0 ? defaultVpIndex + 1 : 0,
+        assignedApproverId: defaultVpIndex >= 0 ? currentUser.id : '',
+        showApproverSelector: true
+      });
+    } catch (error) {
+      console.error('加载审批人列表失败:', error);
+    }
+  },
+
+  // 审批人选择改变
+  onApproverChange(e) {
+    const index = parseInt(e.detail.value);
+    const approver = this.data.approverOptions[index];
+    this.setData({
+      approverIndex: index,
+      assignedApproverId: approver.id || ''
+    });
   },
 
   // 加班类型改变
@@ -166,16 +227,23 @@ Page({
         hours = range.hours;
       }
 
+      const requestData = {
+        start_time: startDateTime,
+        end_time: endDateTime,
+        hours: hours,
+        days: parseFloat(days),
+        reason: reason
+      };
+      
+      // 如果指定了审批人，添加到请求中
+      if (this.data.assignedApproverId) {
+        requestData.assigned_approver_id = parseInt(this.data.assignedApproverId);
+      }
+      
       await app.request({
         url: '/overtime/',
         method: 'POST',
-        data: {
-          start_time: startDateTime,
-          end_time: endDateTime,
-          hours: hours,
-          days: parseFloat(days),
-          reason: reason
-        }
+        data: requestData
       });
 
       wx.showToast({

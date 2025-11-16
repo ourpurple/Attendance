@@ -5,7 +5,7 @@
     <view class="clock-time">{{currentTime}}</view>
     <view class="clock-date">{{currentDate}}</view>
     
-    <view class="clock-status">
+    <view class="clock-status" wx:if="{{isWorkday}}">
       <view class="status-item">
         <text class="status-label">上班</text>
         <text class="status-value">{{checkinStatus}}</text>
@@ -21,7 +21,7 @@
         <text>📍</text>
         <text>上班打卡</text>
       </button>
-      <button class="btn btn-secondary" bindtap="checkout" disabled="{{checkoutDisabled}}">
+      <button class="btn btn-success" bindtap="checkout" disabled="{{checkoutDisabled}}">
         <text>📍</text>
         <text>下班打卡</text>
       </button>

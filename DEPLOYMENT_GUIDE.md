@@ -295,6 +295,121 @@ EOF
 
 ---
 
+
+
+##  Nginx 配置文件
+
+
+
+```nginx
+server {
+    listen 80;
+    listen 443 ssl http2 ;
+    server_name oa.ruoshui-edu.cn;  # 修改为实际域名或IP
+    index index.html index.htm;
+    root /www/wwwroot/attendance-system/frontend/mobile;
+    
+# SSL 配置标识（宝塔自动配置 SSL 时需要）
+    #error_page 404/404.html;
+    ssl_certificate    /www/server/panel/vhost/cert/oa.ruoshui-edu.cn/fullchain.pem;
+    ssl_certificate_key    /www/server/panel/vhost/cert/oa.ruoshui-edu.cn/privkey.pem;
+    ssl_protocols TLSv1.1 TLSv1.2 TLSv1.3;
+    ssl_ciphers EECDH+CHACHA20:EECDH+CHACHA20-draft:EECDH+AES128:RSA+AES128:EECDH+AES256:RSA+AES256:EECDH+3DES:RSA+3DES:!MD5;
+    ssl_prefer_server_ciphers on;
+    ssl_session_tickets on;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    add_header Strict-Transport-Security "max-age=31536000";
+    error_page 497  https://$host$request_uri;
+
+    #error_page 502/502.html;
+    #error_page 503/503.html;
+    #CERT-APPLY-CHECK--START
+    # 注意：请勿删除或修改下一行带注释的过期规则，否则脚本无法正常续期
+    # 过期规则会自动添加在下面
+    #CERT-APPLY-CHECK--END
+
+    # 日志
+    access_log /www/wwwlogs/attendance-access.log;
+    error_log /www/wwwlogs/attendance-error.log;
+
+    # 日志
+    access_log /www/wwwlogs/attendance-access.log;
+    error_log /www/wwwlogs/attendance-error.log;
+
+    # 客户端最大上传大小
+    client_max_body_size 10M;
+
+    # API代理到后端（重要：必须在其他location之前）
+    location /api {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket支持
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        
+        # CORS 头（如果需要）
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Authorization, Content-Type" always;
+        
+        # 处理 OPTIONS 请求
+        if ($request_method = 'OPTIONS') {
+            return 204;
+        }
+    }
+    
+    # Admin管理后台 - 使用正则匹配所有 /admin 开头的路径（优先级最高）
+    location ~ ^/admin {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # WebSocket支持
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        
+        # 超时设置
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # Mobile前端
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 静态文件缓存
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|woff|woff2|ttf|svg)$ {
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # 禁止访问隐藏文件
+    location ~ /\. {
+        deny all;
+    }
+}
+```
+
+
+
+
+
 ## Git 代码管理
 
 ### 首次克隆代码
@@ -814,5 +929,4 @@ sudo journalctl -u attendance-backend -n 100 # 最近100行
 2. 应用日志：`tail -f /www/wwwroot/attendance-system/logs/app.log`
 3. 系统日志：`dmesg | tail`
 4. 网络连接：`curl http://localhost:8000/api/health`
-
 

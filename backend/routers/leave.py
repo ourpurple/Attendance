@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, date
 from ..database import get_db
-from ..models import LeaveApplication, User, UserRole, LeaveStatus
+from ..models import LeaveApplication, User, UserRole, LeaveStatus, Department
 from ..schemas import LeaveApplicationCreate, LeaveApplicationUpdate, LeaveApplicationResponse, LeaveApproval
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import (
@@ -51,18 +51,57 @@ def create_leave_application(
         assigned_gm_id=leave_create.assigned_gm_id
     )
     
-    # 如果未手动指定，根据规则自动分配
-    if not leave.assigned_vp_id and leave.days > 1:
-        # 需要副总审批的申请，自动分配副总
-        assigned_vp_id = assign_vice_president_for_leave(leave, current_user, db)
-        if assigned_vp_id:
-            leave.assigned_vp_id = assigned_vp_id
+    # 根据申请人角色和请假天数自动分配审批人
+    if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+        # 员工及部门主任请假：不需要前端指定审批人，系统自动分配
+        # 1天：部门主任直接审批完成（不需要分配副总和总经理）
+        # 1天以上，3天以下（含3天）：部门主任审批 → 部门分管副总审批
+        # 3天以上（不含3天）：部门主任审批 → 部门分管副总审批 → 总经理审批
+        if leave.days > 1:
+            # 需要副总审批
+            assigned_vp_id = assign_vice_president_for_leave(leave, current_user, db)
+            if assigned_vp_id:
+                leave.assigned_vp_id = assigned_vp_id
+        
+        if leave.days > 3:
+            # 需要总经理审批
+            assigned_gm_id = assign_general_manager_for_leave(leave, db)
+            if assigned_gm_id:
+                leave.assigned_gm_id = assigned_gm_id
     
-    if not leave.assigned_gm_id and leave.days > 3:
-        # 需要总经理审批的申请，自动分配总经理
-        assigned_gm_id = assign_general_manager_for_leave(leave, db)
-        if assigned_gm_id:
-            leave.assigned_gm_id = assigned_gm_id
+    elif current_user.role == UserRole.VICE_PRESIDENT:
+        # 副总请假：
+        # 3天以下（含3天）：副总审批（默认本人，可手动选定其它副总）
+        # 3天以上（不含3天）：副总审批（默认本人，可手动选定其它副总） → 总经理审批
+        if not leave.assigned_vp_id:
+            # 默认本人审批
+            leave.assigned_vp_id = current_user.id
+        else:
+            # 验证指定的副总是否存在
+            vp = db.query(User).filter(
+                User.id == leave.assigned_vp_id,
+                User.role == UserRole.VICE_PRESIDENT,
+                User.is_active == True
+            ).first()
+            if not vp:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="指定的副总不存在或未激活"
+                )
+        
+        if leave.days > 3:
+            # 需要总经理审批
+            assigned_gm_id = assign_general_manager_for_leave(leave, db)
+            if assigned_gm_id:
+                leave.assigned_gm_id = assigned_gm_id
+    
+    elif current_user.role == UserRole.GENERAL_MANAGER:
+        # 总经理请假：总经理本人直接审批完成
+        # 不需要分配审批人，状态直接设为已批准（或者保持pending，由总经理本人审批）
+        # 这里保持pending状态，由审批接口处理
+        # 设置assigned_gm_id为自己，以便显示正确的审批人姓名
+        if not leave.assigned_gm_id:
+            leave.assigned_gm_id = current_user.id
     
     db.add(leave)
     db.commit()
@@ -85,6 +124,7 @@ def get_my_leave_applications(
 
     # 收集所有审批人ID，便于查询姓名
     approver_ids = set()
+    department_ids = set()  # 用于查询部门主任
     for leave in leaves:
         if leave.assigned_vp_id:
             approver_ids.add(leave.assigned_vp_id)
@@ -96,12 +136,62 @@ def get_my_leave_applications(
             approver_ids.add(leave.vp_approver_id)
         if leave.gm_approver_id:
             approver_ids.add(leave.gm_approver_id)
+        # 对于pending状态的申请，需要查询申请人的部门主任
+        # 同时，如果是总经理申请且assigned_gm_id为空，需要包含申请人ID
+        if leave.status == LeaveStatus.PENDING:
+            applicant = db.query(User).filter(User.id == leave.user_id).first()
+            if applicant:
+                if applicant.department_id:
+                    department_ids.add(applicant.department_id)
+                # 如果是总经理申请且assigned_gm_id为空，需要包含申请人ID以便查询姓名
+                if applicant.role == UserRole.GENERAL_MANAGER and not leave.assigned_gm_id:
+                    approver_ids.add(leave.user_id)
 
     approver_map = {}
     if approver_ids:
         approvers = db.query(User.id, User.real_name).filter(User.id.in_(approver_ids)).all()
         approver_map = {user.id: user.real_name for user in approvers}
+    
+    # 查询部门主任（用于pending状态的申请）
+    dept_to_head_map = {}
+    if department_ids:
+        departments = db.query(Department).filter(Department.id.in_(department_ids)).all()
+        dept_head_ids = [dept.head_id for dept in departments if dept.head_id]
+        if dept_head_ids:
+            dept_heads = db.query(User.id, User.real_name).filter(User.id.in_(dept_head_ids)).all()
+            dept_head_id_to_name = {user.id: user.real_name for user in dept_heads}
+            # 建立部门ID到部门主任姓名的映射
+            for dept in departments:
+                if dept.head_id and dept.head_id in dept_head_id_to_name:
+                    dept_to_head_map[dept.id] = dept_head_id_to_name[dept.head_id]
+        
+        # 如果部门没有设置head_id，尝试查找该部门中角色为部门主任的用户
+        for dept in departments:
+            if dept.id not in dept_to_head_map:
+                # 查找该部门中角色为部门主任的用户
+                dept_head = db.query(User).filter(
+                    User.department_id == dept.id,
+                    User.role == UserRole.DEPARTMENT_HEAD,
+                    User.is_active == True
+                ).first()
+                if dept_head:
+                    dept_to_head_map[dept.id] = dept_head.real_name
+    
+    # 建立申请人ID到部门ID的映射
+    applicant_to_dept_map = {}
+    if department_ids:
+        applicants = db.query(User.id, User.department_id).filter(
+            User.id.in_([leave.user_id for leave in leaves if leave.status == LeaveStatus.PENDING])
+        ).all()
+        applicant_to_dept_map = {app.id: app.department_id for app in applicants if app.department_id}
 
+    # 获取所有申请人的信息，用于判断角色
+    applicant_ids = [leave.user_id for leave in leaves]
+    applicants_map = {}
+    if applicant_ids:
+        applicants = db.query(User.id, User.role, User.department_id).filter(User.id.in_(applicant_ids)).all()
+        applicants_map = {app.id: app for app in applicants}
+    
     responses = []
     for leave in leaves:
         data = LeaveApplicationResponse.from_orm(leave).dict()
@@ -110,6 +200,28 @@ def get_my_leave_applications(
         data["dept_approver_name"] = approver_map.get(leave.dept_approver_id)
         data["vp_approver_name"] = approver_map.get(leave.vp_approver_id)
         data["gm_approver_name"] = approver_map.get(leave.gm_approver_id)
+        
+        # 对于pending状态的申请，根据申请人角色添加待审批人信息
+        if leave.status == LeaveStatus.PENDING:
+            applicant = applicants_map.get(leave.user_id)
+            if applicant:
+                if applicant.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+                    # 员工和部门主任：待部门主任审批
+                    applicant_dept_id = applicant.department_id
+                    if applicant_dept_id and applicant_dept_id in dept_to_head_map:
+                        data["pending_dept_head_name"] = dept_to_head_map[applicant_dept_id]
+                elif applicant.role == UserRole.VICE_PRESIDENT:
+                    # 副总：待副总审批（assigned_vp_id）
+                    if leave.assigned_vp_id:
+                        data["pending_vp_name"] = approver_map.get(leave.assigned_vp_id)
+                elif applicant.role == UserRole.GENERAL_MANAGER:
+                    # 总经理：待总经理审批（本人）
+                    if leave.assigned_gm_id:
+                        data["pending_gm_name"] = approver_map.get(leave.assigned_gm_id)
+                    else:
+                        # 如果assigned_gm_id为空，使用申请人ID（总经理本人）
+                        data["pending_gm_name"] = approver_map.get(leave.user_id)
+        
         responses.append(LeaveApplicationResponse(**data))
 
     return responses
@@ -169,19 +281,31 @@ def get_pending_leave_applications(
             LeaveApplication.status == LeaveStatus.PENDING
         )
     elif current_user.role == UserRole.VICE_PRESIDENT:
-        # 副总：查看分配给自己的、部门主任已批准待副总审批的申请
+        # 副总：查看分配给自己的申请
+        # 1. 副总自己的申请（pending状态，assigned_vp_id是自己）
+        # 2. 部门主任已批准待副总审批的申请（dept_approved状态，assigned_vp_id是自己）
         query = query.filter(
-            LeaveApplication.status == LeaveStatus.DEPT_APPROVED,
             LeaveApplication.assigned_vp_id == current_user.id
+        ).filter(
+            (LeaveApplication.status == LeaveStatus.PENDING) |
+            (LeaveApplication.status == LeaveStatus.DEPT_APPROVED)
         )
     elif current_user.role == UserRole.GENERAL_MANAGER:
-        # 总经理：查看分配给自己的、副总已批准待总经理审批的申请
-        # 如果未指定总经理，则所有总经理都可以看到
+        # 总经理：查看分配给自己的申请
+        # 1. 总经理自己的申请（pending状态）
+        # 2. 副总已批准待总经理审批的申请（vp_approved状态，assigned_gm_id是自己或未指定）
         query = query.filter(
-            LeaveApplication.status == LeaveStatus.VP_APPROVED
-        ).filter(
-            (LeaveApplication.assigned_gm_id == current_user.id) |
-            (LeaveApplication.assigned_gm_id.is_(None))
+            (
+                (LeaveApplication.status == LeaveStatus.PENDING) &
+                (LeaveApplication.user_id == current_user.id)
+            ) |
+            (
+                (LeaveApplication.status == LeaveStatus.VP_APPROVED) &
+                (
+                    (LeaveApplication.assigned_gm_id == current_user.id) |
+                    (LeaveApplication.assigned_gm_id.is_(None))
+                )
+            )
         )
     elif current_user.role == UserRole.ADMIN:
         # 管理员：查看所有待审批的申请
@@ -195,7 +319,22 @@ def get_pending_leave_applications(
         return []
     
     leaves = query.order_by(LeaveApplication.created_at.desc()).offset(skip).limit(limit).all()
-    return leaves
+    
+    # 收集所有申请人ID，查询申请人姓名
+    applicant_ids = [leave.user_id for leave in leaves]
+    applicant_map = {}
+    if applicant_ids:
+        applicants = db.query(User.id, User.real_name).filter(User.id.in_(applicant_ids)).all()
+        applicant_map = {user.id: user.real_name for user in applicants}
+    
+    # 构建响应，添加申请人姓名
+    responses = []
+    for leave in leaves:
+        data = LeaveApplicationResponse.from_orm(leave).dict()
+        data["applicant_name"] = applicant_map.get(leave.user_id, f"用户{leave.user_id}")
+        responses.append(LeaveApplicationResponse(**data))
+    
+    return responses
 
 
 @router.get("/{leave_id}", response_model=LeaveApplicationResponse)
@@ -368,29 +507,60 @@ def approve_leave_application(
     
     elif current_user.role == UserRole.VICE_PRESIDENT:
         # 副总审批（权限已在 can_approve_leave 中检查）
-        leave.vp_approver_id = current_user.id
-        leave.vp_approved_at = now
-        leave.vp_comment = approval.comment
-        
-        if approval.approved:
-            # 根据天数判断下一步
-            if leave.days <= 3:
-                leave.status = LeaveStatus.APPROVED
+        # 如果是副总审批自己的申请（pending状态），需要特殊处理
+        if leave.status == LeaveStatus.PENDING and leave.user_id == current_user.id:
+            # 副总审批自己的申请，直接完成
+            leave.vp_approver_id = current_user.id
+            leave.vp_approved_at = now
+            leave.vp_comment = approval.comment
+            
+            if approval.approved:
+                # 根据天数判断下一步
+                if leave.days <= 3:
+                    leave.status = LeaveStatus.APPROVED
+                else:
+                    # 需要总经理审批
+                    leave.status = LeaveStatus.VP_APPROVED
             else:
-                leave.status = LeaveStatus.VP_APPROVED
+                leave.status = LeaveStatus.REJECTED
         else:
-            leave.status = LeaveStatus.REJECTED
+            # 正常的副总审批流程（dept_approved状态）
+            leave.vp_approver_id = current_user.id
+            leave.vp_approved_at = now
+            leave.vp_comment = approval.comment
+            
+            if approval.approved:
+                # 根据天数判断下一步
+                if leave.days <= 3:
+                    leave.status = LeaveStatus.APPROVED
+                else:
+                    leave.status = LeaveStatus.VP_APPROVED
+            else:
+                leave.status = LeaveStatus.REJECTED
     
     elif current_user.role == UserRole.GENERAL_MANAGER:
         # 总经理审批（权限已在 can_approve_leave 中检查）
-        leave.gm_approver_id = current_user.id
-        leave.gm_approved_at = now
-        leave.gm_comment = approval.comment
-        
-        if approval.approved:
-            leave.status = LeaveStatus.APPROVED
+        # 如果是总经理审批自己的申请（pending状态），需要特殊处理
+        if leave.status == LeaveStatus.PENDING and leave.user_id == current_user.id:
+            # 总经理审批自己的申请，直接完成
+            leave.gm_approver_id = current_user.id
+            leave.gm_approved_at = now
+            leave.gm_comment = approval.comment
+            
+            if approval.approved:
+                leave.status = LeaveStatus.APPROVED
+            else:
+                leave.status = LeaveStatus.REJECTED
         else:
-            leave.status = LeaveStatus.REJECTED
+            # 正常的总经理审批流程（vp_approved状态）
+            leave.gm_approver_id = current_user.id
+            leave.gm_approved_at = now
+            leave.gm_comment = approval.comment
+            
+            if approval.approved:
+                leave.status = LeaveStatus.APPROVED
+            else:
+                leave.status = LeaveStatus.REJECTED
     
     else:
         raise HTTPException(
@@ -499,6 +669,98 @@ def list_leave_applications(
         LeaveApplication.created_at.desc()
     ).offset(skip).limit(limit).all()
     
-    return leaves
+    # 收集所有审批人ID，便于查询姓名
+    approver_ids = set()
+    department_ids = set()  # 用于查询部门主任
+    for leave in leaves:
+        if leave.assigned_vp_id:
+            approver_ids.add(leave.assigned_vp_id)
+        if leave.assigned_gm_id:
+            approver_ids.add(leave.assigned_gm_id)
+        if leave.dept_approver_id:
+            approver_ids.add(leave.dept_approver_id)
+        if leave.vp_approver_id:
+            approver_ids.add(leave.vp_approver_id)
+        if leave.gm_approver_id:
+            approver_ids.add(leave.gm_approver_id)
+        # 对于pending状态的申请，需要查询申请人的部门主任
+        if leave.status == LeaveStatus.PENDING:
+            applicant = db.query(User).filter(User.id == leave.user_id).first()
+            if applicant and applicant.department_id:
+                department_ids.add(applicant.department_id)
+            # 如果是总经理申请且assigned_gm_id为空，需要包含申请人ID以便查询姓名
+            if applicant and applicant.role == UserRole.GENERAL_MANAGER and not leave.assigned_gm_id:
+                approver_ids.add(leave.user_id)
+
+    approver_map = {}
+    if approver_ids:
+        approvers = db.query(User.id, User.real_name).filter(User.id.in_(approver_ids)).all()
+        approver_map = {user.id: user.real_name for user in approvers}
+    
+    # 查询部门主任（用于pending状态的申请）
+    dept_to_head_map = {}
+    if department_ids:
+        departments = db.query(Department).filter(Department.id.in_(department_ids)).all()
+        dept_head_ids = [dept.head_id for dept in departments if dept.head_id]
+        if dept_head_ids:
+            dept_heads = db.query(User.id, User.real_name).filter(User.id.in_(dept_head_ids)).all()
+            dept_head_id_to_name = {user.id: user.real_name for user in dept_heads}
+            # 建立部门ID到部门主任姓名的映射
+            for dept in departments:
+                if dept.head_id and dept.head_id in dept_head_id_to_name:
+                    dept_to_head_map[dept.id] = dept_head_id_to_name[dept.head_id]
+        
+        # 如果部门没有设置head_id，尝试查找该部门中角色为部门主任的用户
+        for dept in departments:
+            if dept.id not in dept_to_head_map:
+                # 查找该部门中角色为部门主任的用户
+                dept_head = db.query(User).filter(
+                    User.department_id == dept.id,
+                    User.role == UserRole.DEPARTMENT_HEAD,
+                    User.is_active == True
+                ).first()
+                if dept_head:
+                    dept_to_head_map[dept.id] = dept_head.real_name
+
+    # 获取所有申请人的信息，用于判断角色
+    applicant_ids = [leave.user_id for leave in leaves]
+    applicants_map = {}
+    if applicant_ids:
+        applicants = db.query(User.id, User.role, User.department_id).filter(User.id.in_(applicant_ids)).all()
+        applicants_map = {app.id: app for app in applicants}
+    
+    responses = []
+    for leave in leaves:
+        data = LeaveApplicationResponse.from_orm(leave).dict()
+        data["assigned_vp_name"] = approver_map.get(leave.assigned_vp_id)
+        data["assigned_gm_name"] = approver_map.get(leave.assigned_gm_id)
+        data["dept_approver_name"] = approver_map.get(leave.dept_approver_id)
+        data["vp_approver_name"] = approver_map.get(leave.vp_approver_id)
+        data["gm_approver_name"] = approver_map.get(leave.gm_approver_id)
+        
+        # 对于pending状态的申请，根据申请人角色添加待审批人信息
+        if leave.status == LeaveStatus.PENDING:
+            applicant = applicants_map.get(leave.user_id)
+            if applicant:
+                if applicant.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+                    # 员工和部门主任：待部门主任审批
+                    applicant_dept_id = applicant.department_id
+                    if applicant_dept_id and applicant_dept_id in dept_to_head_map:
+                        data["pending_dept_head_name"] = dept_to_head_map[applicant_dept_id]
+                elif applicant.role == UserRole.VICE_PRESIDENT:
+                    # 副总：待副总审批（assigned_vp_id）
+                    if leave.assigned_vp_id:
+                        data["pending_vp_name"] = approver_map.get(leave.assigned_vp_id)
+                elif applicant.role == UserRole.GENERAL_MANAGER:
+                    # 总经理：待总经理审批（本人）
+                    if leave.assigned_gm_id:
+                        data["pending_gm_name"] = approver_map.get(leave.assigned_gm_id)
+                    else:
+                        # 如果assigned_gm_id为空，使用申请人ID（总经理本人）
+                        data["pending_gm_name"] = approver_map.get(leave.user_id)
+        
+        responses.append(LeaveApplicationResponse(**data))
+
+    return responses
 
 

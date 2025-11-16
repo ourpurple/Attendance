@@ -12,7 +12,8 @@ Page({
     location: '',
     pendingCount: 0,
     recentAttendance: [],
-    hasApprovalPermission: false
+    hasApprovalPermission: false,
+    isWorkday: true  // 是否为工作日，用于控制打卡状态区域的显示
   },
 
   onLoad() {
@@ -134,11 +135,11 @@ Page({
             const location = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
             
             resolve({
-              location,  // 保留坐标字符串用于兼容
+              location,  // 保留坐标字符串用于兼容（必需字段）
               address: address || location,  // 地址文本，失败时使用坐标
-              latitude,
-              longitude,
-              accuracy: accuracy || null  // 定位精度（米）
+              latitude: latitude,  // 纬度（可选）
+              longitude: longitude  // 经度（可选）
+              // 注意：不发送accuracy字段，因为后端schema中没有定义
             });
           } catch (error) {
             reject(new Error('处理位置信息失败: ' + error.message));
@@ -242,8 +243,9 @@ Page({
       const workdayCheck = await this.checkWorkday();
       
       if (!workdayCheck.is_workday) {
-        // 非工作日，禁用打卡按钮
+        // 非工作日，隐藏打卡状态区域，禁用打卡按钮
         this.setData({
+          isWorkday: false,
           checkinDisabled: true,
           checkoutDisabled: true
         });
@@ -262,6 +264,11 @@ Page({
         }
         this.setData({ location: message });
       } else {
+        // 工作日，显示打卡状态区域
+        this.setData({
+          isWorkday: true
+        });
+        
         // 工作日，不在这里设置按钮状态，让 loadTodayAttendance 来设置
         // 但如果是调休工作日，显示提示
         if (workdayCheck.reason === '调休工作日') {
@@ -280,6 +287,16 @@ Page({
 
   // 上班打卡
   async checkin() {
+    // 如果按钮已禁用（已打卡），直接返回
+    if (this.data.checkinDisabled) {
+      wx.showToast({
+        title: '今天已经打过上班卡',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
     // 检查是否为工作日
     const workdayCheck = await this.checkWorkday();
     if (!workdayCheck.is_workday) {
@@ -292,6 +309,30 @@ Page({
         duration: 2000
       });
       return;
+    }
+    
+    // 检查是否会迟到
+    try {
+      const lateCheck = await app.request({
+        url: '/attendance/check-late'
+      });
+      if (lateCheck.will_be_late) {
+        const currentTime = lateCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const workStartTime = lateCheck.work_start_time || '09:00';
+        const res = await wx.showModal({
+          title: '迟到提醒',
+          content: `当前时间 ${currentTime}，已超过上班时间 ${workStartTime}，打卡后将记录为迟到。\n\n确定要继续打卡吗？`,
+          confirmText: '确定打卡',
+          cancelText: '取消',
+          confirmColor: '#ff9500'
+        });
+        if (!res.confirm) {
+          return;  // 用户取消，不执行打卡
+        }
+      }
+    } catch (error) {
+      console.warn('检查迟到状态失败:', error);
+      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
     
     wx.showLoading({ title: '获取位置中...' });
@@ -315,7 +356,15 @@ Page({
         duration: 2000
       });
 
-      this.loadTodayAttendance();
+      // 重新加载页面数据
+      await this.loadTodayAttendance();
+      await this.loadRecentAttendance();
+      await this.loadPendingCount();
+      
+      // 刷新页面以确保所有数据都是最新的
+      setTimeout(() => {
+        this.onShow();
+      }, 500);
     } catch (error) {
       wx.showModal({
         title: '打卡失败',
@@ -329,6 +378,16 @@ Page({
 
   // 下班打卡
   async checkout() {
+    // 如果按钮已禁用（已打卡），直接返回
+    if (this.data.checkoutDisabled) {
+      wx.showToast({
+        title: '今天已经打过下班卡',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+    
     // 检查是否为工作日
     const workdayCheck = await this.checkWorkday();
     if (!workdayCheck.is_workday) {
@@ -341,6 +400,30 @@ Page({
         duration: 2000
       });
       return;
+    }
+    
+    // 检查是否会早退
+    try {
+      const earlyLeaveCheck = await app.request({
+        url: '/attendance/check-early-leave'
+      });
+      if (earlyLeaveCheck.will_be_early_leave) {
+        const currentTime = earlyLeaveCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        const workEndTime = earlyLeaveCheck.work_end_time || '18:00';
+        const res = await wx.showModal({
+          title: '早退提醒',
+          content: `当前时间 ${currentTime}，早于下班时间 ${workEndTime}，打卡后将记录为早退。\n\n确定要继续打卡吗？`,
+          confirmText: '确定打卡',
+          cancelText: '取消',
+          confirmColor: '#ff9500'
+        });
+        if (!res.confirm) {
+          return;  // 用户取消，不执行打卡
+        }
+      }
+    } catch (error) {
+      console.warn('检查早退状态失败:', error);
+      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
     
     wx.showLoading({ title: '获取位置中...' });
@@ -364,7 +447,15 @@ Page({
         duration: 2000
       });
 
-      this.loadTodayAttendance();
+      // 重新加载页面数据
+      await this.loadTodayAttendance();
+      await this.loadRecentAttendance();
+      await this.loadPendingCount();
+      
+      // 刷新页面以确保所有数据都是最新的
+      setTimeout(() => {
+        this.onShow();
+      }, 500);
     } catch (error) {
       wx.showModal({
         title: '打卡失败',
@@ -387,6 +478,10 @@ Page({
       // 确保 data 是数组
       const safeData = Array.isArray(data) ? data : [];
 
+      // 检查是否为工作日
+      const workdayCheck = await this.checkWorkday();
+      const isWorkday = workdayCheck.is_workday;
+
       if (safeData.length > 0) {
         const formatTime = (dateStr) => {
           if (!dateStr) return '未打卡';
@@ -399,11 +494,9 @@ Page({
         };
 
         const att = safeData[0];
-        // 检查是否为工作日（非工作日时保持禁用状态）
-        const workdayCheck = await this.checkWorkday();
-        const isWorkday = workdayCheck.is_workday;
         
         this.setData({
+          isWorkday: isWorkday,  // 更新工作日状态
           checkinStatus: formatTime(att.checkin_time),
           checkoutStatus: formatTime(att.checkout_time),
           // 如果是工作日，根据打卡状态设置按钮；如果不是工作日，保持禁用
@@ -412,11 +505,9 @@ Page({
         });
       } else {
         // 没有记录，检查是否为工作日
-        const workdayCheck = await this.checkWorkday();
-        const isWorkday = workdayCheck.is_workday;
-        
         // 只有在工作日时才重置为未打卡状态
         this.setData({
+          isWorkday: isWorkday,  // 更新工作日状态
           checkinStatus: '未打卡',
           checkoutStatus: '未打卡',
           checkinDisabled: !isWorkday,  // 非工作日禁用

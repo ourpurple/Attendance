@@ -157,9 +157,32 @@ body {
     color: white;
 }
 
+.btn-success:active {
+    background: #28A745;
+    transform: scale(0.98);
+}
+
 .btn-danger {
     background: var(--danger-color);
     color: white;
+}
+
+/* 按钮禁用状态 - 灰色 */
+.btn:disabled,
+button:disabled {
+    background: #8E8E93 !important;
+    color: #FFFFFF !important;
+    opacity: 0.6;
+    cursor: not-allowed !important;
+    transform: none !important;
+}
+
+.btn-primary:disabled {
+    background: #8E8E93 !important;
+}
+
+.btn-success:disabled {
+    background: #8E8E93 !important;
 }
 
 .btn-block {

@@ -631,11 +631,11 @@ async function getCurrentLocation(retryCount = 0) {
                     const location = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
                     
                     resolve({
-                        location,  // 保留坐标字符串用于兼容
+                        location,  // 保留坐标字符串用于兼容（必需字段）
                         address: address || location,  // 地址文本，失败时使用坐标
-                        latitude,
-                        longitude,
-                        accuracy: accuracy || null  // 定位精度（米）
+                        latitude: latitude,  // 纬度（可选）
+                        longitude: longitude  // 经度（可选）
+                        // 注意：不发送accuracy字段，因为后端schema中没有定义
                     });
                 } catch (error) {
                     reject(new Error('处理位置信息失败: ' + error.message));
@@ -693,6 +693,14 @@ async function getCurrentLocation(retryCount = 0) {
 
 // 上班打卡
 async function checkin() {
+    const btn = document.getElementById('checkin-btn');
+    
+    // 如果按钮已禁用（已打卡），直接返回
+    if (btn.disabled) {
+        await showToast('今天已经打过上班卡', 'warning');
+        return;
+    }
+    
     // 检查是否为工作日
     const workdayCheck = await checkWorkday();
     if (!workdayCheck.is_workday) {
@@ -703,7 +711,31 @@ async function checkin() {
         return;
     }
     
-    const btn = document.getElementById('checkin-btn');
+    // 检查是否会迟到
+    try {
+        const lateCheck = await apiRequest('/attendance/check-late');
+        if (lateCheck.will_be_late) {
+            const currentTime = lateCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            const workStartTime = lateCheck.work_start_time || '09:00';
+            const confirmed = await showToast(
+                `当前时间 ${currentTime}，已超过上班时间 ${workStartTime}，打卡后将记录为迟到。\n\n确定要继续打卡吗？`,
+                'warning',
+                {
+                    confirm: true,
+                    confirmText: '确定打卡',
+                    cancelText: '取消',
+                    timeout: 0  // 不自动关闭
+                }
+            );
+            if (!confirmed) {
+                return;  // 用户取消，不执行打卡
+            }
+        }
+    } catch (error) {
+        console.warn('检查迟到状态失败:', error);
+        // 如果检查失败，继续执行打卡（不影响正常流程）
+    }
+    
     btn.disabled = true;
     btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
 
@@ -722,11 +754,15 @@ async function checkin() {
         });
 
         await showToast('上班打卡成功！', 'success', { timeout: 2000 });
-        // 刷新整个首页数据
+        // 刷新整个首页数据（会自动设置按钮状态）
         await loadHomeData();
+        // 刷新页面以确保所有数据都是最新的
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     } catch (error) {
         await showToast('打卡失败: ' + error.message, 'error');
-    } finally {
+        // 只有失败时才恢复按钮状态
         btn.disabled = false;
         btn.innerHTML = '<span>📍</span><span>上班打卡</span>';
     }
@@ -734,6 +770,14 @@ async function checkin() {
 
 // 下班打卡
 async function checkout() {
+    const btn = document.getElementById('checkout-btn');
+    
+    // 如果按钮已禁用（已打卡），直接返回
+    if (btn.disabled) {
+        await showToast('今天已经打过下班卡', 'warning');
+        return;
+    }
+    
     // 检查是否为工作日
     const workdayCheck = await checkWorkday();
     if (!workdayCheck.is_workday) {
@@ -744,7 +788,31 @@ async function checkout() {
         return;
     }
     
-    const btn = document.getElementById('checkout-btn');
+    // 检查是否会早退
+    try {
+        const earlyLeaveCheck = await apiRequest('/attendance/check-early-leave');
+        if (earlyLeaveCheck.will_be_early_leave) {
+            const currentTime = earlyLeaveCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            const workEndTime = earlyLeaveCheck.work_end_time || '18:00';
+            const confirmed = await showToast(
+                `当前时间 ${currentTime}，早于下班时间 ${workEndTime}，打卡后将记录为早退。\n\n确定要继续打卡吗？`,
+                'warning',
+                {
+                    confirm: true,
+                    confirmText: '确定打卡',
+                    cancelText: '取消',
+                    timeout: 0  // 不自动关闭
+                }
+            );
+            if (!confirmed) {
+                return;  // 用户取消，不执行打卡
+            }
+        }
+    } catch (error) {
+        console.warn('检查早退状态失败:', error);
+        // 如果检查失败，继续执行打卡（不影响正常流程）
+    }
+    
     btn.disabled = true;
     btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
 
@@ -763,11 +831,15 @@ async function checkout() {
         });
 
         await showToast('下班打卡成功！', 'success', { timeout: 2000 });
-        // 刷新整个首页数据
+        // 刷新整个首页数据（会自动设置按钮状态）
         await loadHomeData();
+        // 刷新页面以确保所有数据都是最新的
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
     } catch (error) {
         await showToast('打卡失败: ' + error.message, 'error');
-    } finally {
+        // 只有失败时才恢复按钮状态
         btn.disabled = false;
         btn.innerHTML = '<span>📍</span><span>下班打卡</span>';
     }
@@ -827,12 +899,30 @@ async function checkAndSetAttendanceButtons() {
     const checkinBtn = document.getElementById('checkin-btn');
     const checkoutBtn = document.getElementById('checkout-btn');
     const clockLocation = document.getElementById('clock-location');
+    const clockStatus = document.getElementById('clock-status'); // 打卡状态区域（红框区域）
+    
+    // 先获取今日打卡状态，以确定按钮是否应该禁用
+    let todayAttendance = null;
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}`);
+        if (attendances.length > 0) {
+            todayAttendance = attendances[0];
+        }
+    } catch (error) {
+        console.error('获取今日打卡状态失败:', error);
+    }
     
     // 检查今天是否为工作日
     const workdayCheck = await checkWorkday();
     
     if (!workdayCheck.is_workday) {
-        // 非工作日，禁用打卡按钮
+        // 非工作日，隐藏打卡状态区域
+        if (clockStatus) {
+            clockStatus.style.display = 'none';
+        }
+        
+        // 禁用打卡按钮
         checkinBtn.disabled = true;
         checkoutBtn.disabled = true;
         checkinBtn.style.opacity = '0.5';
@@ -858,16 +948,30 @@ async function checkAndSetAttendanceButtons() {
             clockLocation.style.fontWeight = 'bold';
         }
     } else {
-        // 工作日，启用打卡按钮
-        checkinBtn.disabled = false;
-        checkoutBtn.disabled = false;
-        checkinBtn.style.opacity = '1';
-        checkoutBtn.style.opacity = '1';
-        checkinBtn.style.cursor = 'pointer';
-        checkoutBtn.style.cursor = 'pointer';
+        // 工作日，显示打卡状态区域
+        if (clockStatus) {
+            clockStatus.style.display = 'flex';
+        }
+        
+        // 根据打卡状态设置按钮（已打卡的按钮保持禁用）
+        if (todayAttendance) {
+            // 已打卡的按钮保持禁用状态（灰色）
+            checkinBtn.disabled = !!todayAttendance.checkin_time;
+            checkoutBtn.disabled = !todayAttendance.checkin_time || !!todayAttendance.checkout_time;
+        } else {
+            // 未打卡，根据工作日状态启用按钮
+            checkinBtn.disabled = false;
+            checkoutBtn.disabled = true; // 未上班时，下班按钮禁用
+        }
+        
+        // 设置按钮样式
+        checkinBtn.style.opacity = checkinBtn.disabled ? '0.6' : '1';
+        checkoutBtn.style.opacity = checkoutBtn.disabled ? '0.6' : '1';
+        checkinBtn.style.cursor = checkinBtn.disabled ? 'not-allowed' : 'pointer';
+        checkoutBtn.style.cursor = checkoutBtn.disabled ? 'not-allowed' : 'pointer';
         
         // 如果是调休工作日，显示提示
-        if (workdayCheck.reason === '调休工作日' && clockLocation) {
+        if (workdayCheck.reason === '调休工作日' && clockLocation && !todayAttendance) {
             clockLocation.textContent = `今天是${workdayCheck.holiday_name || '调休工作日'}`;
             clockLocation.style.color = '#007aff';
             clockLocation.style.fontWeight = 'bold';
@@ -880,8 +984,8 @@ async function loadHomeData() {
     await loadTodayAttendance();
     await loadRecentAttendance();
     await loadPendingCount();
-    // 检查工作日并设置按钮状态
-    checkAndSetAttendanceButtons();
+    // 检查工作日并设置按钮状态（会考虑打卡状态）
+    await checkAndSetAttendanceButtons();
 }
 
 // 加载今日打卡状态
@@ -897,8 +1001,12 @@ async function loadTodayAttendance() {
             document.getElementById('checkout-status').textContent = 
                 att.checkout_time ? formatTime(att.checkout_time) : '未打卡';
 
-            document.getElementById('checkin-btn').disabled = !!att.checkin_time;
-            document.getElementById('checkout-btn').disabled = !att.checkin_time || !!att.checkout_time;
+            const checkinBtn = document.getElementById('checkin-btn');
+            const checkoutBtn = document.getElementById('checkout-btn');
+            
+            // 设置按钮禁用状态（已打卡的按钮会变为灰色）
+            checkinBtn.disabled = !!att.checkin_time;
+            checkoutBtn.disabled = !att.checkin_time || !!att.checkout_time;
         } else {
             document.getElementById('checkin-status').textContent = '未打卡';
             document.getElementById('checkout-status').textContent = '未打卡';
@@ -1047,6 +1155,30 @@ async function loadMyLeaveApplications() {
             // 判断是否可以撤回（待审批状态）
             const canCancel = ['pending', 'dept_approved', 'vp_approved'].includes(leave.status);
             
+            // 获取待审批人信息
+            let pendingApprover = '';
+            if (leave.status === 'pending') {
+                // 根据申请人角色显示不同的待审批人
+                const userRole = currentUser?.role;
+                if (userRole === 'vice_president') {
+                    // 副总申请：待副总审批
+                    pendingApprover = leave.pending_vp_name || leave.assigned_vp_name ? 
+                        `待审批: ${leave.pending_vp_name || leave.assigned_vp_name}` : '待审批: 副总';
+                } else if (userRole === 'general_manager') {
+                    // 总经理申请：待总经理审批
+                    pendingApprover = leave.pending_gm_name || leave.assigned_gm_name ? 
+                        `待审批: ${leave.pending_gm_name || leave.assigned_gm_name}` : '待审批: 总经理';
+                } else {
+                    // 员工和部门主任申请：待部门主任审批
+                    pendingApprover = leave.pending_dept_head_name ? 
+                        `待审批: ${leave.pending_dept_head_name}` : '待审批: 部门主任';
+                }
+            } else if (leave.status === 'dept_approved') {
+                pendingApprover = leave.assigned_vp_name ? `待审批: ${leave.assigned_vp_name}` : '待审批: 副总';
+            } else if (leave.status === 'vp_approved') {
+                pendingApprover = leave.assigned_gm_name ? `待审批: ${leave.assigned_gm_name}` : '待审批: 总经理';
+            }
+            
             return `
                 <div class="list-item">
                     <div class="list-item-header">
@@ -1057,6 +1189,7 @@ async function loadMyLeaveApplications() {
                         <div><strong>天数:</strong> ${leave.days}天</div>
                         <div><strong>原因:</strong> ${leave.reason}</div>
                         <div><strong>申请时间:</strong> ${formatDateTime(leave.created_at)}</div>
+                        ${pendingApprover ? `<div style="color: #1890ff; margin-top: 5px;"><strong>${pendingApprover}</strong></div>` : ''}
                         <div style="margin-top: 10px; display: flex; gap: 10px;">
                             ${canCancel ? `
                                 <button class="btn btn-secondary" style="padding: 5px 15px; font-size: 0.9em; flex: 1;" onclick="cancelLeaveApplication(${leave.id})">撤回申请</button>
@@ -1092,6 +1225,12 @@ async function loadMyOvertimeApplications() {
             // 判断是否可以撤回（待审批状态）
             const canCancel = ot.status === 'pending';
             
+            // 获取待审批人信息
+            let pendingApprover = '';
+            if (ot.status === 'pending') {
+                pendingApprover = ot.assigned_approver_name ? `待审批: ${ot.assigned_approver_name}` : '待审批: 审批人';
+            }
+            
             return `
                 <div class="list-item">
                     <div class="list-item-header">
@@ -1102,6 +1241,7 @@ async function loadMyOvertimeApplications() {
                         <div><strong>天数:</strong> ${ot.days}天</div>
                         <div><strong>原因:</strong> ${ot.reason}</div>
                         <div><strong>申请时间:</strong> ${formatDateTime(ot.created_at)}</div>
+                        ${pendingApprover ? `<div style="color: #1890ff; margin-top: 5px;"><strong>${pendingApprover}</strong></div>` : ''}
                         <div style="margin-top: 10px; display: flex; gap: 10px;">
                             ${canCancel ? `
                                 <button class="btn btn-secondary" style="padding: 5px 15px; font-size: 0.9em; flex: 1;" onclick="cancelOvertimeApplication(${ot.id})">撤回申请</button>
@@ -1169,7 +1309,10 @@ async function loadPendingLeaves() {
                     <span class="status-badge status-${getStatusClass(leave.status)}">${getLeaveStatusName(leave.status)}</span>
                 </div>
                 <div class="list-item-content">
-                    <div><strong>天数:</strong> ${leave.days}天</div>
+                    <div style="display: flex; margin-bottom: 8px;">
+                        <div style="flex: 1;"><strong>申请人:</strong> ${leave.applicant_name || `用户${leave.user_id}`}</div>
+                        <div style="flex: 1;"><strong>请假天数:</strong> ${leave.days}天</div>
+                    </div>
                     <div><strong>原因:</strong> ${leave.reason}</div>
                 </div>
                 <div class="list-item-footer" style="display: flex; gap: 10px;">
@@ -1209,7 +1352,10 @@ async function loadPendingOvertimes() {
                     <span class="status-badge status-${getStatusClass(ot.status)}">${getOvertimeStatusName(ot.status)}</span>
                 </div>
                 <div class="list-item-content">
-                    <div><strong>天数:</strong> ${ot.days}天</div>
+                    <div style="display: flex; margin-bottom: 8px;">
+                        <div style="flex: 1;"><strong>申请人:</strong> ${ot.applicant_name || `用户${ot.user_id}`}</div>
+                        <div style="flex: 1;"><strong>加班天数:</strong> ${ot.days}天</div>
+                    </div>
                     <div><strong>原因:</strong> ${ot.reason}</div>
                 </div>
                 <div class="list-item-footer" style="display: flex; gap: 10px;">
@@ -1336,7 +1482,28 @@ async function loadMyStats() {
 }
 
 // ==================== 请假申请表单 ====================
-function showNewLeaveForm() {
+async function showNewLeaveForm() {
+    // 根据用户角色决定是否显示审批人选择器
+    const userRole = currentUser?.role;
+    const isVicePresident = userRole === 'vice_president';
+    
+    // 只有副总需要显示审批人选择器
+    let vpOptions = '<option value="">默认本人审批</option>';
+    let gmOptions = '<option value="">系统自动分配</option>';
+    
+    if (isVicePresident) {
+        try {
+            const approvers = await apiRequest('/users/approvers');
+            const vps = approvers.filter(u => u.role === 'vice_president');
+            const gms = approvers.filter(u => u.role === 'general_manager');
+            
+            vpOptions += vps.map(vp => `<option value="${vp.id}" ${vp.id === currentUser.id ? 'selected' : ''}>${vp.real_name}</option>`).join('');
+            gmOptions += gms.map(gm => `<option value="${gm.id}">${gm.real_name}</option>`).join('');
+        } catch (error) {
+            console.error('加载审批人列表失败:', error);
+        }
+    }
+    
     const modalHtml = `
         <div class="modal-overlay" onclick="closeFormModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
@@ -1355,12 +1522,28 @@ function showNewLeaveForm() {
                     </div>
                     <div class="form-group">
                         <label class="form-label">请假天数 *</label>
-                        <input type="number" id="leave-days" class="form-input" step="0.5" min="0.5" required placeholder="例如：0.5, 1, 2.5">
+                        <input type="number" id="leave-days" class="form-input" step="0.5" min="0.5" required placeholder="例如：0.5, 1, 2.5" onchange="updateLeaveApproverVisibility()">
                     </div>
                     <div class="form-group">
                         <label class="form-label">请假原因 *</label>
                         <textarea id="leave-reason" class="form-input" rows="4" required placeholder="请输入请假原因"></textarea>
                     </div>
+                    ${isVicePresident ? `
+                    <div class="form-group" id="leave-vp-selector">
+                        <label class="form-label">指定副总审批人（可选）</label>
+                        <select id="leave-assigned-vp" class="form-input">
+                            ${vpOptions}
+                        </select>
+                        <small style="color: #888; font-size: 0.9em;">默认本人审批，可选择其他副总</small>
+                    </div>
+                    <div class="form-group" id="leave-gm-selector" style="display: none;">
+                        <label class="form-label">指定总经理审批人（可选）</label>
+                        <select id="leave-assigned-gm" class="form-input">
+                            ${gmOptions}
+                        </select>
+                        <small style="color: #888; font-size: 0.9em;">留空则系统自动分配</small>
+                    </div>
+                    ` : ''}
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeFormModal()">取消</button>
                         <button type="submit" class="btn btn-primary">提交申请</button>
@@ -1376,6 +1559,39 @@ function showNewLeaveForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('leave-start-date').value = today;
     document.getElementById('leave-end-date').value = today;
+    
+    // 初始检查天数，显示/隐藏审批人选择器
+    updateLeaveApproverVisibility();
+}
+
+// 根据请假天数显示/隐藏审批人选择器（仅对副总显示）
+function updateLeaveApproverVisibility() {
+    const daysInput = document.getElementById('leave-days');
+    const vpSelector = document.getElementById('leave-vp-selector');
+    const gmSelector = document.getElementById('leave-gm-selector');
+    
+    if (!daysInput) return;
+    
+    const userRole = currentUser?.role;
+    const isVicePresident = userRole === 'vice_president';
+    
+    // 只有副总才显示审批人选择器
+    if (!isVicePresident) {
+        if (vpSelector) vpSelector.style.display = 'none';
+        if (gmSelector) gmSelector.style.display = 'none';
+        return;
+    }
+    
+    const days = parseFloat(daysInput.value) || 0;
+    
+    // 副总请假：3天以上需要总经理审批
+    if (gmSelector) {
+        if (days > 3) {
+            gmSelector.style.display = 'block';
+        } else {
+            gmSelector.style.display = 'none';
+        }
+    }
 }
 
 async function submitLeaveForm(event) {
@@ -1385,6 +1601,8 @@ async function submitLeaveForm(event) {
     const endDate = document.getElementById('leave-end-date').value;
     const days = parseFloat(document.getElementById('leave-days').value);
     const reason = document.getElementById('leave-reason').value;
+    const assignedVpId = document.getElementById('leave-assigned-vp')?.value || '';
+    const assignedGmId = document.getElementById('leave-assigned-gm')?.value || '';
     
     if (!startDate || !endDate || !days || !reason) {
         await showToast('请填写所有必填项', 'warning');
@@ -1396,15 +1614,25 @@ async function submitLeaveForm(event) {
         return;
     }
     
+    const requestData = {
+        start_date: startDate + 'T00:00:00',
+        end_date: endDate + 'T23:59:59',
+        days: days,
+        reason: reason
+    };
+    
+    // 如果指定了审批人，添加到请求中
+    if (assignedVpId) {
+        requestData.assigned_vp_id = parseInt(assignedVpId);
+    }
+    if (assignedGmId) {
+        requestData.assigned_gm_id = parseInt(assignedGmId);
+    }
+    
     try {
         await apiRequest('/leave/', {
             method: 'POST',
-            body: JSON.stringify({
-                start_date: startDate + 'T00:00:00',
-                end_date: endDate + 'T23:59:59',
-                days: days,
-                reason: reason
-            })
+            body: JSON.stringify(requestData)
         });
         
         await showToast('请假申请提交成功！', 'success', { timeout: 2000 });
@@ -1477,6 +1705,16 @@ function showNewOvertimeForm() {
                         <textarea id="overtime-reason" class="form-input" rows="4" required placeholder="请输入加班原因"></textarea>
                     </div>
                     
+                    ${currentUser?.role === 'vice_president' ? `
+                    <div class="form-group">
+                        <label class="form-label">指定副总审批人（可选）</label>
+                        <select id="overtime-assigned-approver" class="form-input">
+                            <option value="">默认本人审批</option>
+                        </select>
+                        <small style="color: #888; font-size: 0.9em;">默认本人审批，可选择其他副总</small>
+                    </div>
+                    ` : ''}
+                    
                     <div class="modal-actions">
                         <button type="button" class="btn btn-secondary" onclick="closeFormModal()">取消</button>
                         <button type="submit" class="btn btn-primary">提交申请</button>
@@ -1492,6 +1730,30 @@ function showNewOvertimeForm() {
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('overtime-date').value = today;
     document.getElementById('overtime-quick-date').value = today;
+    
+    // 加载审批人列表
+    loadOvertimeApprovers();
+}
+
+// 加载加班申请的审批人列表（仅副总需要）
+async function loadOvertimeApprovers() {
+    const approverSelect = document.getElementById('overtime-assigned-approver');
+    if (!approverSelect) return;
+    
+    const userRole = currentUser?.role;
+    if (userRole !== 'vice_president') return;
+    
+    try {
+        const approvers = await apiRequest('/users/approvers');
+        const vps = approvers.filter(u => u.role === 'vice_president');
+        
+        let options = '<option value="">默认本人审批</option>';
+        options += vps.map(vp => `<option value="${vp.id}" ${vp.id === currentUser.id ? 'selected' : ''}>${vp.real_name}</option>`).join('');
+        
+        approverSelect.innerHTML = options;
+    } catch (error) {
+        console.error('加载审批人列表失败:', error);
+    }
 }
 
 function handleOvertimeTypeChange() {
@@ -1614,16 +1876,25 @@ async function submitOvertimeForm(event) {
         }
     }
     
+    const assignedApproverId = document.getElementById('overtime-assigned-approver')?.value || '';
+    
+    const requestData = {
+        start_time: startTime,
+        end_time: endTime,
+        hours: hours,
+        days: days,
+        reason: reason
+    };
+    
+    // 如果指定了审批人，添加到请求中
+    if (assignedApproverId) {
+        requestData.assigned_approver_id = parseInt(assignedApproverId);
+    }
+    
     try {
         await apiRequest('/overtime/', {
             method: 'POST',
-            body: JSON.stringify({
-                start_time: startTime,
-                end_time: endTime,
-                hours: hours,
-                days: days,
-                reason: reason
-            })
+            body: JSON.stringify(requestData)
         });
         
         await showToast('加班申请提交成功！', 'success', { timeout: 2000 });
