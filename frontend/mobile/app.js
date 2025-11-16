@@ -332,6 +332,8 @@ function showPage(pageName) {
 
     if (pageName === 'login') {
         document.getElementById('login-page').classList.add('active');
+        // 显示登录页面时，重新修复用户名输入框
+        setTimeout(fixUsernameInputKeyboard, 100);
     } else {
         document.getElementById('main-page').classList.add('active');
     }
@@ -396,6 +398,37 @@ function loadSectionData(section) {
     }
 }
 
+// 修复iOS微信中用户名输入框显示密码键盘的问题
+function fixUsernameInputKeyboard() {
+    const usernameInput = document.getElementById('username');
+    if (!usernameInput) return;
+    
+    // 强制设置输入模式为文本
+    usernameInput.setAttribute('type', 'text');
+    usernameInput.setAttribute('inputmode', 'text');
+    usernameInput.setAttribute('autocomplete', 'off');
+    usernameInput.setAttribute('autocapitalize', 'none');
+    usernameInput.setAttribute('autocorrect', 'off');
+    usernameInput.setAttribute('spellcheck', 'false');
+    
+    // 在focus时再次强制设置
+    usernameInput.addEventListener('focus', function() {
+        // 延迟设置，确保覆盖iOS的默认行为
+        setTimeout(() => {
+            this.setAttribute('type', 'text');
+            this.setAttribute('inputmode', 'text');
+            this.setAttribute('autocomplete', 'off');
+        }, 10);
+    }, { passive: true });
+    
+    // 在touchstart时也设置（iOS微信可能需要）
+    usernameInput.addEventListener('touchstart', function() {
+        this.setAttribute('type', 'text');
+        this.setAttribute('inputmode', 'text');
+        this.setAttribute('autocomplete', 'off');
+    }, { passive: true });
+}
+
 // 登录
 document.getElementById('login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -421,6 +454,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         errorEl.textContent = error.message;
     }
 });
+
+// 页面加载完成后修复用户名输入框
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixUsernameInputKeyboard);
+} else {
+    fixUsernameInputKeyboard();
+}
 
 // 更新用户信息
 function updateUserInfo() {

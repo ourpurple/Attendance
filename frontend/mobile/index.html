@@ -20,23 +20,27 @@
                     <p class="company-name">河南新盟科教有限公司</p>
                 </div>
                 <form id="login-form" class="login-form">
+                    <!-- 隐藏的输入框，用于防止iOS误判用户名输入框为密码 -->
+                    <input type="text" style="position: absolute; left: -9999px; opacity: 0; pointer-events: none; tabindex: -1;" autocomplete="off" aria-hidden="true">
                     <div class="form-group">
                         <input 
                             type="text" 
                             id="username" 
+                            name="username"
                             placeholder="用户名" 
                             required 
-                            autocomplete="username"
                             inputmode="text"
                             autocapitalize="none"
                             autocorrect="off"
                             spellcheck="false"
+                            autocomplete="off"
                         >
                     </div>
                     <div class="form-group">
                         <input 
                             type="password" 
                             id="password" 
+                            name="password"
                             placeholder="密码" 
                             required 
                             autocomplete="current-password"
