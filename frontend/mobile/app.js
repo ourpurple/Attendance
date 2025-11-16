@@ -944,9 +944,15 @@ async function checkAndSetAttendanceButtons() {
     // 先获取今日打卡状态，以确定按钮是否应该禁用
     let todayAttendance = null;
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // 使用更兼容的方式获取今天的日期
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
         const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}`);
-        if (attendances.length > 0) {
+        if (attendances && attendances.length > 0) {
             todayAttendance = attendances[0];
         }
     } catch (error) {
@@ -995,9 +1001,17 @@ async function checkAndSetAttendanceButtons() {
         
         // 根据打卡状态设置按钮（已打卡的按钮保持禁用）
         if (todayAttendance) {
+            // 更严格地检查时间字段
+            const hasCheckin = todayAttendance.checkin_time && 
+                              todayAttendance.checkin_time !== null && 
+                              todayAttendance.checkin_time !== '';
+            const hasCheckout = todayAttendance.checkout_time && 
+                               todayAttendance.checkout_time !== null && 
+                               todayAttendance.checkout_time !== '';
+            
             // 已打卡的按钮保持禁用状态（灰色）
-            checkinBtn.disabled = !!todayAttendance.checkin_time;
-            checkoutBtn.disabled = !todayAttendance.checkin_time || !!todayAttendance.checkout_time;
+            checkinBtn.disabled = hasCheckin;
+            checkoutBtn.disabled = !hasCheckin || hasCheckout;
         } else {
             // 未打卡，根据工作日状态启用按钮
             checkinBtn.disabled = false;
@@ -1031,38 +1045,103 @@ async function loadHomeData() {
 // 加载今日打卡状态
 async function loadTodayAttendance() {
     try {
-        const today = new Date().toISOString().split('T')[0];
+        // 使用更兼容的方式获取今天的日期
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const today = `${year}-${month}-${day}`;
+        
         const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}`);
+        
+        console.log('今日打卡数据:', attendances); // 调试日志
 
-        if (attendances.length > 0) {
+        if (attendances && attendances.length > 0) {
             const att = attendances[0];
-            document.getElementById('checkin-status').textContent = 
-                att.checkin_time ? formatTime(att.checkin_time) : '未打卡';
-            document.getElementById('checkout-status').textContent = 
-                att.checkout_time ? formatTime(att.checkout_time) : '未打卡';
+            
+            // 更严格地检查时间字段是否存在且有效
+            const hasCheckin = att.checkin_time && att.checkin_time !== null && att.checkin_time !== '';
+            const hasCheckout = att.checkout_time && att.checkout_time !== null && att.checkout_time !== '';
+            
+            console.log('打卡状态检查:', { 
+                hasCheckin, 
+                hasCheckout, 
+                checkin_time: att.checkin_time, 
+                checkout_time: att.checkout_time 
+            }); // 调试日志
+            
+            // 更新状态显示
+            const checkinStatusEl = document.getElementById('checkin-status');
+            const checkoutStatusEl = document.getElementById('checkout-status');
+            
+            if (checkinStatusEl) {
+                checkinStatusEl.textContent = hasCheckin ? formatTime(att.checkin_time) : '未打卡';
+            }
+            if (checkoutStatusEl) {
+                checkoutStatusEl.textContent = hasCheckout ? formatTime(att.checkout_time) : '未打卡';
+            }
 
             const checkinBtn = document.getElementById('checkin-btn');
             const checkoutBtn = document.getElementById('checkout-btn');
             
             // 设置按钮禁用状态（已打卡的按钮会变为灰色）
-            checkinBtn.disabled = !!att.checkin_time;
-            checkoutBtn.disabled = !att.checkin_time || !!att.checkout_time;
+            if (checkinBtn) {
+                checkinBtn.disabled = hasCheckin;
+            }
+            if (checkoutBtn) {
+                checkoutBtn.disabled = !hasCheckin || hasCheckout;
+            }
         } else {
-            document.getElementById('checkin-status').textContent = '未打卡';
-            document.getElementById('checkout-status').textContent = '未打卡';
-            document.getElementById('checkin-btn').disabled = false;
-            document.getElementById('checkout-btn').disabled = true;
+            // 没有打卡记录
+            const checkinStatusEl = document.getElementById('checkin-status');
+            const checkoutStatusEl = document.getElementById('checkout-status');
+            const checkinBtn = document.getElementById('checkin-btn');
+            const checkoutBtn = document.getElementById('checkout-btn');
+            
+            if (checkinStatusEl) {
+                checkinStatusEl.textContent = '未打卡';
+            }
+            if (checkoutStatusEl) {
+                checkoutStatusEl.textContent = '未打卡';
+            }
+            if (checkinBtn) {
+                checkinBtn.disabled = false;
+            }
+            if (checkoutBtn) {
+                checkoutBtn.disabled = true;
+            }
         }
     } catch (error) {
         console.error('加载今日打卡失败:', error);
+        // 出错时也显示未打卡状态
+        const checkinStatusEl = document.getElementById('checkin-status');
+        const checkoutStatusEl = document.getElementById('checkout-status');
+        if (checkinStatusEl) {
+            checkinStatusEl.textContent = '未打卡';
+        }
+        if (checkoutStatusEl) {
+            checkoutStatusEl.textContent = '未打卡';
+        }
     }
 }
 
 // 加载最近考勤
 async function loadRecentAttendance() {
     try {
-        const endDate = new Date().toISOString().split('T')[0];
-        const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        // 使用更兼容的方式获取日期
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const endDate = `${year}-${month}-${day}`;
+        
+        // 计算7天前的日期
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const startYear = sevenDaysAgo.getFullYear();
+        const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
+        const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
+        const startDate = `${startYear}-${startMonth}-${startDay}`;
+        
         const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${endDate}&limit=5`);
 
         const container = document.getElementById('recent-attendance');
@@ -2087,10 +2166,28 @@ function formatDate(dateStr) {
 }
 
 function formatTime(dateStr) {
-    return new Date(dateStr).toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+    if (!dateStr || dateStr === null || dateStr === '') {
+        return '未打卡';
+    }
+    
+    try {
+        // 尝试解析日期字符串
+        const date = new Date(dateStr);
+        
+        // 检查日期是否有效
+        if (isNaN(date.getTime())) {
+            console.warn('无效的日期字符串:', dateStr);
+            return '未打卡';
+        }
+        
+        // 使用更兼容的方式格式化时间
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${hours}:${minutes}`;
+    } catch (error) {
+        console.error('格式化时间失败:', error, dateStr);
+        return '未打卡';
+    }
 }
 
 function formatDateTime(dateStr) {
