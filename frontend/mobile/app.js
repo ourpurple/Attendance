@@ -951,9 +951,37 @@ async function checkAndSetAttendanceButtons() {
         const day = String(now.getDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
         
-        const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}`);
+        // 获取最近7天的数据，然后在前端过滤今天的记录
+        // 这样可以避免时区问题导致的日期不匹配
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const startYear = sevenDaysAgo.getFullYear();
+        const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
+        const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
+        const startDate = `${startYear}-${startMonth}-${startDay}`;
+        
+        const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${today}&limit=10`);
+        
+        // 在前端过滤今天的记录，避免时区问题
         if (attendances && attendances.length > 0) {
-            todayAttendance = attendances[0];
+            const todayDateStr = today;
+            for (const att of attendances) {
+                if (att.date) {
+                    // 解析日期字段
+                    let attDateStr = '';
+                    if (typeof att.date === 'string') {
+                        attDateStr = att.date.split('T')[0];
+                    } else {
+                        const d = new Date(att.date);
+                        if (!isNaN(d.getTime())) {
+                            attDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        }
+                    }
+                    if (attDateStr === todayDateStr) {
+                        todayAttendance = att;
+                        break;
+                    }
+                }
+            }
         }
     } catch (error) {
         console.error('获取今日打卡状态失败:', error);
@@ -1052,12 +1080,64 @@ async function loadTodayAttendance() {
         const day = String(now.getDate()).padStart(2, '0');
         const today = `${year}-${month}-${day}`;
         
-        const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}`);
+        // 获取最近7天的数据，然后在前端过滤今天的记录
+        // 这样可以避免时区问题导致的日期不匹配
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const startYear = sevenDaysAgo.getFullYear();
+        const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
+        const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
+        const startDate = `${startYear}-${startMonth}-${startDay}`;
         
-        console.log('今日打卡数据:', attendances); // 调试日志
+        const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${today}&limit=10`);
+        
+        console.log('获取的打卡数据:', attendances); // 调试日志
+        console.log('查询日期范围:', { startDate, today }); // 调试日志
 
+        // 在前端过滤今天的记录，避免时区问题
+        let todayAttendance = null;
         if (attendances && attendances.length > 0) {
-            const att = attendances[0];
+            // 获取今天的日期用于比较
+            const todayDateStr = today;
+            
+            // 遍历所有记录，找到今天的记录
+            for (const att of attendances) {
+                if (att.date) {
+                    // 解析日期字段（可能是ISO字符串或日期对象）
+                    let attDateStr = '';
+                    if (typeof att.date === 'string') {
+                        // 如果是字符串，提取日期部分
+                        attDateStr = att.date.split('T')[0];
+                    } else if (att.date instanceof Date) {
+                        // 如果是Date对象
+                        const d = new Date(att.date);
+                        attDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    } else {
+                        // 尝试转换为字符串
+                        const d = new Date(att.date);
+                        if (!isNaN(d.getTime())) {
+                            attDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                        }
+                    }
+                    
+                    console.log('比较日期:', { 
+                        todayDateStr, 
+                        attDateStr, 
+                        date: att.date,
+                        match: attDateStr === todayDateStr 
+                    }); // 调试日志
+                    
+                    if (attDateStr === todayDateStr) {
+                        todayAttendance = att;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        console.log('找到的今日打卡记录:', todayAttendance); // 调试日志
+
+        if (todayAttendance) {
+            const att = todayAttendance;
             
             // 更严格地检查时间字段是否存在且有效
             const hasCheckin = att.checkin_time && att.checkin_time !== null && att.checkin_time !== '';
