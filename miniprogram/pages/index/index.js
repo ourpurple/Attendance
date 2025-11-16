@@ -89,12 +89,13 @@ Page({
     const seconds = String(now.getSeconds()).padStart(2, '0');
     const time = `${hours}:${minutes}:${seconds}`;
     
-    const date = now.toLocaleDateString('zh-CN', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      weekday: 'long'
-    });
+    // 手动格式化日期为中文格式，避免安卓微信显示英文
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    const weekday = weekdays[now.getDay()];
+    const date = `${year}年${month}月${day}日 ${weekday}`;
 
     this.setData({ currentTime: time, currentDate: date });
   },
@@ -317,7 +318,14 @@ Page({
         url: '/attendance/check-late'
       });
       if (lateCheck.will_be_late) {
-        const currentTime = lateCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        // 手动格式化时间，避免安卓微信显示时区信息
+        let currentTime = lateCheck.current_time;
+        if (!currentTime) {
+          const now = new Date();
+          const hours = String(now.getHours()).padStart(2, '0');
+          const minutes = String(now.getMinutes()).padStart(2, '0');
+          currentTime = `${hours}:${minutes}`;
+        }
         const workStartTime = lateCheck.work_start_time || '09:00';
         const res = await wx.showModal({
           title: '迟到提醒',
@@ -408,7 +416,14 @@ Page({
         url: '/attendance/check-early-leave'
       });
       if (earlyLeaveCheck.will_be_early_leave) {
-        const currentTime = earlyLeaveCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+        // 手动格式化时间，避免安卓微信显示时区信息
+        let currentTime = earlyLeaveCheck.current_time;
+        if (!currentTime) {
+          const now = new Date();
+          const hours = String(now.getHours()).padStart(2, '0');
+          const minutes = String(now.getMinutes()).padStart(2, '0');
+          currentTime = `${hours}:${minutes}`;
+        }
         const workEndTime = earlyLeaveCheck.work_end_time || '18:00';
         const res = await wx.showModal({
           title: '早退提醒',
@@ -485,12 +500,17 @@ Page({
       if (safeData.length > 0) {
         const formatTime = (dateStr) => {
           if (!dateStr) return '未打卡';
-          const date = new Date(dateStr);
-          return date.toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false
-          });
+          try {
+            const date = new Date(dateStr);
+            // 手动格式化，避免安卓微信显示时区信息
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+          } catch (error) {
+            console.error('格式化时间失败:', error, dateStr);
+            return '未打卡';
+          }
         };
 
         const att = safeData[0];
@@ -530,12 +550,17 @@ Page({
 
       const formatTime = (dateStr) => {
         if (!dateStr) return null;
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString('zh-CN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化，避免安卓微信显示时区信息
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          const seconds = String(date.getSeconds()).padStart(2, '0');
+          return `${hours}:${minutes}:${seconds}`;
+        } catch (error) {
+          console.error('格式化时间失败:', error, dateStr);
+          return null;
+        }
       };
 
       // 确保 data 是数组

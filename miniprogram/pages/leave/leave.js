@@ -46,25 +46,34 @@ Page({
       });
 
       const formatDate = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('zh-CN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化日期为中文格式，避免安卓微信显示英文
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          return `${year}年${month}月${day}日`;
+        } catch (error) {
+          console.error('格式化日期失败:', error, dateStr);
+          return dateStr;
+        }
       };
 
       const formatDateTime = (dateStr) => {
         if (!dateStr) return '';
-        const date = new Date(dateStr);
-        return date.toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化日期时间为中文格式，避免安卓微信显示英文
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+        } catch (error) {
+          console.error('格式化日期时间失败:', error, dateStr);
+          return dateStr;
+        }
       };
 
       const getStatusName = (status) => {
@@ -235,24 +244,34 @@ Page({
       // 格式化日期时间
       const formatDateTime = (dateStr) => {
         if (!dateStr) return '-';
-        const date = new Date(dateStr);
-        return date.toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化日期时间为中文格式，避免安卓微信显示英文
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+        } catch (error) {
+          console.error('格式化日期时间失败:', error, dateStr);
+          return dateStr;
+        }
       };
       
       const formatDate = (dateStr) => {
         if (!dateStr) return '-';
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('zh-CN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化日期为中文格式，避免安卓微信显示英文
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          return `${year}年${month}月${day}日`;
+        } catch (error) {
+          console.error('格式化日期失败:', error, dateStr);
+          return dateStr;
+        }
       };
       
       const getStatusName = (status) => {

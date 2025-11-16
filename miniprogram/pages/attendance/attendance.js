@@ -52,22 +52,32 @@ Page({
 
       const formatTime = (dateStr) => {
         if (!dateStr) return null;
-        const date = new Date(dateStr);
-        return date.toLocaleTimeString('zh-CN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化，避免安卓微信显示时区信息
+          const hours = String(date.getHours()).padStart(2, '0');
+          const minutes = String(date.getMinutes()).padStart(2, '0');
+          return `${hours}:${minutes}`;
+        } catch (error) {
+          console.error('格式化时间失败:', error, dateStr);
+          return null;
+        }
       };
 
       const formatDate = (dateStr) => {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('zh-CN', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          weekday: 'short'
-        });
+        try {
+          const date = new Date(dateStr);
+          // 手动格式化日期为中文格式，避免安卓微信显示英文
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+          const weekday = weekdays[date.getDay()];
+          return `${year}年${month}月${day}日 ${weekday}`;
+        } catch (error) {
+          console.error('格式化日期失败:', error, dateStr);
+          return dateStr;
+        }
       };
 
       // 确保 data 是数组
