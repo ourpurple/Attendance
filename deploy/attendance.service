@@ -1,0 +1,26 @@
+[Unit]
+Description=Attendance System Backend Service
+After=network.target
+
+[Service]
+Type=simple
+User=www
+Group=www
+WorkingDirectory=/www/wwwroot/attendance-system
+Environment="PATH=/www/wwwroot/attendance-system/venv/bin"
+ExecStart=/www/wwwroot/attendance-system/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=3
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=attendance-backend
+
+# 安全设置
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
+
+
