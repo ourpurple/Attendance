@@ -32,6 +32,46 @@ echo "✅ 服务文件已创建: $SERVICE_FILE"
 systemctl daemon-reload
 echo "✅ Systemd 配置已重新加载"
 
+# 设置文件权限
+echo ""
+echo "设置文件权限..."
+if id "www" &>/dev/null; then
+    echo "✅ www 用户已存在"
+else
+    echo "创建 www 用户..."
+    groupadd -f www
+    useradd -r -g www -s /bin/false www 2>/dev/null || true
+    echo "✅ www 用户已创建"
+fi
+
+# 设置项目目录权限
+if [ -d "$PROJECT_DIR" ]; then
+    chown -R www:www "$PROJECT_DIR"
+    chmod 775 "$PROJECT_DIR"
+    
+    # 设置数据库文件权限
+    if [ -f "$PROJECT_DIR/attendance.db" ]; then
+        chmod 664 "$PROJECT_DIR/attendance.db"
+        echo "✅ 数据库文件权限已设置"
+    else
+        touch "$PROJECT_DIR/attendance.db"
+        chown www:www "$PROJECT_DIR/attendance.db"
+        chmod 664 "$PROJECT_DIR/attendance.db"
+        echo "✅ 数据库文件已创建并设置权限"
+    fi
+    
+    # 设置日志目录权限
+    if [ -d "$PROJECT_DIR/logs" ]; then
+        chown -R www:www "$PROJECT_DIR/logs"
+        chmod 775 "$PROJECT_DIR/logs"
+        echo "✅ 日志目录权限已设置"
+    fi
+    
+    echo "✅ 项目目录权限已设置"
+else
+    echo "⚠️  警告: 项目目录不存在: $PROJECT_DIR"
+fi
+
 # 启用服务（开机自启）
 systemctl enable "$SERVICE_NAME"
 echo "✅ 服务已设置为开机自启"

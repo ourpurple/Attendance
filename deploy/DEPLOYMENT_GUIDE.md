@@ -56,6 +56,8 @@ pip install -r requirements.txt
 
 # 如果遇到 bcrypt 问题，先安装兼容版本
 pip install bcrypt==3.2.0
+
+pip install pydantic[email]
 ```
 
 ### 4. 配置环境变量
@@ -101,7 +103,45 @@ source venv/bin/activate
 python3 init_db.py
 ```
 
-### 6. 安装服务（两种方式）
+### 6. 设置文件权限（重要！）
+
+**必须设置正确的文件权限，否则会出现数据库只读错误：**
+
+```bash
+# 确保 www 用户存在（如果不存在，先创建）
+sudo groupadd -f www
+sudo useradd -r -g www -s /bin/false www 2>/dev/null || true
+
+# 设置项目目录的所有者
+sudo chown -R www:www /www/wwwroot/attendance-system
+
+# 设置数据库文件和目录权限
+sudo chmod 664 /www/wwwroot/attendance-system/attendance.db
+sudo chmod 775 /www/wwwroot/attendance-system
+
+# 确保数据库文件所在目录有写权限（SQLite 需要创建临时文件）
+sudo chmod 775 /www/wwwroot/attendance-system
+
+# 如果数据库文件不存在，创建它并设置权限
+if [ ! -f /www/wwwroot/attendance-system/attendance.db ]; then
+    sudo touch /www/wwwroot/attendance-system/attendance.db
+    sudo chown www:www /www/wwwroot/attendance-system/attendance.db
+    sudo chmod 664 /www/wwwroot/attendance-system/attendance.db
+fi
+
+# 设置日志目录权限（如果存在）
+if [ -d /www/wwwroot/attendance-system/logs ]; then
+    sudo chown -R www:www /www/wwwroot/attendance-system/logs
+    sudo chmod 775 /www/wwwroot/attendance-system/logs
+fi
+```
+
+**权限说明：**
+- 数据库文件：`664` (rw-rw-r--) - 所有者和组可读写
+- 项目目录：`775` (rwxrwxr-x) - 所有者和组可读写执行
+- 日志目录：`775` (rwxrwxr-x) - 所有者和组可读写执行
+
+### 7. 安装服务（两种方式）
 
 #### 方式1：使用 systemd（推荐）
 
@@ -267,6 +307,11 @@ cd /www/wwwroot
 
 # 克隆代码仓库
 git clone https://github.com/ourpurple/Attendance.git attendance-system
+
+https://bgithub.xyz
+
+git clone https://bgithub.xyz/ourpurple/Attendance.git attendance-system
+
 
 # 进入项目目录
 cd attendance-system
@@ -629,6 +674,48 @@ sudo netstat -tlnp | grep 8000
 sudo kill -9 <PID>
 ```
 
+### 数据库只读错误（attempt to write a readonly database）
+
+如果遇到 `sqlite3.OperationalError: attempt to write a readonly database` 错误：
+
+```bash
+# 1. 检查数据库文件权限
+ls -l /www/wwwroot/attendance-system/attendance.db
+
+# 2. 检查目录权限
+ls -ld /www/wwwroot/attendance-system
+
+# 3. 检查服务运行用户
+sudo systemctl show attendance-backend | grep User
+
+# 4. 修复权限（确保 www 用户存在）
+sudo groupadd -f www
+sudo useradd -r -g www -s /bin/false www 2>/dev/null || true
+
+# 5. 设置正确的所有者和权限
+sudo chown -R www:www /www/wwwroot/attendance-system
+sudo chmod 664 /www/wwwroot/attendance-system/attendance.db
+sudo chmod 775 /www/wwwroot/attendance-system
+
+# 6. 检查 SELinux（如果启用）
+getenforce
+# 如果返回 Enforcing，可能需要设置 SELinux 上下文
+# sudo chcon -R -t httpd_sys_rw_content_t /www/wwwroot/attendance-system
+
+# 7. 重启服务
+sudo systemctl restart attendance-backend
+
+# 8. 验证修复
+sudo -u www touch /www/wwwroot/attendance-system/test_write
+sudo rm /www/wwwroot/attendance-system/test_write
+```
+
+**常见原因：**
+1. 数据库文件所有者不是 `www` 用户
+2. 数据库文件权限不足（需要 664 或 666）
+3. 项目目录权限不足（需要 775，SQLite 需要创建临时文件）
+4. SELinux 限制（如果启用）
+
 ---
 
 ## 快速命令参考
@@ -655,10 +742,12 @@ sudo journalctl -u attendance-backend -n 100 # 最近100行
 
 ## 注意事项
 
-1. **文件权限**：
+1. **文件权限**（非常重要！）：
    - `.env` 文件权限应为 `600`
-   - 日志目录需要写入权限
-   - 数据库文件需要读写权限
+   - 数据库文件 `attendance.db` 权限应为 `664`，所有者应为 `www:www`
+   - 项目目录权限应为 `775`，所有者应为 `www:www`（SQLite 需要目录写权限来创建临时文件）
+   - 日志目录需要写入权限，所有者应为 `www:www`
+   - **如果权限不正确，会出现 "attempt to write a readonly database" 错误**
 
 2. **防火墙**：
    - 确保端口 8000 未被防火墙阻止
