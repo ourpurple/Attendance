@@ -111,6 +111,31 @@ body {
     flex: 1;
 }
 
+/* 表单行布局 */
+.form-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.form-row .form-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.form-row .form-group-date {
+    flex: 1.2; /* 日期栏稍微宽一些 */
+}
+
+.form-row .form-group-time {
+    flex: 1;
+}
+
+.form-row .form-group .form-label {
+    white-space: nowrap;
+    margin-bottom: 8px;
+}
+
 .form-group label {
     display: block;
     margin-bottom: 8px;

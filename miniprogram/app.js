@@ -616,8 +616,13 @@ App({
             // 清除登录状态，让用户重新登录
             this.logout();
             reject({ message: '权限不足或登录已过期，请重新登录' });
-          } else if (res.statusCode === 200 || res.statusCode === 201) {
+          } else if (res.statusCode === 200 || res.statusCode === 201 || res.statusCode === 204) {
             // 确保返回的数据不是 null 或 undefined
+            // 204 No Content 表示成功但没有响应体，返回空对象
+            if (res.statusCode === 204) {
+              resolve({});
+              return;
+            }
             let responseData = res.data;
             
             // 如果响应数据是 null 或 undefined，根据 URL 判断返回类型

@@ -49,26 +49,31 @@ Page({
     
     // 加载审批人列表
     await this.loadApprovers();
+    
+    // 初始计算请假天数
+    this.calculateLeaveDays();
+  },
+
   async loadLeaveTypes() {
     try {
-    const res = await app.request({
-      url: '/leave-types/',
-      method: 'GET'
-    });
-    const types = res.data || res;
-    if (!Array.isArray(types) || !types.length) {
+      const res = await app.request({
+        url: '/leave-types/',
+        method: 'GET'
+      });
+      const types = res.data || res;
+      if (!Array.isArray(types) || !types.length) {
         wx.showToast({
           title: '未配置请假类型',
           icon: 'none'
         });
         return false;
       }
-    const leaveTypes = [{ id: '', name: '请选择' }, ...types];
-    this.setData({
-      leaveTypes,
-      leaveTypeIndex: 0,
-      selectedLeaveTypeId: ''
-    });
+      const leaveTypes = [{ id: '', name: '请选择' }, ...types];
+      this.setData({
+        leaveTypes,
+        leaveTypeIndex: 0,
+        selectedLeaveTypeId: ''
+      });
       return true;
     } catch (error) {
       console.error('加载请假类型失败:', error);
@@ -78,11 +83,6 @@ Page({
       });
       return false;
     }
-  },
-
-    
-    // 初始计算请假天数
-    this.calculateLeaveDays();
   },
 
   // 加载审批人列表（仅副总需要）
@@ -396,6 +396,8 @@ Page({
         data: requestData
       });
 
+      wx.hideLoading();
+      
       wx.showToast({
         title: '提交成功',
         icon: 'success'
@@ -405,12 +407,12 @@ Page({
         wx.navigateBack();
       }, 1500);
     } catch (error) {
+      wx.hideLoading();
+      
       wx.showToast({
         title: error.message || '提交失败',
         icon: 'none'
       });
-    } finally {
-      wx.hideLoading();
     }
   }
 });

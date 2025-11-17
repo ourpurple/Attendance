@@ -113,7 +113,7 @@
 
 .detail-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   margin-bottom: 24rpx;
   line-height: 1.6;
 }
@@ -148,5 +148,34 @@
 .detail-modal-footer {
   padding: 24rpx 32rpx;
   border-top: 2rpx solid #E5E5EA;
+}
+
+/* 状态徽章样式 */
+.status-badge {
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.status-success {
+  background: rgba(52, 199, 89, 0.1);
+  color: #34C759;
+}
+
+.status-warning {
+  background: rgba(255, 149, 0, 0.1);
+  color: #FF9500;
+}
+
+.status-danger {
+  background: rgba(255, 59, 48, 0.1);
+  color: #FF3B30;
+}
+
+.status-pending {
+  background: rgba(0, 122, 255, 0.1);
+  color: #007AFF;
 }
 

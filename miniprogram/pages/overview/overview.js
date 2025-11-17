@@ -19,6 +19,11 @@ Page({
     this.loadOverview();
   },
 
+  onShow() {
+    // 每次显示页面时重新加载数据
+    this.loadOverview();
+  },
+
   getToday() {
     const now = new Date();
     const year = now.getFullYear();
@@ -49,9 +54,24 @@ Page({
       });
     } catch (error) {
       console.error('加载出勤概览失败:', error);
+      
+      // 检查是否是权限问题
+      if (error.message && (error.message.includes('权限') || error.message.includes('403') || error.message.includes('未授权'))) {
+        wx.showModal({
+          title: '权限不足',
+          content: '您暂无权限查看出勤情况',
+          showCancel: false,
+          success: () => {
+            wx.navigateBack();
+          }
+        });
+        return;
+      }
+      
       wx.showToast({
-        title: '加载失败，请稍后重试',
-        icon: 'none'
+        title: error.message || '加载失败，请稍后重试',
+        icon: 'none',
+        duration: 2000
       });
       this.setData({ categories: [] });
     } finally {

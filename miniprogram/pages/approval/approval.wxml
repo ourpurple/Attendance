@@ -100,11 +100,15 @@
       <block wx:if="{{detailType === 'leave' && detailData}}">
         <view class="detail-item">
           <text class="detail-label">状态:</text>
-          <text class="detail-value">{{detailData.status}}</text>
+          <text class="status-badge status-{{detailData.statusClass}}">{{detailData.status}}</text>
         </view>
         <view class="detail-item">
           <text class="detail-label">申请人:</text>
           <text class="detail-value">{{detailData.applicant}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">类型:</text>
+          <text class="detail-value">{{detailData.leaveType || '普通请假'}}</text>
         </view>
         <view class="detail-item">
           <text class="detail-label">请假时间:</text>
@@ -117,10 +121,6 @@
         <view class="detail-item">
           <text class="detail-label">原因:</text>
           <text class="detail-value">{{detailData.reason}}</text>
-        </view>
-        <view class="detail-item">
-          <text class="detail-label">类型:</text>
-          <text class="detail-value">{{detailData.leaveType || '普通请假'}}</text>
         </view>
         
         <!-- 部门审批 -->
@@ -182,7 +182,7 @@
       <block wx:if="{{detailType === 'overtime' && detailData}}">
         <view class="detail-item">
           <text class="detail-label">状态:</text>
-          <text class="detail-value">{{detailData.status}}</text>
+          <text class="status-badge status-{{detailData.statusClass}}">{{detailData.status}}</text>
         </view>
         <view class="detail-item">
           <text class="detail-label">申请人:</text>

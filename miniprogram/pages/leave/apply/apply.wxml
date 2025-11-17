@@ -16,72 +16,60 @@
     </picker>
   </view>
 
-  <view class="form-group">
-    <view class="form-label">开始日期 *</view>
-    <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
-      <view class="picker">
-        <text>{{startDate || '请选择开始日期'}}</text>
-        <text class="picker-icon">📅</text>
-      </view>
-    </picker>
+  <view class="form-row">
+    <view class="form-group form-group-date">
+      <view class="form-label">开始日期 *</view>
+      <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
+        <view class="picker">
+          <text>{{startDate || '请选择开始日期'}}</text>
+          <text class="picker-icon">📅</text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="form-group form-group-time">
+      <view class="form-label">时间 *</view>
+      <picker 
+        mode="selector" 
+        range="{{startTimeNodes}}"
+        range-key="label"
+        value="{{startTimeNodeIndex}}"
+        bindchange="onStartTimeNodeChange"
+      >
+        <view class="picker">
+          <text>{{startTimeNodes[startTimeNodeIndex].label || '请选择时间'}}</text>
+          <text class="picker-icon">🕐</text>
+        </view>
+      </picker>
+    </view>
   </view>
 
-  <view class="form-group">
-    <view class="form-label">开始时间节点 *</view>
-    <picker 
-      mode="selector" 
-      range="{{startTimeNodes}}"
-      range-key="label"
-      value="{{startTimeNodeIndex}}"
-      bindchange="onStartTimeNodeChange"
-    >
-      <view class="picker">
-        <text>{{startTimeNodes[startTimeNodeIndex].label || '请选择开始时间节点'}}</text>
-        <text class="picker-icon">🕐</text>
-      </view>
-    </picker>
-  </view>
+  <view class="form-row">
+    <view class="form-group form-group-date">
+      <view class="form-label">结束日期 *</view>
+      <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
+        <view class="picker">
+          <text>{{endDate || '请选择结束日期'}}</text>
+          <text class="picker-icon">📅</text>
+        </view>
+      </picker>
+    </view>
 
-  <view class="form-group">
-    <view class="form-label">结束日期 *</view>
-    <picker mode="date" value="{{endDate}}" bindchange="onEndDateChange">
-      <view class="picker">
-        <text>{{endDate || '请选择结束日期'}}</text>
-        <text class="picker-icon">📅</text>
-      </view>
-    </picker>
-  </view>
-
-  <view class="form-group">
-    <view class="form-label">结束时间节点 *</view>
-    <picker 
-      mode="selector" 
-      range="{{endTimeNodes}}"
-      range-key="label"
-      value="{{endTimeNodeIndex}}"
-      bindchange="onEndTimeNodeChange"
-    >
-      <view class="picker">
-        <text>{{endTimeNodes[endTimeNodeIndex].label || '请选择结束时间节点'}}</text>
-        <text class="picker-icon">🕐</text>
-      </view>
-    </picker>
-  </view>
-
-  <view class="form-group" wx:if="{{leaveTypes.length > 0}}">
-    <view class="form-label">请假类型 *</view>
-    <picker 
-      mode="selector" 
-      range="{{leaveTypes}}" 
-      range-key="name"
-      value="{{leaveTypeIndex}}"
-      bindchange="onLeaveTypeChange"
-    >
-      <view class="picker">
-        <text>{{leaveTypes[leaveTypeIndex].name || '请选择请假类型'}}</text>
-        <text class="picker-icon">▼</text>
-      </view>
-    </picker>
+    <view class="form-group form-group-time">
+      <view class="form-label">时间 *</view>
+      <picker 
+        mode="selector" 
+        range="{{endTimeNodes}}"
+        range-key="label"
+        value="{{endTimeNodeIndex}}"
+        bindchange="onEndTimeNodeChange"
+      >
+        <view class="picker">
+          <text>{{endTimeNodes[endTimeNodeIndex].label || '请选择时间'}}</text>
+          <text class="picker-icon">🕐</text>
+        </view>
+      </picker>
+    </view>
   </view>
 
   <view class="form-group">

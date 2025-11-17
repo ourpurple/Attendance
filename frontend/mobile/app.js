@@ -2012,27 +2012,31 @@ async function showNewLeaveForm() {
                             ${leaveTypeOptions}
                         </select>
                     </div>
-                    <div class="form-group inline-field">
-                        <label class="form-label">开始日期 *</label>
-                        <input type="date" id="leave-start-date" class="form-input" onchange="calculateLeaveDays()" required>
+                    <div class="form-row">
+                        <div class="form-group form-group-date">
+                            <label class="form-label">开始日期 *</label>
+                            <input type="date" id="leave-start-date" class="form-input" onchange="calculateLeaveDays()" required>
+                        </div>
+                        <div class="form-group form-group-time">
+                            <label class="form-label">时间 *</label>
+                            <select id="leave-start-time-node" class="form-input" onchange="calculateLeaveDays()" required>
+                                <option value="09:00" selected>09:00</option>
+                                <option value="14:00">14:00</option>
+                            </select>
+                        </div>
                     </div>
-                    <div class="form-group inline-field">
-                        <label class="form-label">开始时间节点 *</label>
-                        <select id="leave-start-time-node" class="form-input" onchange="calculateLeaveDays()" required>
-                            <option value="09:00" selected>09:00</option>
-                            <option value="14:00">14:00</option>
-                        </select>
-                    </div>
-                    <div class="form-group inline-field">
-                        <label class="form-label">结束日期 *</label>
-                        <input type="date" id="leave-end-date" class="form-input" onchange="calculateLeaveDays()" required>
-                    </div>
-                    <div class="form-group inline-field">
-                        <label class="form-label">结束时间节点 *</label>
-                        <select id="leave-end-time-node" class="form-input" onchange="calculateLeaveDays()" required>
-                            <option value="12:00">12:00</option>
-                            <option value="17:30" selected>17:30</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group form-group-date">
+                            <label class="form-label">结束日期 *</label>
+                            <input type="date" id="leave-end-date" class="form-input" onchange="calculateLeaveDays()" required>
+                        </div>
+                        <div class="form-group form-group-time">
+                            <label class="form-label">时间 *</label>
+                            <select id="leave-end-time-node" class="form-input" onchange="calculateLeaveDays()" required>
+                                <option value="12:00">12:00</option>
+                                <option value="17:30" selected>17:30</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">计算出的请假天数</label>

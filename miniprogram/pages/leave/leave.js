@@ -402,6 +402,13 @@ Page({
         return statusMap[status] || status;
       };
       
+      const getStatusClass = (status) => {
+        if (status === 'approved') return 'success';
+        if (status === 'rejected') return 'danger';
+        if (status === 'cancelled') return 'warning';
+        return 'pending';
+      };
+      
       wx.hideLoading();
       
       // 显示详情弹窗
@@ -410,6 +417,7 @@ Page({
         detailTitle: '请假详情',
         detailData: {
           status: getStatusName(leave.status),
+          statusClass: getStatusClass(leave.status),
           applicant: leave.applicant_name || `用户${leave.user_id}`,
           timeRange: formatTimeRange(leave.start_date, leave.end_date), // 使用智能格式化时间范围
           days: `${leave.days}天`,
