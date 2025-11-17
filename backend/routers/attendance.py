@@ -6,11 +6,12 @@ from datetime import datetime, date, timedelta
 import json
 import httpx
 from ..database import get_db
-from ..models import Attendance, User, AttendancePolicy, UserRole
+from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday
 from ..schemas import (
     AttendanceCheckin, AttendanceCheckout, AttendanceResponse, 
     AttendancePolicyResponse, AttendancePolicyCreate, AttendancePolicyUpdate,
-    BatchGeocodeRequest, BatchGeocodeResponse, GeocodeResult, LocationPoint
+    BatchGeocodeRequest, BatchGeocodeResponse, GeocodeResult, LocationPoint,
+    AttendanceOverviewResponse, AttendanceOverviewItem
 )
 from ..security import get_current_user, get_current_active_admin
 from ..config import settings
@@ -608,5 +609,186 @@ async def batch_reverse_geocode(
     results = await asyncio.gather(*[get_address_with_semaphore(loc) for loc in locations])
     
     return BatchGeocodeResponse(results=results)
+
+
+# ==================== 出勤情况概览 ====================
+def check_attendance_view_permission(db: Session, user: User) -> bool:
+    """检查用户是否有查看全部人员出勤情况的权限"""
+    # 总经理和副总默认有权限
+    if user.role in [UserRole.GENERAL_MANAGER, UserRole.VICE_PRESIDENT]:
+        return True
+    
+    # 检查是否在授权列表中
+    viewer = db.query(AttendanceViewer).filter(AttendanceViewer.user_id == user.id).first()
+    return viewer is not None
+
+
+def get_workday_status(db: Session, target_date: date) -> Dict[str, Any]:
+    """获取指定日期的工作日状态"""
+    date_str = target_date.isoformat()
+    holiday = db.query(Holiday).filter(Holiday.date == date_str).first()
+    
+    if holiday:
+        if holiday.type == "holiday":
+            return {"is_workday": False, "reason": holiday.name or "法定节假日"}
+        if holiday.type == "company_holiday":
+            return {"is_workday": False, "reason": holiday.name or "公司节假日"}
+        if holiday.type == "workday":
+            return {"is_workday": True, "reason": holiday.name or "调休工作日"}
+    
+    weekday = target_date.weekday()
+    if weekday >= 5:
+        return {"is_workday": False, "reason": "周末"}
+    return {"is_workday": True, "reason": "正常工作日"}
+
+
+@router.get("/overview", response_model=AttendanceOverviewResponse)
+def get_attendance_overview(
+    target_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取全部人员的出勤情况概览（当日及历史）
+    仅总经理、副总及授权人员可以访问
+    """
+    # 权限检查
+    if not check_attendance_view_permission(db, current_user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="您没有权限查看全部人员的出勤情况"
+        )
+    
+    # 如果没有指定日期，使用今天
+    if target_date is None:
+        target_date = date.today()
+    
+    workday_status = get_workday_status(db, target_date)
+    
+    # 获取所有激活的用户（排除admin）
+    users = db.query(User).filter(
+        User.is_active == True,
+        User.username != "admin"
+    ).all()
+    
+    # 获取目标日期的考勤记录
+    attendances = db.query(Attendance).filter(
+        func.date(Attendance.date) == target_date
+    ).all()
+    attendance_dict = {att.user_id: att for att in attendances}
+    
+    # 获取目标日期的请假记录（已批准的）
+    leaves = db.query(LeaveApplication).filter(
+        func.date(LeaveApplication.start_date) <= target_date,
+        func.date(LeaveApplication.end_date) >= target_date,
+        LeaveApplication.status == "approved"
+    ).all()
+    leave_dict = {}
+    leave_details = {}
+    for leave in leaves:
+        if leave.user_id not in leave_dict:
+            leave_dict[leave.user_id] = 0.0
+        if leave.user_id not in leave_details:
+            leave_details[leave.user_id] = {
+                "start": None,
+                "end": None
+            }
+        # 计算该日期占用的请假天数（简化处理：跨天请假中间日算整天）
+        start = leave.start_date.date() if isinstance(leave.start_date, datetime) else leave.start_date
+        end = leave.end_date.date() if isinstance(leave.end_date, datetime) else leave.end_date
+        leave_details[leave.user_id] = {
+            "start": start.isoformat() if hasattr(start, "isoformat") else str(start),
+            "end": end.isoformat() if hasattr(end, "isoformat") else str(end)
+        }
+        if start == end:
+            leave_dict[leave.user_id] += leave.days
+        elif start == target_date or end == target_date:
+            leave_dict[leave.user_id] += 0.5
+        elif start < target_date < end:
+            leave_dict[leave.user_id] += 1.0
+    
+    # 获取目标日期的加班记录（已批准的）
+    overtimes = db.query(OvertimeApplication).filter(
+        func.date(OvertimeApplication.start_time) <= target_date,
+        func.date(OvertimeApplication.end_time) >= target_date,
+        OvertimeApplication.status == "approved"
+    ).all()
+    overtime_dict = {}
+    overtime_details = {}
+    for overtime in overtimes:
+        if overtime.user_id not in overtime_dict:
+            overtime_dict[overtime.user_id] = 0.0
+            overtime_details[overtime.user_id] = {
+                "start": overtime.start_time,
+                "end": overtime.end_time
+            }
+        else:
+            detail = overtime_details[overtime.user_id]
+            if overtime.start_time < detail["start"]:
+                detail["start"] = overtime.start_time
+            if overtime.end_time > detail["end"]:
+                detail["end"] = overtime.end_time
+        # 累加加班总天数（使用实际记录的天数）
+        overtime_dict[overtime.user_id] += overtime.days
+    
+    # 构建结果
+    items = []
+    checked_in_count = 0
+    on_leave_count = 0
+    on_overtime_count = 0
+    
+    for user in users:
+        att = attendance_dict.get(user.id)
+        has_leave = user.id in leave_dict
+        has_overtime = user.id in overtime_dict
+        
+        if att:
+            checked_in_count += 1
+        
+        if has_leave:
+            on_leave_count += 1
+        
+        if has_overtime:
+            on_overtime_count += 1
+        
+        # 获取部门名称
+        department_name = None
+        if user.department_id:
+            dept = db.query(Department).filter(Department.id == user.department_id).first()
+            if dept:
+                department_name = dept.name
+        
+        item = AttendanceOverviewItem(
+            user_id=user.id,
+            user_name=user.username,
+            real_name=user.real_name,
+            role=user.role.value if hasattr(user.role, "value") else user.role,
+            department_name=department_name,
+            leave_start_date=leave_details.get(user.id, {}).get("start") if user.id in leave_dict else None,
+            leave_end_date=leave_details.get(user.id, {}).get("end") if user.id in leave_dict else None,
+            checkin_time=att.checkin_time if att else None,
+            checkout_time=att.checkout_time if att else None,
+            is_late=att.is_late if att else False,
+            is_early_leave=att.is_early_leave if att else False,
+            work_hours=att.work_hours if att else None,
+            has_leave=has_leave,
+            leave_days=leave_dict.get(user.id, 0.0),
+            has_overtime=has_overtime,
+            overtime_days=overtime_dict.get(user.id, 0.0),
+            overtime_start_time=overtime_details.get(user.id, {}).get("start").isoformat() if has_overtime and overtime_details.get(user.id, {}).get("start") else None,
+            overtime_end_time=overtime_details.get(user.id, {}).get("end").isoformat() if has_overtime and overtime_details.get(user.id, {}).get("end") else None
+        )
+        items.append(item)
+    
+    return AttendanceOverviewResponse(
+        date=target_date.isoformat(),
+        items=items,
+        total_users=len(users),
+        checked_in_count=checked_in_count,
+        on_leave_count=on_leave_count,
+        on_overtime_count=on_overtime_count,
+        is_workday=workday_status["is_workday"],
+        workday_reason=workday_status["reason"]
+    )
 
 

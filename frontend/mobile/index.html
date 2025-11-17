@@ -111,6 +111,10 @@
 
                     <!-- 快捷功能 -->
                     <div class="quick-actions">
+                        <div class="quick-action-item attendance-overview-only" onclick="showSection('attendance-overview')" style="display: none;">
+                            <div class="action-icon">👥</div>
+                            <div class="action-label">出勤情况</div>
+                        </div>
                         <div class="quick-action-item" onclick="showSection('leave')">
                             <div class="action-icon">🏖️</div>
                             <div class="action-label">请假申请</div>
@@ -152,6 +156,22 @@
                         <input type="month" id="attendance-month" onchange="loadAttendanceByMonth()">
                     </div>
                     <div id="attendance-list" class="list-container"></div>
+                </div>
+
+                <!-- 出勤情况 -->
+                <div id="attendance-overview-content" class="content-section">
+                    <div class="section-header">
+                        <button class="back-btn" onclick="showSection('home')">← 返回</button>
+                        <h2>出勤情况</h2>
+                    </div>
+                    <div class="date-filter">
+                        <input type="date" id="overview-date" onchange="loadAttendanceOverview()">
+                    </div>
+                    <div class="overview-info" id="overview-info" style="display: none;">
+                        <span class="workday-badge workday" id="overview-workday-badge">工作日</span>
+                        <span class="workday-text" id="overview-workday-text"></span>
+                    </div>
+                    <div class="overview-categories" id="overview-categories"></div>
                 </div>
 
                 <!-- 请假申请 -->

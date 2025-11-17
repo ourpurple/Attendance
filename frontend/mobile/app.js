@@ -345,6 +345,20 @@ async function showSection(sectionName) {
         }
     }
     
+    // 权限检查：出勤情况页面需要查看权限
+    if (sectionName === 'attendance-overview') {
+        try {
+            const permission = await apiRequest('/attendance-viewers/check-permission');
+            if (!permission.has_permission) {
+                await showToast('您没有权限查看出勤情况', 'warning');
+                return;
+            }
+        } catch (error) {
+            await showToast('权限检查失败', 'error');
+            return;
+        }
+    }
+    
     document.querySelectorAll('.content-section').forEach(section => {
         section.classList.remove('active');
     });
@@ -378,6 +392,9 @@ function loadSectionData(section) {
         case 'attendance':
             loadAttendanceByMonth();
             break;
+        case 'attendance-overview':
+            loadAttendanceOverview();
+            break;
         case 'leave':
             loadMyLeaveApplications();
             break;
@@ -390,6 +407,17 @@ function loadSectionData(section) {
         case 'stats':
             loadMyStats();
             break;
+    }
+}
+
+function setDefaultOverviewDate() {
+    const overviewDateInput = document.getElementById('overview-date');
+    if (overviewDateInput) {
+        const today = new Date().toISOString().split('T')[0];
+        if (!overviewDateInput.value) {
+            overviewDateInput.value = today;
+        }
+        overviewDateInput.setAttribute('max', today);
     }
 }
 
@@ -483,6 +511,204 @@ function updateApprovalVisibility() {
     if (hasApprovalPermission) {
         loadPendingCount();
     }
+    
+    // 检查出勤情况查看权限
+    checkAttendanceOverviewPermission();
+}
+
+// 检查出勤情况查看权限
+async function checkAttendanceOverviewPermission() {
+    try {
+        const permission = await apiRequest('/attendance-viewers/check-permission');
+        const hasPermission = permission.has_permission;
+        
+        // 显示或隐藏所有带有 attendance-overview-only 类的元素
+        const overviewElements = document.querySelectorAll('.attendance-overview-only');
+        overviewElements.forEach(el => {
+            el.style.display = hasPermission ? '' : 'none';
+        });
+    } catch (error) {
+        // 权限检查失败，隐藏功能
+        const overviewElements = document.querySelectorAll('.attendance-overview-only');
+        overviewElements.forEach(el => {
+            el.style.display = 'none';
+        });
+    }
+}
+
+// 加载出勤情况概览
+async function loadAttendanceOverview() {
+    try {
+        const dateInput = document.getElementById('overview-date');
+        const targetDate = dateInput.value || new Date().toISOString().split('T')[0];
+        
+        const overview = await apiRequest(`/attendance/overview?target_date=${targetDate}`);
+        const infoBar = document.getElementById('overview-info');
+        const badge = document.getElementById('overview-workday-badge');
+        const infoText = document.getElementById('overview-workday-text');
+        const categoriesContainer = document.getElementById('overview-categories');
+        
+        // 更新工作日信息
+        badge.textContent = overview.is_workday ? '工作日' : '休息日';
+        badge.classList.toggle('workday', overview.is_workday);
+        badge.classList.toggle('holiday', !overview.is_workday);
+        infoText.textContent = overview.workday_reason || (overview.is_workday ? '正常工作日' : '休息日');
+        infoBar.style.display = 'flex';
+        
+        // 分类人员
+        const notCheckedIn = [];
+        const checkedIn = [];
+        const onLeave = [];
+        const onOvertime = [];
+        
+        overview.items.forEach(item => {
+            if (item.has_leave) {
+                onLeave.push(item);
+                return;
+            }
+            if (item.has_overtime) {
+                onOvertime.push(item);
+                return;
+            }
+            if (item.checkin_time) {
+                checkedIn.push(item);
+            } else {
+                notCheckedIn.push(item);
+            }
+        });
+        
+        // 休息日仅关注加班
+        const categoryData = overview.is_workday
+            ? [
+                { key: 'onLeave', title: '请假中', count: onLeave.length, list: onLeave, tone: 'info', extra: '请假' },
+                { key: 'notChecked', title: '未打卡', count: notCheckedIn.length, list: notCheckedIn, tone: 'danger', extra: '待打卡' },
+                { key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' },
+                { key: 'checkedIn', title: '已打卡', count: checkedIn.length, list: checkedIn, tone: 'success', extra: '已打卡' }
+            ]
+            : [
+                { key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' }
+            ];
+        
+        // 渲染分类卡片
+        if (categoriesContainer) {
+            categoriesContainer.innerHTML = categoryData.map(category => {
+                const peopleHtml = category.list.length
+                    ? category.list.map(item => `
+                        <div class="overview-person-row">
+                            <div class="overview-person-header">
+                                <span class="overview-person-name">${item.real_name}</span>
+                                ${getPersonMeta(item)}
+                            </div>
+                            <span class="overview-person-extra">${getOverviewExtraText(category.key, item)}</span>
+                        </div>
+                    `).join('')
+                    : `<div class="overview-empty">暂无人员</div>`;
+                
+                const countClass = category.tone === 'danger'
+                    ? 'danger'
+                    : category.tone === 'warning'
+                        ? 'warning'
+                        : '';
+                
+                return `
+                    <div class="overview-category-card">
+                        <div class="overview-category-header">
+                            <div class="overview-category-title">${category.title}</div>
+                            <div class="overview-category-count ${countClass}">${category.count}</div>
+                        </div>
+                        <div class="overview-category-list">
+                            ${peopleHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+    } catch (error) {
+        console.error('加载出勤情况失败:', error);
+        const categoriesContainer = document.getElementById('overview-categories');
+        if (categoriesContainer) {
+            categoriesContainer.innerHTML = '<div class="overview-empty">加载失败，请稍后重试</div>';
+        }
+        await showToast('加载出勤情况失败', 'error');
+    }
+}
+
+function getOverviewExtraText(categoryKey, item) {
+    switch (categoryKey) {
+        case 'checkedIn':
+            if (item.checkin_time) {
+                return `上班 ${formatTime(item.checkin_time)}`;
+            }
+            return '已打卡';
+        case 'notChecked':
+            return '待打卡';
+        case 'onLeave':
+            if (item.leave_start_date) {
+                return formatLeaveRange(item.leave_start_date, item.leave_end_date);
+            }
+            return item.leave_days ? `${item.leave_days}天` : '请假';
+        case 'onOvertime':
+            if (item.overtime_start_time) {
+                return formatOvertimeRange(item.overtime_start_time, item.overtime_end_time, item.overtime_days);
+            }
+            return item.overtime_days ? `${item.overtime_days}天` : '加班';
+        default:
+            return '';
+    }
+}
+
+function formatLeaveRange(start, end) {
+    if (!start) return '请假';
+    const startDate = new Date(start);
+    const endDate = end ? new Date(end) : new Date(start);
+    if (isNaN(startDate) || isNaN(endDate)) {
+        if (!end || end === start) {
+            return `${start}`;
+        }
+        return `${start} - ${end}`;
+    }
+    
+    const days = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    const startText = formatFullDate(startDate);
+    if (days <= 1) {
+        return `${startText} 共1天`;
+    }
+    const endText = formatFullDate(endDate);
+    return `${startText} - ${endText} 共${days}天`;
+}
+
+function formatFullDate(date) {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${month}月${day}日`;
+}
+
+function formatOvertimeRange(start, end, days) {
+    const startDate = new Date(start);
+    if (isNaN(startDate)) {
+        return days ? `${days}天` : '加班';
+    }
+    if (!end) {
+        return `${formatFullDate(startDate)} 共${days || 1}天`;
+    }
+    const endDate = new Date(end);
+    if (isNaN(endDate) || formatFullDate(startDate) === formatFullDate(endDate)) {
+        return `${formatFullDate(startDate)} 共${days || 1}天`;
+    }
+    return `${formatFullDate(startDate)} - ${formatFullDate(endDate)} 共${days || 1}天`;
+}
+
+function getPersonMeta(item) {
+    if (item.role === 'general_manager' || item.role === 'UserRole.GENERAL_MANAGER') {
+        return '<span class="overview-person-meta">总经理</span>';
+    }
+    if (item.role === 'vice_president' || item.role === 'UserRole.VICE_PRESIDENT') {
+        return '<span class="overview-person-meta">副总</span>';
+    }
+    if (item.department_name) {
+        return `<span class="overview-person-meta">${item.department_name}</span>`;
+    }
+    return '<span class="overview-person-meta">-</span>';
 }
 
 // 用户菜单
@@ -2215,6 +2441,9 @@ function showNewOvertimeForm() {
     if (startDateInput) startDateInput.value = today;
     if (endDateInput) endDateInput.value = today;
     
+    setDefaultSingleOvertimeNodes();
+    setDefaultMultiOvertimeNodes();
+    
     // 加载审批人列表
     loadOvertimeApprovers();
 }
@@ -2251,11 +2480,53 @@ function handleOvertimeTypeChange() {
     
     if (type === 'single') {
         if (singleSection) singleSection.style.display = 'block';
+        setDefaultSingleOvertimeNodes();
     } else if (type === 'multi') {
         if (multiSection) multiSection.style.display = 'block';
+        setDefaultMultiOvertimeNodes();
     }
     
     calculateOvertimeDays();
+}
+
+function setDefaultSingleOvertimeNodes() {
+    const startSelect = document.getElementById('overtime-start-time-node');
+    const endSelect = document.getElementById('overtime-end-time-node');
+    let updated = false;
+    
+    if (startSelect && !startSelect.value) {
+        startSelect.value = '09:00';
+        updated = true;
+    }
+    
+    if (endSelect && !endSelect.value) {
+        endSelect.value = '17:30';
+        updated = true;
+    }
+    
+    if (updated && document.getElementById('overtime-type')?.value === 'single') {
+        calculateOvertimeDays();
+    }
+}
+
+function setDefaultMultiOvertimeNodes() {
+    const startSelect = document.getElementById('overtime-start-date-time-node');
+    const endSelect = document.getElementById('overtime-end-date-time-node');
+    let updated = false;
+    
+    if (startSelect && !startSelect.value) {
+        startSelect.value = '09:00';
+        updated = true;
+    }
+    
+    if (endSelect && !endSelect.value) {
+        endSelect.value = '17:30';
+        updated = true;
+    }
+    
+    if (updated && document.getElementById('overtime-type')?.value === 'multi') {
+        calculateOvertimeDays();
+    }
 }
 
 // 计算加班天数（mobile端）
@@ -3163,6 +3434,7 @@ function showDetailModal(title, content) {
 
 // 初始化
 window.addEventListener('DOMContentLoaded', () => {
+    setDefaultOverviewDate();
     const savedToken = getToken();
     if (savedToken) {
         apiRequest('/users/me')

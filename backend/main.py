@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .config import settings
 from .database import init_db
-from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments
+from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -31,6 +31,7 @@ app.include_router(overtime.router, prefix="/api")
 app.include_router(statistics.router, prefix="/api")
 app.include_router(holidays.router, prefix="/api")
 app.include_router(vp_departments.router, prefix="/api")
+app.include_router(attendance_viewers.router, prefix="/api")
 
 # 静态文件服务（用于前端）
 try:

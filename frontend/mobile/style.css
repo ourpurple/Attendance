@@ -680,6 +680,141 @@ button:disabled {
     background: var(--bg-primary);
 }
 
+/* 出勤情况概览 */
+.overview-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.workday-badge {
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 1px;
+}
+
+.workday-badge.workday {
+    background: rgba(0, 122, 255, 0.12);
+    color: var(--primary-color);
+}
+
+.workday-badge.holiday {
+    background: rgba(255, 59, 48, 0.12);
+    color: var(--danger-color);
+}
+
+.overview-categories {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.overview-category-card {
+    background: var(--bg-primary);
+    border-radius: 18px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+}
+
+.overview-category-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.overview-category-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.overview-category-count {
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.overview-category-count.warning {
+    color: var(--warning-color);
+}
+
+.overview-category-count.success {
+    color: var(--success-color);
+}
+
+.overview-category-count.info {
+    color: var(--primary-color);
+}
+
+.overview-category-count.danger {
+    color: var(--danger-color);
+}
+
+.overview-category-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 4px;
+}
+
+@media (max-width: 420px) {
+    .overview-category-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.overview-person-row {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    min-height: 76px;
+}
+
+.overview-person-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+.overview-person-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.overview-person-meta {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.overview-person-extra {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--primary-color);
+    text-align: center;
+    width: 100%;
+    display: block;
+}
+
+.overview-empty {
+    text-align: center;
+    padding: 16px;
+    color: var(--text-tertiary);
+    font-size: 14px;
+}
+
 /* 底部导航 */
 .bottom-nav {
     position: fixed;

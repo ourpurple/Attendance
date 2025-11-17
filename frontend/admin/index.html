@@ -38,53 +38,67 @@
                     <p class="company-short">新盟科教</p>
                 </div>
                 <nav class="sidebar-nav">
-                    <a href="#dashboard" class="nav-item active" data-page="dashboard">
+                    <a href="#dashboard" class="nav-item nav-link active" data-page="dashboard">
                         <span class="icon">📊</span>
                         <span>仪表盘</span>
                     </a>
-                    <a href="#users" class="nav-item" data-page="users">
-                        <span class="icon">👥</span>
-                        <span>用户管理</span>
-                    </a>
-                    <a href="#departments" class="nav-item" data-page="departments">
-                        <span class="icon">🏢</span>
-                        <span>部门管理</span>
-                    </a>
-                    <a href="#vp-departments" class="nav-item" data-page="vp-departments">
-                        <span class="icon">👔</span>
-                        <span>分管关系</span>
-                    </a>
-                    <a href="#attendance" class="nav-item" data-page="attendance">
+                    <a href="#attendance" class="nav-item nav-link" data-page="attendance">
                         <span class="icon">📝</span>
                         <span>考勤记录</span>
                     </a>
-                    <a href="#leave" class="nav-item" data-page="leave">
+                    <a href="#leave" class="nav-item nav-link" data-page="leave">
                         <span class="icon">🏖️</span>
-                        <span>请假管理</span>
+                        <span>请假记录</span>
                     </a>
-                    <a href="#overtime" class="nav-item" data-page="overtime">
+                    <a href="#overtime" class="nav-item nav-link" data-page="overtime">
                         <span class="icon">⏰</span>
-                        <span>加班管理</span>
+                        <span>加班记录</span>
                     </a>
-                    <a href="#policies" class="nav-item" data-page="policies">
-                        <span class="icon">⚙️</span>
-                        <span>策略管理</span>
-                    </a>
-                    <a href="#holidays" class="nav-item" data-page="holidays">
-                        <span class="icon">📅</span>
-                        <span>节假日配置</span>
-                    </a>
-                    <a href="#statistics" class="nav-item" data-page="statistics">
+                    <a href="#statistics" class="nav-item nav-link" data-page="statistics">
                         <span class="icon">📈</span>
                         <span>统计分析</span>
                     </a>
+                    <div class="nav-group" id="config-group">
+                        <button type="button" class="nav-item nav-parent">
+                            <div class="nav-parent-label">
+                                <span class="icon">⚙️</span>
+                                <span>配置中心</span>
+                            </div>
+                            <span class="nav-arrow">⌄</span>
+                        </button>
+                        <div class="sub-nav">
+                            <a href="#users" class="nav-sub-item nav-link" data-page="users">
+                                <span>用户管理</span>
+                            </a>
+                            <a href="#departments" class="nav-sub-item nav-link" data-page="departments">
+                                <span>部门管理</span>
+                            </a>
+                            <a href="#vp-departments" class="nav-sub-item nav-link" data-page="vp-departments">
+                                <span>分管关系</span>
+                            </a>
+                            <a href="#attendance-viewers" class="nav-sub-item nav-link" data-page="attendance-viewers">
+                                <span>出勤查看授权</span>
+                            </a>
+                            <a href="#policies" class="nav-sub-item nav-link" data-page="policies">
+                                <span>策略管理</span>
+                            </a>
+                            <a href="#holidays" class="nav-sub-item nav-link" data-page="holidays">
+                                <span>节假日配置</span>
+                            </a>
+                        </div>
+                    </div>
                 </nav>
                 <div class="sidebar-footer">
-                    <div class="user-info">
-                        <span id="current-user-name"></span>
+                    <div class="user-menu" id="user-menu">
+                        <button class="user-info-button" id="user-info-button">
+                            <span id="current-user-name">系统管理员</span>
+                            <span class="user-menu-arrow" id="user-menu-arrow">⌃</span>
+                        </button>
+                        <div class="user-dropdown" id="user-dropdown">
+                            <button id="change-password-btn" class="dropdown-item">修改密码</button>
+                            <button id="logout-btn" class="dropdown-item">退出登录</button>
+                        </div>
                     </div>
-                    <button id="change-password-btn" class="btn btn-secondary" style="margin-bottom: 10px;">修改密码</button>
-                    <button id="logout-btn" class="btn btn-secondary">退出登录</button>
                     <div class="copyright">
                         <p>&copy; 2025 河南新盟科教有限公司</p>
                         <p>All Rights Reserved</p>
@@ -202,6 +216,37 @@
                     </div>
                 </div>
 
+                <!-- 出勤查看授权管理 -->
+                <div id="attendance-viewers-content" class="content-section">
+                    <div class="section-header">
+                        <h2>出勤查看授权管理</h2>
+                        <button class="btn btn-primary" onclick="showAddAttendanceViewerModal()">添加授权人员</button>
+                    </div>
+                    <div class="info-box" style="margin-bottom: 20px; padding: 15px; background: #f0f7ff; border-left: 4px solid #1890ff; border-radius: 4px;">
+                        <p style="margin: 0; color: #666; line-height: 1.6;">
+                            <strong>说明：</strong>授权人员可以查看全部人员的出勤情况、请假情况和加班情况。<br>
+                            总经理和副总默认拥有此权限，无需在此配置。
+                        </p>
+                    </div>
+                    <div class="table-container">
+                        <table id="attendance-viewers-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>姓名</th>
+                                    <th>角色</th>
+                                    <th>部门</th>
+                                    <th>授权时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="attendance-viewers-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- 考勤记录 -->
                 <div id="attendance-content" class="content-section">
                     <div class="section-header">
@@ -255,10 +300,10 @@
                     </div>
                 </div>
 
-                <!-- 请假管理 -->
+                <!-- 请假记录 -->
                 <div id="leave-content" class="content-section">
                     <div class="section-header">
-                        <h2>请假管理</h2>
+                        <h2>请假记录</h2>
                         <div class="filters leave-filters">
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <label style="display: flex; align-items: center; gap: 5px;">
@@ -308,10 +353,10 @@
                     </div>
                 </div>
 
-                <!-- 加班管理 -->
+                <!-- 加班记录 -->
                 <div id="overtime-content" class="content-section">
                     <div class="section-header">
-                        <h2>加班管理</h2>
+                        <h2>加班记录</h2>
                         <div class="filters overtime-filters">
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <label style="display: flex; align-items: center; gap: 5px;">

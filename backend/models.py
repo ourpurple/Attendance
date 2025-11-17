@@ -228,3 +228,16 @@ class VicePresidentDepartment(Base):
     )
 
 
+class AttendanceViewer(Base):
+    """出勤情况查看授权人员表"""
+    __tablename__ = "attendance_viewers"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False, comment="授权用户ID")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # 关系
+    user = relationship("User", foreign_keys=[user_id], post_update=True)
+
+

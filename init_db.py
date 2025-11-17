@@ -301,9 +301,9 @@ def create_initial_data():
             
             # ===== 办公室员工（2人）=====
             User(
-                username="胡娜",
+                username="胡广娜",
                 password_hash=get_password_hash("123456"),
-                real_name="胡娜",
+                real_name="胡广娜",
                 email="huna@example.com",
                 role=UserRole.EMPLOYEE,
                 department_id=5,  # 办公室
@@ -568,7 +568,7 @@ def create_initial_data():
         print("  用户名: 黄文露  密码: 123456")
         
         print("\n【办公室员工（2人）】")
-        print("  用户名: 胡娜    密码: 123456")
+        print("  用户名: 胡广娜    密码: 123456")
         print("  用户名: 边岳萌  密码: 123456")
         
         print("\n【财务部员工（3人）】")

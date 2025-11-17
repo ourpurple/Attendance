@@ -98,10 +98,23 @@ function showContent(contentName) {
     });
     document.getElementById(`${contentName}-content`).classList.add('active');
 
-    document.querySelectorAll('.nav-item').forEach(item => {
+    document.querySelectorAll('.nav-link').forEach(item => {
         item.classList.remove('active');
     });
-    document.querySelector(`[data-page="${contentName}"]`).classList.add('active');
+    document.querySelectorAll('.nav-parent').forEach(parent => parent.classList.remove('active'));
+
+    const targetLink = document.querySelector(`.nav-link[data-page="${contentName}"]`);
+    if (targetLink) {
+        targetLink.classList.add('active');
+        const group = targetLink.closest('.nav-group');
+        if (group) {
+            group.classList.add('open');
+            const parent = group.querySelector('.nav-parent');
+            if (parent) {
+                parent.classList.add('active');
+            }
+        }
+    }
 }
 
 // 登录
@@ -142,6 +155,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
 // 退出登录
 document.getElementById('logout-btn').addEventListener('click', () => {
+    closeUserDropdown();
     clearToken();
     currentUser = null;
     showPage('login');
@@ -149,20 +163,70 @@ document.getElementById('logout-btn').addEventListener('click', () => {
     document.getElementById('login-error').textContent = '';
 });
 
+const userInfoButton = document.getElementById('user-info-button');
+const userDropdown = document.getElementById('user-dropdown');
+const userMenuArrow = document.getElementById('user-menu-arrow');
+const userMenu = document.getElementById('user-menu');
+
+function closeUserDropdown() {
+    if (userDropdown) {
+        userDropdown.classList.remove('open');
+    }
+    if (userMenuArrow) {
+        userMenuArrow.style.transform = 'rotate(0deg)';
+    }
+    if (userMenu) {
+        userMenu.classList.remove('open');
+    }
+}
+
+if (userInfoButton && userDropdown) {
+    userInfoButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = userDropdown.classList.toggle('open');
+        if (userMenuArrow) {
+            userMenuArrow.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+        if (userMenu) {
+            userMenu.classList.toggle('open', isOpen);
+        }
+    });
+
+    userDropdown.addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+
+    document.addEventListener('click', () => {
+        closeUserDropdown();
+    });
+}
+
 // 修改密码
 document.getElementById('change-password-btn').addEventListener('click', () => {
+    closeUserDropdown();
     showChangePasswordModal();
 });
 
-// 导航切换
-document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-        e.preventDefault();
-        const page = item.dataset.page;
-        showContent(page);
-        loadPageData(page);
+// 导航初始化
+function initSidebarNav() {
+    document.querySelectorAll('.nav-parent').forEach(parent => {
+        parent.addEventListener('click', () => {
+            const group = parent.closest('.nav-group');
+            group.classList.toggle('open');
+        });
     });
-});
+
+    document.querySelectorAll('.nav-link[data-page]').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const page = link.dataset.page;
+            showContent(page);
+            loadPageData(page);
+        });
+    });
+}
+
+initSidebarNav();
 
 // 加载页面数据
 function loadPageData(page) {
@@ -178,6 +242,9 @@ function loadPageData(page) {
             break;
         case 'vp-departments':
             loadVpDepartments();
+            break;
+        case 'attendance-viewers':
+            loadAttendanceViewers();
             break;
         case 'attendance':
             loadAttendanceUserList();
@@ -2270,6 +2337,134 @@ function deleteVpDepartment(id) {
     }
 }
 
+// ==================== 出勤查看授权管理 ====================
+async function loadAttendanceViewers() {
+    try {
+        const viewers = await apiRequest('/attendance-viewers/');
+        const users = await apiRequest('/users/');
+        const departments = await apiRequest('/departments/');
+        
+        const userMap = {};
+        users.forEach(u => {
+            userMap[u.id] = u;
+        });
+        
+        const deptMap = {};
+        departments.forEach(d => {
+            deptMap[d.id] = d.name;
+        });
+        
+        const tbody = document.getElementById('attendance-viewers-tbody');
+        if (viewers.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">暂无授权人员</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = viewers.map(viewer => {
+            const user = userMap[viewer.user_id] || {};
+            const roleNames = {
+                'employee': '员工',
+                'department_head': '部门主任',
+                'vice_president': '副总',
+                'general_manager': '总经理',
+                'admin': '管理员'
+            };
+            
+            return `
+                <tr>
+                    <td>${viewer.id}</td>
+                    <td>${viewer.user_name || '-'}</td>
+                    <td>${viewer.user_real_name || '-'}</td>
+                    <td>${roleNames[user.role] || user.role || '-'}</td>
+                    <td>${user.department_id ? (deptMap[user.department_id] || '-') : '-'}</td>
+                    <td>${formatDateTime(viewer.created_at)}</td>
+                    <td>
+                        <button class="btn btn-danger btn-small" onclick="deleteAttendanceViewer(${viewer.id})">删除</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (error) {
+        console.error('加载授权人员失败:', error);
+        alert('加载授权人员失败: ' + error.message);
+    }
+}
+
+async function showAddAttendanceViewerModal() {
+    try {
+        const users = await apiRequest('/users/');
+        const viewers = await apiRequest('/attendance-viewers/');
+        
+        // 获取已授权的用户ID列表
+        const authorizedUserIds = new Set(viewers.map(v => v.user_id));
+        
+        // 过滤出未授权的激活用户（排除admin、总经理、副总，因为他们默认有权限）
+        const availableUsers = users.filter(u => 
+            u.is_active && 
+            u.username !== 'admin' &&
+            u.role !== 'general_manager' &&
+            u.role !== 'vice_president' &&
+            !authorizedUserIds.has(u.id)
+        );
+        
+        if (availableUsers.length === 0) {
+            showToast('没有可授权的用户', 'warning');
+            return;
+        }
+        
+        const content = `
+            <form id="add-attendance-viewer-form">
+                <div class="form-group">
+                    <label>选择用户 *</label>
+                    <select id="viewer-user-id" class="form-input" required>
+                        <option value="">请选择用户</option>
+                        ${availableUsers.map(u => `<option value="${u.id}">${u.real_name} (${u.username})</option>`).join('')}
+                    </select>
+                </div>
+            </form>
+        `;
+        
+        showModal('添加授权人员', content, async () => {
+            const userId = parseInt(document.getElementById('viewer-user-id').value);
+            if (!userId) {
+                showToast('请选择用户', 'warning');
+                return;
+            }
+            
+            try {
+                await apiRequest('/attendance-viewers/', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId })
+                });
+                loadAttendanceViewers();
+                closeModal();
+                showToast('添加授权人员成功', 'success');
+            } catch (error) {
+                showToast('添加失败: ' + error.message, 'error');
+            }
+        });
+    } catch (error) {
+        console.error('显示添加授权人员弹窗失败:', error);
+        showToast('加载用户列表失败: ' + error.message, 'error');
+    }
+}
+
+async function deleteAttendanceViewer(id) {
+    showConfirm(
+        '确认删除',
+        '确定要删除该授权吗？删除后该用户将无法查看全部人员的出勤情况。',
+        async () => {
+            try {
+                await apiRequest(`/attendance-viewers/${id}`, { method: 'DELETE' });
+                loadAttendanceViewers();
+                showToast('删除授权成功', 'success');
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+    );
+}
+
 // ==================== 策略管理 ====================
 function showAddPolicyModal() {
     const content = `
@@ -2659,6 +2854,106 @@ window.viewOvertimeDetail = async function(id) {
         </div>
     `;
     modalContainer.style.display = 'flex';
+}
+
+// ==================== 确认对话框 ====================
+function showConfirm(title, message, onConfirm, onCancel = null) {
+    const modalContainer = document.getElementById('modal-container');
+    // 先关闭之前的 modal
+    modalContainer.innerHTML = '';
+    modalContainer.style.display = 'none';
+    
+    // 创建确认对话框
+    modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="closeConfirmModal()">
+            <div class="modal confirm-modal" onclick="event.stopPropagation()">
+                <div class="modal-header" style="background: linear-gradient(135deg, var(--warning-color) 0%, #FF6B35 100%);">
+                    <h3>${title}</h3>
+                    <button class="modal-close" onclick="closeConfirmModal()" title="关闭">×</button>
+                </div>
+                <div class="modal-content">
+                    <div class="confirm-message">
+                        <div class="confirm-icon">⚠️</div>
+                        <p>${message}</p>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-secondary" onclick="closeConfirmModal()">取消</button>
+                    <button class="btn btn-danger" onclick="handleConfirm()" id="confirm-btn">确定删除</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 显示对话框
+    modalContainer.style.display = 'flex';
+    
+    // 保存回调函数
+    window.currentConfirmCallback = onConfirm;
+    window.currentCancelCallback = onCancel;
+}
+
+function closeConfirmModal() {
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer) {
+        modalContainer.innerHTML = '';
+        modalContainer.style.display = 'none';
+    }
+    window.currentConfirmCallback = null;
+    window.currentCancelCallback = null;
+}
+
+function handleConfirm() {
+    if (window.currentConfirmCallback) {
+        window.currentConfirmCallback();
+    }
+    closeConfirmModal();
+}
+
+// ==================== Toast 提示 ====================
+function showToast(message, type = 'info', duration = 3000) {
+    // 移除已存在的toast
+    const existingToast = document.querySelector('.admin-toast');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    // 创建toast元素
+    const toast = document.createElement('div');
+    toast.className = `admin-toast admin-toast-${type}`;
+    
+    // 图标映射
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    toast.innerHTML = `
+        <div class="admin-toast-content">
+            <span class="admin-toast-icon">${icons[type] || icons.info}</span>
+            <span class="admin-toast-message">${message}</span>
+        </div>
+    `;
+    
+    // 添加到页面
+    document.body.appendChild(toast);
+    
+    // 显示动画
+    setTimeout(() => {
+        toast.classList.add('show');
+    }, 10);
+    
+    // 自动隐藏
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 300);
+    }, duration);
 }
 
 // 初始化

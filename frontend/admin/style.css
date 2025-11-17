@@ -285,6 +285,74 @@ body {
     overflow-y: auto;
 }
 
+.nav-group {
+    margin-bottom: 8px;
+}
+
+.nav-parent {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.2s;
+    margin-bottom: 6px;
+}
+
+.nav-parent:focus {
+    outline: none;
+}
+
+.nav-parent:hover {
+    background: var(--bg-secondary);
+}
+
+.nav-parent-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.nav-arrow {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    transition: transform 0.2s ease;
+}
+
+.nav-group.open .nav-arrow {
+    transform: rotate(180deg);
+}
+
+.sub-nav {
+    display: flex;
+    flex-direction: column;
+    margin: 6px 4px 12px;
+    background: var(--bg-secondary);
+    border-radius: 14px;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+    padding: 0;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: all 0.25s ease;
+}
+
+.nav-group.open .sub-nav {
+    max-height: 600px;
+    opacity: 1;
+    transform: translateY(0);
+    padding: 8px 0;
+}
+
 .nav-item {
     display: flex;
     align-items: center;
@@ -310,21 +378,123 @@ body {
     font-size: 20px;
 }
 
+.nav-sub-item {
+    position: relative;
+    padding: 10px 20px 10px 48px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    border-radius: 10px;
+    margin: 2px 8px;
+    transition: all 0.2s;
+}
+
+.nav-sub-item::before {
+    content: '';
+    position: absolute;
+    left: 24px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-color);
+    transform: translateY(-50%);
+    transition: background 0.2s;
+}
+
+.nav-sub-item:hover {
+    background: rgba(0, 122, 255, 0.08);
+    color: var(--text-primary);
+}
+
+.nav-sub-item.active {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 8px 18px rgba(0, 122, 255, 0.25);
+}
+
+.nav-sub-item.active::before {
+    background: white;
+}
+
 .sidebar-footer {
     padding: 16px;
     border-top: 1px solid var(--border-color);
 }
 
-.user-info {
-    padding: 12px;
-    margin-bottom: 8px;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    font-weight: 500;
+.user-menu {
+    position: relative;
+    margin-bottom: 16px;
 }
 
-.sidebar-footer .btn {
+.user-info-button {
     width: 100%;
+    background: var(--bg-secondary);
+    border: none;
+    padding: 14px 16px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.user-info-button:hover {
+    background: var(--bg-primary);
+    box-shadow: var(--shadow);
+}
+
+.user-menu.open .user-info-button {
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 8px 20px rgba(0, 122, 255, 0.3);
+}
+
+.user-menu.open .user-menu-arrow {
+    color: white;
+}
+
+.user-menu-arrow {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    transition: transform 0.2s ease;
+}
+
+.user-dropdown {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    background: var(--bg-primary);
+    border-radius: 12px;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.15);
+    padding: 8px 0;
+    display: none;
+    flex-direction: column;
+    z-index: 10;
+}
+
+.user-dropdown.open {
+    display: flex;
+}
+
+.dropdown-item {
+    border: none;
+    background: transparent;
+    padding: 12px 20px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.dropdown-item:hover {
+    background: var(--bg-secondary);
 }
 
 .sidebar-footer .copyright {
@@ -711,14 +881,9 @@ tr:hover {
 }
 
 /* 确认对话框 */
-.confirm-dialog {
-    background: var(--bg-primary);
-    border-radius: var(--radius);
-    padding: 0;
+.confirm-modal {
     width: 90%;
     max-width: 420px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
     animation: modalSlideIn 0.3s ease-out;
 }
 
@@ -733,43 +898,37 @@ tr:hover {
     }
 }
 
-.confirm-dialog-header {
-    padding: 24px 24px 16px;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.confirm-dialog-header h3 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.confirm-dialog-content {
-    padding: 24px;
+.confirm-message {
     text-align: center;
+    padding: 8px 0;
 }
 
 .confirm-icon {
     font-size: 48px;
     margin-bottom: 16px;
     display: block;
+    animation: confirmIconPulse 0.6s ease-out;
 }
 
-.confirm-dialog-content p {
+@keyframes confirmIconPulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.confirm-message p {
     margin: 0;
-    font-size: 16px;
+    font-size: 15px;
     color: var(--text-secondary);
     line-height: 1.6;
-}
-
-.confirm-dialog-actions {
-    display: flex;
-    gap: 12px;
-    padding: 16px 24px;
-    border-top: 1px solid var(--border-color);
-    justify-content: flex-end;
-    background: var(--bg-secondary);
 }
 
 .btn-danger {
@@ -836,6 +995,67 @@ tr:hover {
 
 .custom-toast-info {
     border-left: 4px solid var(--primary-color);
+}
+
+/* Admin Toast 提示 */
+.admin-toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    min-width: 300px;
+    max-width: 500px;
+    padding: 16px 20px;
+    background: var(--bg-primary);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    opacity: 0;
+    transform: translateX(400px);
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    border-left: 4px solid var(--primary-color);
+}
+
+.admin-toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.admin-toast-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.admin-toast-icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.admin-toast-message {
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    flex: 1;
+}
+
+.admin-toast-success {
+    border-left-color: var(--success-color);
+    background: linear-gradient(to right, rgba(52, 199, 89, 0.1), var(--bg-primary));
+}
+
+.admin-toast-error {
+    border-left-color: var(--danger-color);
+    background: linear-gradient(to right, rgba(255, 59, 48, 0.1), var(--bg-primary));
+}
+
+.admin-toast-warning {
+    border-left-color: var(--warning-color);
+    background: linear-gradient(to right, rgba(255, 149, 0, 0.1), var(--bg-primary));
+}
+
+.admin-toast-info {
+    border-left-color: var(--primary-color);
+    background: linear-gradient(to right, rgba(0, 122, 255, 0.1), var(--bg-primary));
 }
 
 /* 响应式设计 */

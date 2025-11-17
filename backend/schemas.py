@@ -396,3 +396,58 @@ class VicePresidentDepartmentResponse(VicePresidentDepartmentBase):
         from_attributes = True
 
 
+# ==================== 出勤情况查看授权相关 ====================
+class AttendanceViewerBase(BaseModel):
+    user_id: int
+
+
+class AttendanceViewerCreate(AttendanceViewerBase):
+    pass
+
+
+class AttendanceViewerResponse(AttendanceViewerBase):
+    id: int
+    user_name: Optional[str] = None
+    user_real_name: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ==================== 出勤情况概览相关 ====================
+class AttendanceOverviewItem(BaseModel):
+    """单个员工的出勤情况"""
+    user_id: int
+    user_name: str
+    real_name: str
+    role: Optional[UserRole] = None
+    department_name: Optional[str] = None
+    leave_start_date: Optional[str] = None
+    leave_end_date: Optional[str] = None
+    checkin_time: Optional[datetime] = None
+    checkout_time: Optional[datetime] = None
+    is_late: bool = False
+    is_early_leave: bool = False
+    work_hours: Optional[float] = None
+    has_leave: bool = False
+    leave_days: float = 0.0
+    has_overtime: bool = False
+    overtime_days: float = 0.0
+    overtime_start_time: Optional[datetime] = None
+    overtime_end_time: Optional[datetime] = None
+
+
+class AttendanceOverviewResponse(BaseModel):
+    """出勤情况概览"""
+    date: str  # YYYY-MM-DD
+    items: List[AttendanceOverviewItem]
+    total_users: int
+    checked_in_count: int
+    on_leave_count: int
+    on_overtime_count: int
+    is_workday: bool
+    workday_reason: Optional[str] = None
+
+
