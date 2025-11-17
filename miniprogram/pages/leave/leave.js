@@ -186,6 +186,7 @@ Page({
         
         return {
           ...leave,
+          leave_type_name: leave.leave_type_name || '普通请假',
           timeRange: formatTimeRange(leave.start_date, leave.end_date), // 使用智能格式化时间范围
           startDate: formatDate(leave.start_date),
           endDate: formatDate(leave.end_date),
@@ -411,10 +412,9 @@ Page({
           status: getStatusName(leave.status),
           applicant: leave.applicant_name || `用户${leave.user_id}`,
           timeRange: formatTimeRange(leave.start_date, leave.end_date), // 使用智能格式化时间范围
-          startDate: formatDate(leave.start_date),
-          endDate: formatDate(leave.end_date),
           days: `${leave.days}天`,
           reason: leave.reason,
+          leaveType: leave.leave_type_name || '普通请假',
           deptApprover: leave.dept_approver_name,
           deptApprovedAt: leave.dept_approved_at ? formatDateTime(leave.dept_approved_at) : null,
           deptComment: leave.dept_comment,

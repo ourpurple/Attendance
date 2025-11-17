@@ -14,6 +14,7 @@ const API_BASE_URL = getApiBaseUrl();
 let currentUser = null;
 let token = null;
 let currentLocation = null;
+let leaveTypesCache = [];
 
 // ==================== 自定义弹窗工具函数 ====================
 // 自定义输入对话框
@@ -1639,6 +1640,7 @@ async function loadMyLeaveApplications() {
                     </div>
                     <div class="list-item-content">
                         <div><strong>天数:</strong> ${leave.days}天</div>
+                    <div><strong>类型:</strong> ${leave.leave_type_name || '普通请假'}</div>
                         <div><strong>原因:</strong> ${leave.reason}</div>
                         <div><strong>申请时间:</strong> ${formatDateTime(leave.created_at)}</div>
                         ${pendingApprover ? `<div style="color: #1890ff; margin-top: 5px;"><strong>${pendingApprover}</strong></div>` : ''}
@@ -1765,6 +1767,7 @@ async function loadPendingLeaves() {
                         <div style="flex: 1;"><strong>申请人:</strong> ${leave.applicant_name || `用户${leave.user_id}`}</div>
                         <div style="flex: 1;"><strong>请假天数:</strong> ${leave.days}天</div>
                     </div>
+                    <div style="margin-bottom:6px;"><strong>类型:</strong> ${leave.leave_type_name || '普通请假'}</div>
                     <div><strong>原因:</strong> ${leave.reason}</div>
                 </div>
                 <div class="list-item-footer" style="display: flex; gap: 10px;">
@@ -1933,6 +1936,19 @@ async function loadMyStats() {
     }
 }
 
+async function fetchLeaveTypes(force = false) {
+    if (leaveTypesCache.length && !force) {
+        return leaveTypesCache;
+    }
+    try {
+        leaveTypesCache = await apiRequest('/leave-types/');
+    } catch (error) {
+        console.error('加载请假类型失败:', error);
+        leaveTypesCache = [];
+    }
+    return leaveTypesCache;
+}
+
 // ==================== 请假申请表单 ====================
 async function showNewLeaveForm() {
     // 根据用户角色决定是否显示审批人选择器
@@ -1974,6 +1990,13 @@ async function showNewLeaveForm() {
         `<option value="${node.value}" ${node.value === '17:30' ? 'selected' : ''}>${node.label}</option>`
     ).join('');
     
+    const leaveTypes = await fetchLeaveTypes();
+    if (!leaveTypes.length) {
+        await showToast('请假类型未配置，请联系管理员', 'warning');
+        return;
+    }
+    const leaveTypeOptions = leaveTypes.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
+    
     const modalHtml = `
         <div class="modal-overlay" onclick="closeFormModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
@@ -1982,22 +2005,29 @@ async function showNewLeaveForm() {
                     <button class="modal-close" onclick="closeFormModal()">×</button>
                 </div>
                 <form id="leave-form" onsubmit="submitLeaveForm(event)">
-                    <div class="form-group">
+                    <div class="form-group inline-field">
+                        <label class="form-label">请假类型 *</label>
+                        <select id="leave-type-select" class="form-input" required>
+                            <option value="">请选择</option>
+                            ${leaveTypeOptions}
+                        </select>
+                    </div>
+                    <div class="form-group inline-field">
                         <label class="form-label">开始日期 *</label>
                         <input type="date" id="leave-start-date" class="form-input" onchange="calculateLeaveDays()" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group inline-field">
                         <label class="form-label">开始时间节点 *</label>
                         <select id="leave-start-time-node" class="form-input" onchange="calculateLeaveDays()" required>
                             <option value="09:00" selected>09:00</option>
                             <option value="14:00">14:00</option>
                         </select>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group inline-field">
                         <label class="form-label">结束日期 *</label>
                         <input type="date" id="leave-end-date" class="form-input" onchange="calculateLeaveDays()" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group inline-field">
                         <label class="form-label">结束时间节点 *</label>
                         <select id="leave-end-time-node" class="form-input" onchange="calculateLeaveDays()" required>
                             <option value="12:00">12:00</option>
@@ -2210,10 +2240,11 @@ async function submitLeaveForm(event) {
     const endTimeNode = document.getElementById('leave-end-time-node').value;
     const reason = document.getElementById('leave-reason').value;
     const calculatedDaysDiv = document.getElementById('leave-calculated-days');
+    const leaveTypeId = document.getElementById('leave-type-select')?.value;
     const assignedVpId = document.getElementById('leave-assigned-vp')?.value || '';
     const assignedGmId = document.getElementById('leave-assigned-gm')?.value || '';
     
-    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason) {
+    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason || !leaveTypeId) {
         await showToast('请填写所有必填项', 'warning');
         return;
     }
@@ -2247,7 +2278,8 @@ async function submitLeaveForm(event) {
         start_date: startDateTime,
         end_date: endDateTime,
         days: days,
-        reason: reason
+        reason: reason,
+        leave_type_id: parseInt(leaveTypeId)
     };
     
     // 如果指定了审批人，添加到请求中
@@ -3251,12 +3283,12 @@ async function viewLeaveDetail(leaveId) {
                     <span style="font-size: 1em; font-weight: 500;">${applicantName}</span>
                 </div>
                 <div style="margin-bottom: 15px; display: flex; align-items: center;">
-                    <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">开始日期:</span>
-                    <span style="font-size: 1em;">${formatDate(leave.start_date)}</span>
+                    <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">类型:</span>
+                    <span style="font-size: 1em;">${leave.leave_type_name || '普通请假'}</span>
                 </div>
                 <div style="margin-bottom: 15px; display: flex; align-items: center;">
-                    <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">结束日期:</span>
-                    <span style="font-size: 1em;">${formatDate(leave.end_date)}</span>
+                    <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">请假时间:</span>
+                    <span style="font-size: 1em;">${formatTimeRange(leave.start_date, leave.end_date)}</span>
                 </div>
                 <div style="margin-bottom: 15px; display: flex; align-items: center;">
                     <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">天数:</span>

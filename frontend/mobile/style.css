@@ -94,6 +94,23 @@ body {
     margin-bottom: 16px;
 }
 
+.form-group.inline-field {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.form-group.inline-field label {
+    margin-bottom: 0;
+    min-width: 110px;
+    flex-shrink: 0;
+}
+
+.form-group.inline-field input,
+.form-group.inline-field select {
+    flex: 1;
+}
+
 .form-group label {
     display: block;
     margin-bottom: 8px;

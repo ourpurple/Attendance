@@ -246,6 +246,9 @@ function loadPageData(page) {
         case 'attendance-viewers':
             loadAttendanceViewers();
             break;
+        case 'leave-types':
+            loadLeaveTypes();
+            break;
         case 'attendance':
             loadAttendanceUserList();
             initAttendanceQuery();
@@ -819,10 +822,11 @@ async function loadLeaveApplications() {
             
             return `
                 <tr>
-                    <td>${userMap[leave.user_id]}</td>
+                    <td>${userMap[leave.user_id] || '-'}</td>
                     <td>${formatTimeRange(leave.start_date, leave.end_date)}</td>
                     <td>${leave.days}</td>
-                    <td>${leave.reason}</td>
+                    <td>${leave.reason || '-'}</td>
+                    <td>${leave.leave_type_name || '普通请假'}</td>
                     <td>${formatDateTime(leave.created_at)}</td>
                     <td>
                         <span class="status-badge status-${getLeaveStatusClass(leave.status)}">
@@ -1054,6 +1058,22 @@ async function loadPolicies() {
 // 加载统计数据
 // 全局变量存储统计数据
 let statisticsData = [];
+let adminLeaveTypes = [];
+let statsLeaveTypes = [];
+async function ensureStatsLeaveTypes() {
+    if (statsLeaveTypes.length) {
+        return statsLeaveTypes;
+    }
+    try {
+        const types = await apiRequest('/leave-types/?include_inactive=false');
+        statsLeaveTypes = types || [];
+    } catch (error) {
+        console.error('加载请假类型失败:', error);
+        statsLeaveTypes = [];
+    }
+    return statsLeaveTypes;
+}
+
 
 // 切换统计标签页
 function switchStatsTab(tab) {
@@ -1143,7 +1163,7 @@ async function loadAllStatistics() {
         // 加载各个统计视图
         loadOverallStats(periodStats);
         loadAttendanceStats();
-        loadLeaveStats();
+        await loadLeaveStats();
         loadOvertimeStats();
     } catch (error) {
         console.error('加载统计数据失败:', error);
@@ -1181,8 +1201,25 @@ function loadAttendanceStats() {
 }
 
 // 加载请假统计
-function loadLeaveStats() {
+async function loadLeaveStats() {
     const tbody = document.getElementById('leave-stats-tbody');
+    const thead = document.querySelector('#leave-stats-table thead');
+    
+    await ensureStatsLeaveTypes();
+    
+    if (thead) {
+        const headerHtml = `
+            <tr>
+                <th>姓名</th>
+                <th>部门</th>
+                <th>总请假天数</th>
+                ${statsLeaveTypes.map(type => `<th>${type.name}</th>`).join('')}
+                <th>请假次数</th>
+                <th>操作</th>
+            </tr>
+        `;
+        thead.innerHTML = headerHtml;
+    }
     
     // 过滤出有请假记录的员工（只统计已批准的）
     const leaveData = statisticsData
@@ -1194,21 +1231,30 @@ function loadLeaveStats() {
         .sort((a, b) => b.leave_days - a.leave_days);
     
     if (leaveData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">暂无请假记录</td></tr>';
+        const colspan = 5 + statsLeaveTypes.length;
+        tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 40px; color: #999;">暂无请假记录</td></tr>`;
         return;
     }
     
-    tbody.innerHTML = leaveData.map((stat, index) => `
-        <tr>
-            <td>${stat.user_name}</td>
-            <td>${stat.department || '-'}</td>
-            <td>${stat.leave_days.toFixed(1)}</td>
-            <td>${stat.leave_count}</td>
-            <td>
-                <button class="btn btn-small btn-primary" data-user-id="${stat.user_id}" data-user-name="${stat.user_name.replace(/"/g, '&quot;')}" data-action="leave-details">详情</button>
-            </td>
-        </tr>
-    `).join('');
+        tbody.innerHTML = leaveData.map((stat) => {
+            const breakdownMap = {};
+            (stat.leave_type_breakdown || []).forEach(item => {
+                breakdownMap[item.leave_type_id] = item.total_days || 0;
+            });
+            const typeCells = statsLeaveTypes.map(type => `<td>${(breakdownMap[type.id] || 0).toFixed(1)}</td>`).join('');
+            return `
+                <tr>
+                    <td>${stat.user_name}</td>
+                    <td>${stat.department || '-'}</td>
+                    <td>${stat.leave_days.toFixed(1)}</td>
+                    ${typeCells}
+                    <td>${stat.leave_count}</td>
+                    <td>
+                        <button class="btn btn-small btn-primary" data-user-id="${stat.user_id}" data-user-name="${stat.user_name.replace(/"/g, '&quot;')}" data-action="leave-details">详情</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
     
     // 绑定事件监听器
     tbody.querySelectorAll('button[data-action="leave-details"]').forEach(btn => {
@@ -1303,6 +1349,7 @@ window.showLeaveDetails = async function(userId, userName) {
                                     <th>请假时间</th>
                                     <th>天数</th>
                                     <th>原因</th>
+                                    <th>类型</th>
                                     <th>申请时间</th>
                                 </tr>
                             </thead>
@@ -1312,6 +1359,7 @@ window.showLeaveDetails = async function(userId, userName) {
                                         <td>${formatTimeRange(leave.start_date, leave.end_date)}</td>
                                         <td>${leave.days}</td>
                                         <td>${leave.reason || '-'}</td>
+                                        <td>${leave.leave_type_name || '普通请假'}</td>
                                         <td>${formatDateTime(leave.created_at)}</td>
                                     </tr>
                                 `).join('')}
@@ -2465,6 +2513,166 @@ async function deleteAttendanceViewer(id) {
     );
 }
 
+// ==================== 请假类型管理 ====================
+async function loadLeaveTypes() {
+    try {
+        const types = await apiRequest('/leave-types/?include_inactive=true');
+        adminLeaveTypes = types;
+        const tbody = document.getElementById('leave-types-tbody');
+        
+        if (!types.length) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">暂未配置请假类型</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = types.map(type => `
+            <tr>
+                <td>${type.name}</td>
+                <td>${type.description || '-'}</td>
+                <td>
+                    <span class="status-badge ${type.is_active ? 'status-success' : 'status-warning'}">
+                        ${type.is_active ? '启用' : '停用'}
+                    </span>
+                </td>
+                <td>${formatDateTime(type.updated_at)}</td>
+                <td style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-small btn-primary" data-action="edit" data-id="${type.id}">编辑</button>
+                    <button class="btn btn-small btn-secondary" data-action="toggle" data-id="${type.id}">
+                        ${type.is_active ? '停用' : '启用'}
+                    </button>
+                    <button class="btn btn-small btn-danger" data-action="delete" data-id="${type.id}">删除</button>
+                </td>
+            </tr>
+        `).join('');
+        
+        tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                const type = adminLeaveTypes.find(t => t.id === id);
+                if (type) {
+                    showEditLeaveTypeModal(type);
+                }
+            });
+        });
+        
+        tbody.querySelectorAll('button[data-action="toggle"]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = parseInt(btn.dataset.id);
+                const type = adminLeaveTypes.find(t => t.id === id);
+                if (!type) return;
+                try {
+                    await apiRequest(`/leave-types/${id}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ is_active: !type.is_active })
+                    });
+                    showToast('状态更新成功', 'success');
+                    loadLeaveTypes();
+                } catch (error) {
+                    showToast('更新失败: ' + error.message, 'error');
+                }
+            });
+        });
+        
+        tbody.querySelectorAll('button[data-action="delete"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                showConfirm(
+                    '确认删除',
+                    '删除后类型将被移除（若已被使用，将自动停用）。确定继续？',
+                    async () => {
+                        try {
+                            await apiRequest(`/leave-types/${id}`, { method: 'DELETE' });
+                            showToast('操作成功', 'success');
+                            loadLeaveTypes();
+                        } catch (error) {
+                            showToast('删除失败: ' + error.message, 'error');
+                        }
+                    }
+                );
+            });
+        });
+    } catch (error) {
+        console.error('加载请假类型失败:', error);
+        const tbody = document.getElementById('leave-types-tbody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">加载失败</td></tr>';
+        }
+    }
+}
+
+function showAddLeaveTypeModal() {
+    openLeaveTypeModal('添加请假类型');
+}
+
+function showEditLeaveTypeModal(type) {
+    openLeaveTypeModal('编辑请假类型', type);
+}
+
+function openLeaveTypeModal(title, type = null) {
+    const content = `
+        <form id="leave-type-form" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="form-group">
+                <label>类型名称 *</label>
+                <input type="text" id="leave-type-name" class="form-input" value="${type ? type.name : ''}" required placeholder="请输入类型名称">
+            </div>
+            <div class="form-group">
+                <label>说明</label>
+                <textarea id="leave-type-description" class="form-input" rows="3" placeholder="可填写类型说明">${type ? (type.description || '') : ''}</textarea>
+            </div>
+            ${type ? `
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="leave-type-active" ${type.is_active ? 'checked' : ''}>
+                    启用该类型
+                </label>
+            </div>
+            ` : ''}
+        </form>
+    `;
+    
+    showModal(title, content, async () => {
+        const nameInput = document.getElementById('leave-type-name');
+        const descInput = document.getElementById('leave-type-description');
+        const activeInput = document.getElementById('leave-type-active');
+        
+        const name = nameInput.value.trim();
+        const description = descInput.value.trim();
+        
+        if (!name) {
+            alert('类型名称不能为空');
+            return;
+        }
+        
+        try {
+            if (type) {
+                await apiRequest(`/leave-types/${type.id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        is_active: activeInput ? activeInput.checked : type.is_active
+                    })
+                });
+                showToast('请假类型已更新', 'success');
+            } else {
+                await apiRequest('/leave-types/', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name,
+                        description,
+                        is_active: true
+                    })
+                });
+                showToast('请假类型已创建', 'success');
+            }
+            closeModal();
+            loadLeaveTypes();
+        } catch (error) {
+            showToast('操作失败: ' + error.message, 'error');
+        }
+    });
+}
+
 // ==================== 策略管理 ====================
 function showAddPolicyModal() {
     const content = `
@@ -2765,9 +2973,10 @@ window.viewLeaveDetail = async function(id) {
     const content = `
         <div style="line-height: 1.8;">
             <p><strong>申请人：</strong>${userMap[leave.user_id]}</p>
+            <p><strong>类型：</strong>${leave.leave_type_name || '普通请假'}</p>
             <p><strong>请假时间：</strong>${formatTimeRange(leave.start_date, leave.end_date)}</p>
             <p><strong>天数：</strong>${leave.days}天</p>
-            <p><strong>原因：</strong>${leave.reason}</p>
+            <p><strong>原因：</strong>${leave.reason || '-'}</p>
             <p><strong>状态：</strong><span class="status-badge status-${getLeaveStatusClass(leave.status)}">${getLeaveStatusName(leave.status)}</span></p>
             <hr style="margin: 16px 0; border: none; border-top: 1px solid #E5E5EA;">
             ${leave.dept_approver_id ? `

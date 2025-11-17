@@ -1,6 +1,22 @@
 <!-- pages/leave/apply/apply.wxml -->
 <view class="container">
   <view class="form-group">
+    <view class="form-label">请假类型 *</view>
+    <picker 
+      mode="selector" 
+      range="{{leaveTypes}}" 
+      range-key="name"
+      value="{{leaveTypeIndex}}"
+      bindchange="onLeaveTypeChange"
+    >
+      <view class="picker">
+        <text>{{leaveTypes[leaveTypeIndex] && leaveTypes[leaveTypeIndex].name ? leaveTypes[leaveTypeIndex].name : '请选择请假类型'}}</text>
+        <text class="picker-icon">▼</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-group">
     <view class="form-label">开始日期 *</view>
     <picker mode="date" value="{{startDate}}" bindchange="onStartDateChange">
       <view class="picker">
@@ -48,6 +64,22 @@
       <view class="picker">
         <text>{{endTimeNodes[endTimeNodeIndex].label || '请选择结束时间节点'}}</text>
         <text class="picker-icon">🕐</text>
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-group" wx:if="{{leaveTypes.length > 0}}">
+    <view class="form-label">请假类型 *</view>
+    <picker 
+      mode="selector" 
+      range="{{leaveTypes}}" 
+      range-key="name"
+      value="{{leaveTypeIndex}}"
+      bindchange="onLeaveTypeChange"
+    >
+      <view class="picker">
+        <text>{{leaveTypes[leaveTypeIndex].name || '请选择请假类型'}}</text>
+        <text class="picker-icon">▼</text>
       </view>
     </picker>
   </view>

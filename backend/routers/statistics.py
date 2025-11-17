@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_
 from typing import List
 from datetime import datetime, timedelta, date
 from ..database import get_db
-from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday
+from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday, LeaveType
 from ..schemas import AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse
+def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationResponse:
+    data = LeaveApplicationResponse.from_orm(leave).model_dump()
+    data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
+    return LeaveApplicationResponse(**data)
 from ..security import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/statistics", tags=["统计分析"])
@@ -80,6 +84,8 @@ def get_attendance_statistics(
     # 计算日期范围内的实际工作日天数（排除周末和法定节假日）
     total_days = calculate_workdays(start_date, end_date, db)
     
+    leave_types = db.query(LeaveType).filter(LeaveType.is_active == True).all()
+    leave_type_map = {lt.id: lt.name for lt in leave_types}
     statistics = []
     for user in users:
         # 获取考勤记录
@@ -92,7 +98,7 @@ def get_attendance_statistics(
         ).all()
         
         # 获取请假记录
-        leaves = db.query(LeaveApplication).filter(
+        leaves = db.query(LeaveApplication).options(joinedload(LeaveApplication.leave_type)).filter(
             and_(
                 LeaveApplication.user_id == user.id,
                 LeaveApplication.status == LeaveStatus.APPROVED,
@@ -117,6 +123,15 @@ def get_attendance_statistics(
         early_leave_days = sum(1 for a in attendances if a.is_early_leave)
         leave_days = sum(l.days for l in leaves if l.days is not None)
         leave_count = len(leaves)  # 请假次数（只统计已批准的）
+        leave_type_totals = {}
+        for leave in leaves:
+            lt_id = leave.leave_type_id if hasattr(leave, "leave_type_id") else None
+            if lt_id:
+                if lt_id not in leave_type_totals:
+                    leave_type_totals[lt_id] = {"leave_type_id": lt_id, "leave_type_name": leave_type_map.get(lt_id, "未分类"), "total_days": 0.0, "total_count": 0}
+                leave_type_totals[lt_id]["total_days"] += leave.days or 0
+                leave_type_totals[lt_id]["total_count"] += 1
+        leave_type_breakdown = list(leave_type_totals.values())
         overtime_days = sum(o.days for o in overtimes if o.days is not None)
         overtime_count = len(overtimes)  # 加班次数（只统计已批准的）
         work_hours = sum(a.work_hours for a in attendances if a.work_hours is not None)
@@ -135,7 +150,8 @@ def get_attendance_statistics(
             leave_count=leave_count,
             overtime_days=overtime_days,
             overtime_count=overtime_count,
-            work_hours=work_hours
+            work_hours=work_hours,
+            leave_type_breakdown=leave_type_breakdown
         )
         statistics.append(stat)
     
@@ -193,7 +209,7 @@ def get_period_statistics(
     attendance_rate = (actual_attendance / expected_attendance * 100) if expected_attendance > 0 else 0
     
     # 总请假天数（排除admin账户）
-    leaves_query = db.query(LeaveApplication).filter(
+    leaves_query = db.query(LeaveApplication).options(joinedload(LeaveApplication.leave_type)).filter(
         and_(
             LeaveApplication.status == LeaveStatus.APPROVED,
             LeaveApplication.start_date <= datetime.combine(end_date, datetime.max.time()),
@@ -218,13 +234,31 @@ def get_period_statistics(
     overtimes = overtimes_query.all()
     total_overtime_days = sum(o.days for o in overtimes if o.days is not None)
     
+    leave_type_totals = {}
+    for leave in leaves:
+        lt = leave.leave_type
+        lt_id = lt.id if lt else 0
+        lt_name = lt.name if lt else "未分类"
+        if lt_id not in leave_type_totals:
+            leave_type_totals[lt_id] = {
+                "leave_type_id": lt_id,
+                "leave_type_name": lt_name,
+                "total_days": 0.0,
+                "total_count": 0
+            }
+        leave_type_totals[lt_id]["total_days"] += leave.days or 0
+        leave_type_totals[lt_id]["total_count"] += 1
+    
+    leave_type_summary = list(leave_type_totals.values())
+    
     return PeriodStatistics(
         start_date=datetime.combine(start_date, datetime.min.time()),
         end_date=datetime.combine(end_date, datetime.max.time()),
         total_users=total_users,
         attendance_rate=round(attendance_rate, 2),
         total_leave_days=total_leave_days,
-        total_overtime_days=total_overtime_days
+        total_overtime_days=total_overtime_days,
+        leave_type_summary=leave_type_summary
     )
 
 
@@ -249,7 +283,7 @@ def get_my_statistics(
     ).all()
     
     # 获取请假记录
-    leaves = db.query(LeaveApplication).filter(
+    leaves = db.query(LeaveApplication).options(joinedload(LeaveApplication.leave_type)).filter(
         and_(
             LeaveApplication.user_id == current_user.id,
             LeaveApplication.status == LeaveStatus.APPROVED,
@@ -331,7 +365,7 @@ def get_user_leave_details(
         )
     ).order_by(LeaveApplication.start_date.desc()).all()
     
-    return leaves
+    return [serialize_leave_response(leave) for leave in leaves]
 
 
 @router.get("/user/{user_id}/overtime-details", response_model=List[OvertimeApplicationResponse])

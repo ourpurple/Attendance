@@ -13,6 +13,7 @@
       </view>
       <view class="list-item-content">
         <view><text class="label">天数:</text> {{item.days}}天</view>
+        <view><text class="label">类型:</text> {{item.leave_type_name || '普通请假'}}</view>
         <view><text class="label">原因:</text> {{item.reason}}</view>
         <view><text class="label">申请时间:</text> {{item.createdAt}}</view>
         <view wx:if="{{item.pendingApprover}}" style="color: #1890ff; margin-top: 5px;">
@@ -70,6 +71,10 @@
       <view class="detail-item">
         <text class="detail-label">申请人:</text>
         <text class="detail-value">{{detailData.applicant}}</text>
+      </view>
+      <view class="detail-item">
+        <text class="detail-label">类型:</text>
+        <text class="detail-value">{{detailData.leaveType || '普通请假'}}</text>
       </view>
       <view class="detail-item">
         <text class="detail-label">请假时间:</text>

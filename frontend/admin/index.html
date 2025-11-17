@@ -79,6 +79,9 @@
                             <a href="#attendance-viewers" class="nav-sub-item nav-link" data-page="attendance-viewers">
                                 <span>出勤查看授权</span>
                             </a>
+                            <a href="#leave-types" class="nav-sub-item nav-link" data-page="leave-types">
+                                <span>请假类型</span>
+                            </a>
                             <a href="#policies" class="nav-sub-item nav-link" data-page="policies">
                                 <span>策略管理</span>
                             </a>
@@ -247,6 +250,28 @@
                     </div>
                 </div>
 
+                <!-- 请假类型管理 -->
+                <div id="leave-types-content" class="content-section">
+                    <div class="section-header">
+                        <h2>请假类型管理</h2>
+                        <button class="btn btn-primary" onclick="showAddLeaveTypeModal()">添加请假类型</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="leave-types-table">
+                            <thead>
+                                <tr>
+                                    <th>名称</th>
+                                    <th>说明</th>
+                                    <th>状态</th>
+                                    <th>更新时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="leave-types-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- 考勤记录 -->
                 <div id="attendance-content" class="content-section">
                     <div class="section-header">
@@ -340,6 +365,7 @@
                                     <th>请假时间</th>
                                     <th>天数</th>
                                     <th>原因</th>
+                                    <th>类型</th>
                                     <th>申请时间</th>
                                     <th>状态</th>
                                     <th>审批人</th>
@@ -544,15 +570,7 @@
                     <div id="leave-stats" class="stats-tab-content">
                         <div class="table-container">
                             <table id="leave-stats-table">
-                                <thead>
-                                    <tr>
-                                        <th>姓名</th>
-                                        <th>部门</th>
-                                        <th>请假天数</th>
-                                        <th>请假次数</th>
-                                        <th>操作</th>
-                                    </tr>
-                                </thead>
+                                <thead></thead>
                                 <tbody id="leave-stats-tbody">
                                 </tbody>
                             </table>

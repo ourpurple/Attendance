@@ -128,6 +128,21 @@ class LeavePolicy(Base):
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
+class LeaveType(Base):
+    """请假类型表"""
+    __tablename__ = "leave_types"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False, comment="类型名称")
+    description = Column(Text, comment="类型说明")
+    is_active = Column(Boolean, default=True, comment="是否启用")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+    
+    # 关系
+    applications = relationship("LeaveApplication", back_populates="leave_type")
+
+
 class LeaveApplication(Base):
     """请假申请表"""
     __tablename__ = "leave_applications"
@@ -150,6 +165,7 @@ class LeaveApplication(Base):
     gm_approver_id = Column(Integer, ForeignKey("users.id"), comment="总经理审批人ID")
     gm_approved_at = Column(DateTime, comment="总经理审批时间")
     gm_comment = Column(Text, comment="总经理审批意见")
+    leave_type_id = Column(Integer, ForeignKey("leave_types.id"), nullable=False, comment="请假类型ID")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -160,6 +176,7 @@ class LeaveApplication(Base):
     dept_approver = relationship("User", foreign_keys=[dept_approver_id], post_update=True)
     vp_approver = relationship("User", foreign_keys=[vp_approver_id], post_update=True)
     gm_approver = relationship("User", foreign_keys=[gm_approver_id], post_update=True)
+    leave_type = relationship("LeaveType", back_populates="applications")
 
 
 class OvertimeApplication(Base):

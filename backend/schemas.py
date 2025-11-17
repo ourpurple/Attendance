@@ -185,6 +185,7 @@ class LeaveApplicationBase(BaseModel):
     end_date: datetime
     days: float
     reason: str
+    leave_type_id: int
     
     @validator('end_date')
     def validate_dates(cls, v, values):
@@ -203,12 +204,14 @@ class LeaveApplicationUpdate(BaseModel):
     end_date: Optional[datetime] = None
     days: Optional[float] = None
     reason: Optional[str] = None
+    leave_type_id: Optional[int] = None
 
 
 class LeaveApplicationResponse(LeaveApplicationBase):
     id: int
     user_id: int
     applicant_name: Optional[str] = None
+    leave_type_name: Optional[str] = None
     status: LeaveStatus
     assigned_vp_id: Optional[int] = None
     assigned_vp_name: Optional[str] = None
@@ -240,6 +243,30 @@ class LeaveApproval(BaseModel):
     comment: Optional[str] = None
     approved: bool
 
+
+class LeaveTypeBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    is_active: bool = True
+
+
+class LeaveTypeCreate(LeaveTypeBase):
+    pass
+
+
+class LeaveTypeUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class LeaveTypeResponse(LeaveTypeBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 # ==================== 加班相关 ====================
 class OvertimeApplicationBase(BaseModel):
@@ -301,6 +328,13 @@ class OvertimeApproval(BaseModel):
 
 
 # ==================== 统计相关 ====================
+class LeaveTypeSummary(BaseModel):
+    leave_type_id: int
+    leave_type_name: str
+    total_days: float = 0.0
+    total_count: int = 0
+
+
 class AttendanceStatistics(BaseModel):
     user_id: int
     user_name: str
@@ -315,6 +349,7 @@ class AttendanceStatistics(BaseModel):
     overtime_days: float
     overtime_count: int = 0
     work_hours: float
+    leave_type_breakdown: List[LeaveTypeSummary] = []
 
 
 class PeriodStatistics(BaseModel):
@@ -324,6 +359,7 @@ class PeriodStatistics(BaseModel):
     attendance_rate: float
     total_leave_days: float
     total_overtime_days: float
+    leave_type_summary: List[LeaveTypeSummary] = []
 
 
 # ==================== 节假日相关 ====================

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, date
 from ..database import get_db
-from ..models import LeaveApplication, User, UserRole, LeaveStatus, Department
+from ..models import LeaveApplication, User, UserRole, LeaveStatus, Department, LeaveType
 from ..schemas import LeaveApplicationCreate, LeaveApplicationUpdate, LeaveApplicationResponse, LeaveApproval
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import (
@@ -14,6 +14,30 @@ from ..approval_assigner import (
 )
 
 router = APIRouter(prefix="/leave", tags=["请假管理"])
+
+
+def to_leave_response(leave: LeaveApplication, extra: Optional[dict] = None) -> LeaveApplicationResponse:
+    data = LeaveApplicationResponse.from_orm(leave).model_dump()
+    if extra:
+        data.update(extra)
+    if not data.get("leave_type_name"):
+        data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
+    if extra:
+        data.update(extra)
+    return LeaveApplicationResponse(**data)
+
+
+def get_active_leave_type(db: Session, leave_type_id: int) -> LeaveType:
+    leave_type = db.query(LeaveType).filter(
+        LeaveType.id == leave_type_id,
+        LeaveType.is_active == True
+    ).first()
+    if not leave_type:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="请选择有效的请假类型"
+        )
+    return leave_type
 
 
 def get_required_approval_level(days: float) -> List[str]:
@@ -40,6 +64,8 @@ def create_leave_application(
             detail="结束日期不能早于开始日期"
         )
     
+    leave_type = get_active_leave_type(db, leave_create.leave_type_id)
+    
     leave = LeaveApplication(
         user_id=current_user.id,
         start_date=leave_create.start_date,
@@ -48,7 +74,8 @@ def create_leave_application(
         reason=leave_create.reason,
         status=LeaveStatus.PENDING,
         assigned_vp_id=leave_create.assigned_vp_id,
-        assigned_gm_id=leave_create.assigned_gm_id
+        assigned_gm_id=leave_create.assigned_gm_id,
+        leave_type_id=leave_type.id
     )
     
     # 根据申请人角色和请假天数自动分配审批人
@@ -107,7 +134,7 @@ def create_leave_application(
     db.commit()
     db.refresh(leave)
     
-    return leave
+    return to_leave_response(leave)
 
 
 @router.get("/my", response_model=List[LeaveApplicationResponse])
@@ -118,10 +145,18 @@ def get_my_leave_applications(
     current_user: User = Depends(get_current_user)
 ):
     """获取我的请假申请"""
-    leaves = db.query(LeaveApplication).filter(
+    leaves_query = db.query(LeaveApplication).options(joinedload(LeaveApplication.leave_type)).filter(
         LeaveApplication.user_id == current_user.id
-    ).order_by(LeaveApplication.created_at.desc()).offset(skip).limit(limit).all()
+    )
+    
+    leaves = leaves_query.order_by(LeaveApplication.created_at.desc()).offset(skip).limit(limit).all()
 
+    leave_type_map = {}
+    type_ids = {leave.leave_type_id for leave in leaves if leave.leave_type_id}
+    if type_ids:
+        types = db.query(LeaveType.id, LeaveType.name).filter(LeaveType.id.in_(type_ids)).all()
+        leave_type_map = {t.id: t.name for t in types}
+    
     # 收集所有审批人ID，便于查询姓名
     approver_ids = set()
     department_ids = set()  # 用于查询部门主任
@@ -200,6 +235,9 @@ def get_my_leave_applications(
         data["dept_approver_name"] = approver_map.get(leave.dept_approver_id)
         data["vp_approver_name"] = approver_map.get(leave.vp_approver_id)
         data["gm_approver_name"] = approver_map.get(leave.gm_approver_id)
+        data["leave_type_name"] = leave_type_map.get(leave.leave_type_id) or (
+            leave.leave_type.name if leave.leave_type else None
+        )
         
         # 对于pending状态的申请，根据申请人角色添加待审批人信息
         if leave.status == LeaveStatus.PENDING:
@@ -222,7 +260,7 @@ def get_my_leave_applications(
                         # 如果assigned_gm_id为空，使用申请人ID（总经理本人）
                         data["pending_gm_name"] = approver_map.get(leave.user_id)
         
-        responses.append(LeaveApplicationResponse(**data))
+        responses.append(to_leave_response(leave, data))
 
     return responses
 
@@ -260,7 +298,7 @@ def cancel_leave_application(
     db.commit()
     db.refresh(leave)
     
-    return leave
+    return to_leave_response(leave)
 
 
 @router.get("/pending", response_model=List[LeaveApplicationResponse])
@@ -318,7 +356,14 @@ def get_pending_leave_applications(
         # 普通员工没有审批权限
         return []
     
+    query = query.options(joinedload(LeaveApplication.leave_type))
     leaves = query.order_by(LeaveApplication.created_at.desc()).offset(skip).limit(limit).all()
+    
+    leave_type_map = {}
+    type_ids = {leave.leave_type_id for leave in leaves if leave.leave_type_id}
+    if type_ids:
+        types = db.query(LeaveType.id, LeaveType.name).filter(LeaveType.id.in_(type_ids)).all()
+        leave_type_map = {t.id: t.name for t in types}
     
     # 收集所有申请人ID，查询申请人姓名
     applicant_ids = [leave.user_id for leave in leaves]
@@ -332,7 +377,8 @@ def get_pending_leave_applications(
     for leave in leaves:
         data = LeaveApplicationResponse.from_orm(leave).dict()
         data["applicant_name"] = applicant_map.get(leave.user_id, f"用户{leave.user_id}")
-        responses.append(LeaveApplicationResponse(**data))
+        data["leave_type_name"] = leave_type_map.get(leave.leave_type_id)
+        responses.append(to_leave_response(leave, data))
     
     return responses
 
@@ -381,6 +427,7 @@ def get_leave_application(
         "gm_approver_id": leave.gm_approver_id,
         "gm_approved_at": leave.gm_approved_at,
         "gm_comment": leave.gm_comment,
+        "leave_type_id": leave.leave_type_id,
         "created_at": leave.created_at,
     }
     
@@ -412,6 +459,8 @@ def get_leave_application(
         gm_approver = db.query(User).filter(User.id == leave.gm_approver_id).first()
         if gm_approver:
             leave_dict["gm_approver_name"] = gm_approver.real_name
+    
+    leave_dict["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
     
     return LeaveApplicationResponse(**leave_dict)
 
@@ -446,13 +495,16 @@ def update_leave_application(
         )
     
     update_data = leave_update.model_dump(exclude_unset=True)
+    if "leave_type_id" in update_data:
+        leave_type = get_active_leave_type(db, update_data["leave_type_id"])
+        update_data["leave_type_id"] = leave_type.id
     for field, value in update_data.items():
         setattr(leave, field, value)
     
     db.commit()
     db.refresh(leave)
     
-    return leave
+    return to_leave_response(leave)
 
 
 @router.post("/{leave_id}/approve", response_model=LeaveApplicationResponse)
@@ -571,7 +623,7 @@ def approve_leave_application(
     db.commit()
     db.refresh(leave)
     
-    return leave
+    return to_leave_response(leave)
 
 
 @router.delete("/{leave_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -647,6 +699,7 @@ def list_leave_applications(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     user_id: Optional[int] = None,
+    leave_type_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -664,6 +717,9 @@ def list_leave_applications(
     # 按员工筛选
     if user_id:
         query = query.filter(LeaveApplication.user_id == user_id)
+    
+    if leave_type_id:
+        query = query.filter(LeaveApplication.leave_type_id == leave_type_id)
     
     leaves = query.order_by(
         LeaveApplication.created_at.desc()
@@ -759,7 +815,8 @@ def list_leave_applications(
                         # 如果assigned_gm_id为空，使用申请人ID（总经理本人）
                         data["pending_gm_name"] = approver_map.get(leave.user_id)
         
-        responses.append(LeaveApplicationResponse(**data))
+        data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
+        responses.append(to_leave_response(leave, data))
 
     return responses
 

@@ -7,7 +7,7 @@ import json
 import sqlite3
 import os
 from backend.database import SessionLocal, init_db
-from backend.models import User, Department, AttendancePolicy, UserRole, Holiday, VicePresidentDepartment
+from backend.models import User, Department, AttendancePolicy, UserRole, Holiday, VicePresidentDepartment, LeaveType
 from backend.security import get_password_hash
 from datetime import datetime
 
@@ -87,6 +87,17 @@ def create_initial_data():
         
         db.commit()
         print("✓ 创建了5个部门")
+        
+        # 创建默认请假类型
+        leave_types = [
+            LeaveType(name="普通请假", description="常规病假/事假"),
+            LeaveType(name="加班调休", description="加班折算的调休假"),
+            LeaveType(name="年假调休", description="年假或年假调休")
+        ]
+        for lt in leave_types:
+            db.add(lt)
+        db.commit()
+        print("✓ 创建了默认请假类型")
         
         # 创建用户（统一密码：123456）
         users = [

@@ -28,7 +28,10 @@ Page({
     assignedVpId: '',
     assignedGmId: '',
     showVpSelector: false,
-    showGmSelector: false
+    showGmSelector: false,
+    leaveTypes: [],
+    leaveTypeIndex: 0,
+    selectedLeaveTypeId: ''
   },
 
   async onLoad() {
@@ -39,8 +42,44 @@ Page({
       endDate: today
     });
     
+    const hasTypes = await this.loadLeaveTypes();
+    if (!hasTypes) {
+      return;
+    }
+    
     // 加载审批人列表
     await this.loadApprovers();
+  async loadLeaveTypes() {
+    try {
+    const res = await app.request({
+      url: '/leave-types/',
+      method: 'GET'
+    });
+    const types = res.data || res;
+    if (!Array.isArray(types) || !types.length) {
+        wx.showToast({
+          title: '未配置请假类型',
+          icon: 'none'
+        });
+        return false;
+      }
+    const leaveTypes = [{ id: '', name: '请选择' }, ...types];
+    this.setData({
+      leaveTypes,
+      leaveTypeIndex: 0,
+      selectedLeaveTypeId: ''
+    });
+      return true;
+    } catch (error) {
+      console.error('加载请假类型失败:', error);
+      wx.showToast({
+        title: '加载类型失败',
+        icon: 'none'
+      });
+      return false;
+    }
+  },
+
     
     // 初始计算请假天数
     this.calculateLeaveDays();
@@ -151,6 +190,16 @@ Page({
   // 原因改变
   onReasonInput(e) {
     this.setData({ reason: e.detail.value });
+  },
+
+  // 请假类型选择
+  onLeaveTypeChange(e) {
+    const index = parseInt(e.detail.value);
+    const type = this.data.leaveTypes[index];
+    this.setData({
+      leaveTypeIndex: index,
+      selectedLeaveTypeId: type ? type.id : ''
+    });
   },
 
   // 计算请假天数
@@ -282,9 +331,9 @@ Page({
 
   // 提交申请
   async submitForm() {
-    const { startDate, startTimeNode, endDate, endTimeNode, calculatedDays, reason } = this.data;
+    const { startDate, startTimeNode, endDate, endTimeNode, calculatedDays, reason, selectedLeaveTypeId } = this.data;
 
-    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason) {
+    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason || !selectedLeaveTypeId) {
       wx.showToast({
         title: '请填写所有必填项',
         icon: 'none'
@@ -329,7 +378,8 @@ Page({
         start_date: startDateTime,
         end_date: endDateTime,
         days: days,
-        reason: reason
+        reason: reason,
+        leave_type_id: parseInt(selectedLeaveTypeId)
       };
       
       // 如果指定了审批人，添加到请求中
