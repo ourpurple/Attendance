@@ -773,39 +773,31 @@ button:disabled {
 .overview-person-row {
     background: var(--bg-secondary);
     border-radius: 12px;
-    padding: 10px 12px;
+    padding: 8px;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 6px;
-    min-height: 76px;
+    align-items: center;
+    min-height: 56px;
 }
 
-.overview-person-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
+.overview-person-row.compact {
+    min-height: 30px;
+    padding: 8px;
 }
 
 .overview-person-name {
     font-weight: 600;
     color: var(--text-primary);
-}
-
-.overview-person-meta {
-    font-size: 12px;
-    color: var(--text-secondary);
-    text-align: right;
+    font-size: 14px;
+    text-align: center;
 }
 
 .overview-person-extra {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--primary-color);
     text-align: center;
-    width: 100%;
-    display: block;
 }
 
 .overview-empty {

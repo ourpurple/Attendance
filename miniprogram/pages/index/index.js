@@ -13,6 +13,7 @@ Page({
     pendingCount: 0,
     recentAttendance: [],
     hasApprovalPermission: false,
+    hasOverviewPermission: false,
     isWorkday: true,  // 是否为工作日，用于控制打卡状态区域的显示
     showClockStatus: true,  // 是否显示打卡状态区域
     todayAttendance: null  // 今日打卡记录
@@ -42,6 +43,7 @@ Page({
           } else {
             // token 有效，用户信息已加载，检查权限并加载数据
             this.checkApprovalPermission();
+            this.checkOverviewPermission();
             this.loadData();
           }
         });
@@ -60,6 +62,7 @@ Page({
         if (isValid) {
           // 用户信息已加载，检查权限并加载数据
           this.checkApprovalPermission();
+          this.checkOverviewPermission();
           this.loadData();
         } else {
           // token 无效，跳转到登录页
@@ -73,6 +76,7 @@ Page({
     
     // 用户信息已存在，直接检查权限并加载数据
     this.checkApprovalPermission();
+    this.checkOverviewPermission();
     this.loadData();
   },
   
@@ -97,6 +101,19 @@ Page({
     if (userInfo) {
       const hasPermission = ['admin', 'general_manager', 'vice_president', 'department_head'].includes(userInfo.role);
       this.setData({ hasApprovalPermission: hasPermission });
+    }
+  },
+
+  async checkOverviewPermission() {
+    try {
+      const res = await app.request({
+        url: '/attendance-viewers/check-permission'
+      });
+      const hasPermission = !!(res && (res.has_permission || res.hasPermission));
+      this.setData({ hasOverviewPermission: hasPermission });
+    } catch (error) {
+      console.error('检查出勤查看权限失败:', error);
+      this.setData({ hasOverviewPermission: false });
     }
   },
 
@@ -757,6 +774,17 @@ Page({
 
   goToStats() {
     wx.navigateTo({ url: '/pages/stats/stats' });
+  },
+
+  goToOverview() {
+    if (!this.data.hasOverviewPermission) {
+      wx.showToast({
+        title: '暂无权限查看',
+        icon: 'none'
+      });
+      return;
+    }
+    wx.navigateTo({ url: '/pages/overview/overview' });
   }
 });
 

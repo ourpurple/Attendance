@@ -1,0 +1,152 @@
+.container {
+  padding: 16px;
+  background: #f2f2f7;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.date-card {
+  margin-bottom: 12px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 4px 15px rgba(13, 38, 76, 0.06);
+}
+
+.picker-value {
+  padding: 14px 16px;
+  font-size: 16px;
+  color: #1c1c1e;
+}
+
+.workday-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.badge {
+  padding: 4px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.badge.workday {
+  background: rgba(0, 122, 255, 0.12);
+  color: #007aff;
+}
+
+.badge.holiday {
+  background: rgba(255, 69, 58, 0.12);
+  color: #ff453a;
+}
+
+.info-text {
+  font-size: 14px;
+  color: #3c3c43;
+}
+
+.category-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.05);
+}
+
+.category-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.category-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1c1c1e;
+}
+
+.category-count {
+  font-size: 22px;
+  font-weight: 700;
+  color: #007aff;
+}
+
+.category-count.warning {
+  color: #ff9500;
+}
+
+.category-count.danger {
+  color: #ff3b30;
+}
+
+.category-count.success {
+  color: #34c759;
+}
+
+.person-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+@media (max-width: 360px) {
+  .person-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.person-card {
+  background: #f5f5f7;
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 70px;
+  justify-content: center;
+  align-items: center;
+}
+
+.person-card.compact {
+  min-height: 30px;
+  padding: 8px;
+}
+
+.name {
+  font-weight: 600;
+  color: #1c1c1e;
+  font-size: 15px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.status {
+  font-size: 13px;
+  font-weight: 600;
+  color: #007aff;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 16px 0;
+  color: #8e8e93;
+  font-size: 14px;
+}
+
+.empty-state.global {
+  margin-top: 40px;
+}
+
+.loading {
+  text-align: center;
+  color: #8e8e93;
+  font-size: 14px;
+  margin: 30px 0;
+}
+

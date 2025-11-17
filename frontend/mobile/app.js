@@ -592,14 +592,12 @@ async function loadAttendanceOverview() {
         // 渲染分类卡片
         if (categoriesContainer) {
             categoriesContainer.innerHTML = categoryData.map(category => {
+                const isCompact = category.key === 'notChecked' || category.key === 'checkedIn';
                 const peopleHtml = category.list.length
                     ? category.list.map(item => `
-                        <div class="overview-person-row">
-                            <div class="overview-person-header">
-                                <span class="overview-person-name">${item.real_name}</span>
-                                ${getPersonMeta(item)}
-                            </div>
-                            <span class="overview-person-extra">${getOverviewExtraText(category.key, item)}</span>
+                        <div class="overview-person-row ${isCompact ? 'compact' : ''}">
+                            <span class="overview-person-name">${item.real_name}</span>
+                            ${getOverviewExtraText(category.key, item) ? `<span class="overview-person-extra">${getOverviewExtraText(category.key, item)}</span>` : ''}
                         </div>
                     `).join('')
                     : `<div class="overview-empty">暂无人员</div>`;
@@ -636,12 +634,9 @@ async function loadAttendanceOverview() {
 function getOverviewExtraText(categoryKey, item) {
     switch (categoryKey) {
         case 'checkedIn':
-            if (item.checkin_time) {
-                return `上班 ${formatTime(item.checkin_time)}`;
-            }
-            return '已打卡';
+            return '';
         case 'notChecked':
-            return '待打卡';
+            return '';
         case 'onLeave':
             if (item.leave_start_date) {
                 return formatLeaveRange(item.leave_start_date, item.leave_end_date);
@@ -696,19 +691,6 @@ function formatOvertimeRange(start, end, days) {
         return `${formatFullDate(startDate)} 共${days || 1}天`;
     }
     return `${formatFullDate(startDate)} - ${formatFullDate(endDate)} 共${days || 1}天`;
-}
-
-function getPersonMeta(item) {
-    if (item.role === 'general_manager' || item.role === 'UserRole.GENERAL_MANAGER') {
-        return '<span class="overview-person-meta">总经理</span>';
-    }
-    if (item.role === 'vice_president' || item.role === 'UserRole.VICE_PRESIDENT') {
-        return '<span class="overview-person-meta">副总</span>';
-    }
-    if (item.department_name) {
-        return `<span class="overview-person-meta">${item.department_name}</span>`;
-    }
-    return '<span class="overview-person-meta">-</span>';
 }
 
 // 用户菜单

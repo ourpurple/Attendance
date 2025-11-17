@@ -32,6 +32,10 @@
 
   <!-- 快捷功能 -->
   <view class="quick-actions">
+    <view class="quick-action-item" wx:if="{{hasOverviewPermission}}" bindtap="goToOverview">
+      <view class="action-icon">👥</view>
+      <view class="action-label">出勤情况</view>
+    </view>
     <view class="quick-action-item" bindtap="goToLeave">
       <view class="action-icon">🏖️</view>
       <view class="action-label">请假申请</view>

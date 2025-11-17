@@ -60,6 +60,9 @@ Page({
       endDate: today
     });
     
+    this.setDefaultSingleNodes();
+    this.setDefaultMultiNodes();
+    
     // 加载审批人列表
     await this.loadApprovers();
   },
@@ -128,6 +131,12 @@ Page({
       overtimeTypeIndex: index,
       overtimeTypeText: typeTexts[index],
       calculatedDays: '0'
+    }, () => {
+      if (type === 'single') {
+        this.setDefaultSingleNodes();
+      } else if (type === 'multi') {
+        this.setDefaultMultiNodes();
+      }
     });
   },
 
@@ -249,6 +258,62 @@ Page({
         this.setData({ calculatedDays: parseFloat(numValue || '0').toFixed(1) });
       }
     });
+  },
+
+  setDefaultSingleNodes() {
+    const updates = {};
+    const { startTimeNodes, endTimeNodes, startTimeNodeIndex, endTimeNodeIndex } = this.data;
+    
+    if (startTimeNodeIndex < 0 && startTimeNodes.length > 0) {
+      updates.startTimeNodeIndex = 0;
+      updates.startTimeNodeLabel = startTimeNodes[0].label;
+      updates.startTimeNode = startTimeNodes[0].value;
+    }
+    
+    if (endTimeNodeIndex < 0 && endTimeNodes.length > 0) {
+      const defaultEndIndex = endTimeNodes.findIndex(node => node.value === '17:30');
+      const endIndex = defaultEndIndex >= 0 ? defaultEndIndex : 0;
+      updates.endTimeNodeIndex = endIndex;
+      updates.endTimeNodeLabel = endTimeNodes[endIndex].label;
+      updates.endTimeNode = endTimeNodes[endIndex].value;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      this.setData(updates, () => {
+        if (this.data.overtimeType === 'single') {
+          this.calculateSingleDay();
+        }
+      });
+    }
+  },
+
+  setDefaultMultiNodes() {
+    const updates = {};
+    const { startTimeNodes, endTimeNodes, startDateTimeNodeIndex, endDateTimeNodeIndex } = this.data;
+    
+    if (startDateTimeNodeIndex < 0 && startTimeNodes.length > 0) {
+      const defaultStartIndex = startTimeNodes.findIndex(node => node.value === '09:00');
+      const startIndex = defaultStartIndex >= 0 ? defaultStartIndex : 0;
+      updates.startDateTimeNodeIndex = startIndex;
+      updates.startDateTimeNodeLabel = startTimeNodes[startIndex].label;
+      updates.startDateTimeNode = startTimeNodes[startIndex].value;
+    }
+    
+    if (endDateTimeNodeIndex < 0 && endTimeNodes.length > 0) {
+      const defaultEndIndex = endTimeNodes.findIndex(node => node.value === '17:30');
+      const endIndex = defaultEndIndex >= 0 ? defaultEndIndex : 0;
+      updates.endDateTimeNodeIndex = endIndex;
+      updates.endDateTimeNodeLabel = endTimeNodes[endIndex].label;
+      updates.endDateTimeNode = endTimeNodes[endIndex].value;
+    }
+    
+    if (Object.keys(updates).length > 0) {
+      this.setData(updates, () => {
+        if (this.data.overtimeType === 'multi') {
+          this.calculateMultiDay();
+        }
+      });
+    }
   },
 
   // 计算单日加班天数

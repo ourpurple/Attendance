@@ -9,6 +9,7 @@
     "pages/overtime/apply/apply",
     "pages/approval/approval",
     "pages/stats/stats",
+    "pages/overview/overview",
     "pages/mine/mine"
   ],
   "window": {

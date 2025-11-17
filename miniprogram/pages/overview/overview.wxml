@@ -1,0 +1,43 @@
+<view class="container">
+  <view class="date-card">
+    <picker mode="date" value="{{targetDate}}" end="{{today}}" bindchange="handleDateChange">
+      <view class="picker-value">{{targetDate}}</view>
+    </picker>
+  </view>
+
+  <view class="workday-info">
+    <text class="badge {{isWorkday ? 'workday' : 'holiday'}}">{{isWorkday ? '工作日' : '休息日'}}</text>
+    <text class="info-text">{{workdayText}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="loading">
+    <text>加载中...</text>
+  </view>
+
+  <block wx:for="{{categories}}" wx:key="key">
+    <view class="category-card">
+      <view class="category-header">
+        <text class="category-title">{{item.title}}</text>
+        <text class="category-count {{item.tone}}">{{item.count}}</text>
+      </view>
+
+      <view wx:if="{{item.list.length}}" class="person-grid">
+        <block wx:for="{{item.list}}" wx:for-item="person" wx:key="user_id">
+          <view class="person-card {{person.compact ? 'compact' : ''}}">
+            <text class="name">{{person.name}}</text>
+            <text wx:if="{{person.extra}}" class="status">{{person.extra}}</text>
+          </view>
+        </block>
+      </view>
+
+      <view wx:else class="empty-state">
+        <text>暂无人员</text>
+      </view>
+    </view>
+  </block>
+
+  <view wx:if="{{!categories.length && !loading}}" class="empty-state global">
+    <text>暂无数据</text>
+  </view>
+</view>
+
