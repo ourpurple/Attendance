@@ -483,6 +483,30 @@ def get_checkin_statuses(
     from sqlalchemy.exc import OperationalError
     
     try:
+        default_status_configs = [
+            {
+                "name": "正常签到",
+                "code": AttendanceStatus.NORMAL.value,
+                "description": "正常签到",
+                "is_active": True,
+                "sort_order": 0
+            },
+            {
+                "name": "市区办事",
+                "code": AttendanceStatus.CITY_BUSINESS.value,
+                "description": "市区办事",
+                "is_active": True,
+                "sort_order": 1
+            },
+            {
+                "name": "出差",
+                "code": AttendanceStatus.BUSINESS_TRIP.value,
+                "description": "出差",
+                "is_active": True,
+                "sort_order": 2
+            }
+        ]
+
         # 如果是管理员且要求包含非激活状态，或者用于管理后台，返回所有记录
         query = db.query(CheckinStatusConfig)
         if not include_inactive:
@@ -515,40 +539,43 @@ def get_checkin_statuses(
                     ))
             return result
         
+        # 如果没有配置，尝试自动补全默认配置（避免管理后台为空）
+        if not statuses:
+            inserted = False
+            try:
+                for config in default_status_configs:
+                    exists = db.query(CheckinStatusConfig).filter(CheckinStatusConfig.code == config["code"]).first()
+                    if not exists:
+                        status_config = CheckinStatusConfig(**config)
+                        db.add(status_config)
+                        inserted = True
+                if inserted:
+                    db.commit()
+                    query = db.query(CheckinStatusConfig)
+                    if not include_inactive:
+                        query = query.filter(CheckinStatusConfig.is_active == True)
+                    statuses = query.order_by(CheckinStatusConfig.sort_order, CheckinStatusConfig.id).all()
+            except Exception as seed_error:
+                db.rollback()
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.error(f"自动补全默认打卡状态失败: {seed_error}", exc_info=True)
+
         # 如果没有配置且是普通用户，返回默认状态（使用Pydantic模型）
         if not include_inactive:
             now = datetime.now()
             default_statuses = [
                 CheckinStatusConfigResponse(
                     id=0,
-                    name="正常签到",
-                    code=AttendanceStatus.NORMAL.value,
-                    description="正常签到",
-                    is_active=True,
-                    sort_order=0,
-                    created_at=now,
-                    updated_at=now
-                ),
-                CheckinStatusConfigResponse(
-                    id=0,
-                    name="市区办事",
-                    code=AttendanceStatus.CITY_BUSINESS.value,
-                    description="市区办事",
-                    is_active=True,
-                    sort_order=1,
-                    created_at=now,
-                    updated_at=now
-                ),
-                CheckinStatusConfigResponse(
-                    id=0,
-                    name="出差",
-                    code=AttendanceStatus.BUSINESS_TRIP.value,
-                    description="出差",
-                    is_active=True,
-                    sort_order=2,
+                    name=config["name"],
+                    code=config["code"],
+                    description=config["description"],
+                    is_active=config["is_active"],
+                    sort_order=config["sort_order"],
                     created_at=now,
                     updated_at=now
                 )
+                for config in default_status_configs
             ]
             return default_statuses
         
