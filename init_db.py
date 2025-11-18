@@ -61,6 +61,47 @@ def ensure_wechat_openid_field():
         # 不影响主流程，继续执行
 
 
+def ensure_annual_leave_days_field():
+    """确保 users 表有 annual_leave_days 字段"""
+    db_path = "attendance.db"
+    
+    if not os.path.exists(db_path):
+        # 数据库不存在，会在 init_db() 中自动创建
+        return
+    
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # 检查表是否存在
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        if not cursor.fetchone():
+            conn.close()
+            return
+        
+        # 检查字段是否存在
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        
+        if "annual_leave_days" not in columns:
+            print("检测到 users 表缺少 annual_leave_days 字段，正在添加...")
+            try:
+                # 添加字段
+                cursor.execute("ALTER TABLE users ADD COLUMN annual_leave_days FLOAT DEFAULT 10.0")
+                # 为所有现有用户设置默认年假天数为10天
+                cursor.execute("UPDATE users SET annual_leave_days = 10.0 WHERE annual_leave_days IS NULL")
+                conn.commit()
+                print("✓ 成功添加 annual_leave_days 字段并设置默认值")
+            except Exception as e:
+                print(f"⚠️ 添加字段失败（可能已存在）: {str(e)}")
+                conn.rollback()
+        
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ 检查/添加 annual_leave_days 字段时出错: {str(e)}")
+        # 不影响主流程，继续执行
+
+
 def create_initial_data():
     """创建初始数据"""
     db = SessionLocal()
@@ -108,7 +149,8 @@ def create_initial_data():
                 real_name="系统管理员",
                 email="admin@example.com",
                 role=UserRole.ADMIN,
-                is_active=True
+                is_active=True,
+                annual_leave_days=10.0
             ),
             # 总经理
             User(
@@ -620,6 +662,9 @@ if __name__ == "__main__":
     
     # 确保 wechat_openid 字段存在（用于已存在的数据库）
     ensure_wechat_openid_field()
+    
+    # 确保 annual_leave_days 字段存在（用于已存在的数据库）
+    ensure_annual_leave_days_field()
     
     # 创建初始数据
     create_initial_data()

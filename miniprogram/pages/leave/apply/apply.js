@@ -31,7 +31,9 @@ Page({
     showGmSelector: false,
     leaveTypes: [],
     leaveTypeIndex: 0,
-    selectedLeaveTypeId: ''
+    selectedLeaveTypeId: '',
+    annualLeaveInfo: null, // 年假使用情况
+    showAnnualLeaveInfo: false // 是否显示年假信息
   },
 
   async onLoad() {
@@ -53,6 +55,9 @@ Page({
     
     // 加载审批人列表
     await this.loadApprovers();
+    
+    // 加载年假使用情况
+    await this.loadAnnualLeaveInfo();
     
     // 初始计算请假天数
     this.calculateLeaveDays();
@@ -200,10 +205,28 @@ Page({
   onLeaveTypeChange(e) {
     const index = parseInt(e.detail.value);
     const type = this.data.leaveTypes[index];
+    const isAnnualLeave = type && type.name === '年假调休';
     this.setData({
       leaveTypeIndex: index,
-      selectedLeaveTypeId: type ? type.id : ''
+      selectedLeaveTypeId: type ? type.id : '',
+      showAnnualLeaveInfo: isAnnualLeave
     });
+  },
+
+  // 加载年假使用情况
+  async loadAnnualLeaveInfo() {
+    try {
+      const res = await app.request({
+        url: '/users/me/annual-leave',
+        method: 'GET'
+      });
+      const info = res.data || res;
+      this.setData({
+        annualLeaveInfo: info
+      });
+    } catch (error) {
+      console.error('加载年假信息失败:', error);
+    }
   },
 
   // 计算请假天数

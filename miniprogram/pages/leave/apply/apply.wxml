@@ -16,6 +16,9 @@
     </picker>
   </view>
 
+  <view class="annual-leave-info" wx:if="{{showAnnualLeaveInfo && annualLeaveInfo}}">
+    <text>您本年度年假共计{{annualLeaveInfo.total_days}}天，已调休{{annualLeaveInfo.used_days}}天，剩余{{annualLeaveInfo.remaining_days}}天</text>
+  </view>
   <view class="form-row">
     <view class="form-group form-group-date">
       <view class="form-label">开始日期 *</view>

@@ -60,3 +60,14 @@
   margin-bottom: 16rpx;
 }
 
+/* 年假信息提示 */
+.annual-leave-info {
+  margin-bottom: 24rpx;
+  padding: 16rpx 24rpx;
+  font-size: 24rpx;
+  color: #1890ff;
+  line-height: 1.5;
+  background: rgba(24, 144, 255, 0.05);
+  border-radius: 8rpx;
+}
+

@@ -12,6 +12,7 @@ class UserBase(BaseModel):
     phone: Optional[str] = None
     role: UserRole = UserRole.EMPLOYEE
     department_id: Optional[int] = None
+    annual_leave_days: Optional[float] = 10.0
 
 
 class UserCreate(UserBase):
@@ -26,6 +27,7 @@ class UserUpdate(BaseModel):
     department_id: Optional[int] = None
     is_active: Optional[bool] = None
     password: Optional[str] = None
+    annual_leave_days: Optional[float] = None
 
 
 class UserResponse(UserBase):
@@ -51,6 +53,13 @@ class Token(BaseModel):
 class PasswordChange(BaseModel):
     old_password: str
     new_password: str
+
+
+class AnnualLeaveInfo(BaseModel):
+    """年假使用情况"""
+    total_days: float  # 总年假天数
+    used_days: float  # 已使用年假天数
+    remaining_days: float  # 剩余年假天数
 
 
 class WechatLogin(BaseModel):

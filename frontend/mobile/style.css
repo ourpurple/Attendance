@@ -1227,6 +1227,17 @@ button:disabled {
     margin: 0;
 }
 
+/* 年假信息提示 */
+.annual-leave-info {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: #1890ff;
+    line-height: 1.5;
+    background: rgba(24, 144, 255, 0.05);
+    border-radius: 4px;
+}
+
 /* 安全区域适配 (iPhone X+) */
 @supports (padding: max(0px)) {
     .app-header {

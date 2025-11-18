@@ -2007,11 +2007,12 @@ async function showNewLeaveForm() {
                 <form id="leave-form" onsubmit="submitLeaveForm(event)">
                     <div class="form-group inline-field">
                         <label class="form-label">请假类型 *</label>
-                        <select id="leave-type-select" class="form-input" required>
+                        <select id="leave-type-select" class="form-input" required onchange="onLeaveTypeChange()">
                             <option value="">请选择</option>
                             ${leaveTypeOptions}
                         </select>
                     </div>
+                    <div id="annual-leave-info" class="annual-leave-info" style="display: none;"></div>
                     <div class="form-row">
                         <div class="form-group form-group-date">
                             <label class="form-label">开始日期 *</label>
@@ -2083,8 +2084,52 @@ async function showNewLeaveForm() {
     document.getElementById('leave-start-date').value = today;
     document.getElementById('leave-end-date').value = today;
     
+    // 加载年假使用情况
+    await loadAnnualLeaveInfo();
+    
+    // 检查是否已经选择了"年假调休"类型，如果是则显示年假信息
+    setTimeout(() => {
+        onLeaveTypeChange();
+    }, 100);
+    
     // 初始计算请假天数
     calculateLeaveDays();
+}
+
+// 加载年假使用情况
+let annualLeaveInfo = null;
+
+async function loadAnnualLeaveInfo() {
+    try {
+        const info = await apiRequest('/users/me/annual-leave');
+        annualLeaveInfo = info;
+    } catch (error) {
+        console.error('加载年假信息失败:', error);
+        annualLeaveInfo = null;
+    }
+}
+
+// 请假类型变更处理
+function onLeaveTypeChange() {
+    const leaveTypeSelect = document.getElementById('leave-type-select');
+    const annualLeaveInfoDiv = document.getElementById('annual-leave-info');
+    
+    if (!leaveTypeSelect || !annualLeaveInfoDiv) {
+        return;
+    }
+    
+    const selectedOption = leaveTypeSelect.options[leaveTypeSelect.selectedIndex];
+    const leaveTypeName = selectedOption ? selectedOption.text : '';
+    const isAnnualLeave = leaveTypeName === '年假调休';
+    
+    if (isAnnualLeave && annualLeaveInfo) {
+        // 显示年假信息
+        annualLeaveInfoDiv.textContent = `您本年度年假共计${annualLeaveInfo.total_days}天，已调休${annualLeaveInfo.used_days}天，剩余${annualLeaveInfo.remaining_days}天`;
+        annualLeaveInfoDiv.style.display = 'block';
+    } else {
+        // 隐藏年假信息
+        annualLeaveInfoDiv.style.display = 'none';
+    }
 }
 
 // 计算请假天数（mobile端）
