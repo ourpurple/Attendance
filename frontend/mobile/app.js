@@ -1493,7 +1493,7 @@ async function checkAndSetAttendanceButtons() {
                         clockLocation.style.color = '#999';
                         clockLocation.style.fontWeight = 'bold';
                         clockLocation.style.display = 'block';
-                    }
+                }
                 } else {
                     clockLocation.textContent = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
                     clockLocation.style.color = '#999';

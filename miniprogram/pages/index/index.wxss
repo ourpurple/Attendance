@@ -50,10 +50,11 @@
 
 .clock-location {
   font-size: 28rpx;
-  color: #8E8E93;
+  /* color 通过内联样式动态设置 */
   padding: 16rpx;
   background: #f2f2f7;
   border-radius: 16rpx;
+  font-weight: 600;  /* 加粗显示（与H5保持一致） */
 }
 
 .checkin-status-selector {

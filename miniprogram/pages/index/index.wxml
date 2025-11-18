@@ -37,7 +37,7 @@
       </picker>
     </view>
 
-    <view class="clock-location" wx:if="{{location}}">{{location}}</view>
+    <view class="clock-location" wx:if="{{location}}" style="color: {{locationColor}}">{{location}}</view>
   </view>
 
   <!-- 快捷功能 -->
