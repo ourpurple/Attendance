@@ -103,6 +103,10 @@ class AttendancePolicyBase(BaseModel):
     late_threshold_minutes: int = 0
     early_threshold_minutes: int = 0
     weekly_rules: Optional[str] = None
+    morning_start_time: str = "09:00"
+    morning_end_time: str = "12:00"
+    afternoon_start_time: str = "14:00"
+    afternoon_end_time: str = "17:30"
     is_active: bool = True
 
 
@@ -121,6 +125,10 @@ class AttendancePolicyUpdate(BaseModel):
     late_threshold_minutes: Optional[int] = None
     early_threshold_minutes: Optional[int] = None
     weekly_rules: Optional[str] = None
+    morning_start_time: Optional[str] = None
+    morning_end_time: Optional[str] = None
+    afternoon_start_time: Optional[str] = None
+    afternoon_end_time: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -138,6 +146,7 @@ class AttendanceCheckin(BaseModel):
     address: Optional[str] = None  # 地址文本
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    checkin_status: Optional[str] = "normal"  # 签到状态: normal/city_business/business_trip
 
 
 class AttendanceCheckout(BaseModel):
@@ -182,6 +191,11 @@ class AttendanceResponse(BaseModel):
     is_early_leave: bool
     work_hours: Optional[float] = None
     date: datetime
+    checkin_status: Optional[str] = None
+    morning_status: Optional[str] = None
+    afternoon_status: Optional[str] = None
+    morning_leave: bool = False
+    afternoon_leave: bool = False
     created_at: datetime
     
     class Config:
@@ -494,5 +508,69 @@ class AttendanceOverviewResponse(BaseModel):
     on_overtime_count: int
     is_workday: bool
     workday_reason: Optional[str] = None
+
+
+# ==================== 打卡状态配置相关 ====================
+class CheckinStatusConfigBase(BaseModel):
+    name: str
+    code: str
+    description: Optional[str] = None
+    is_active: bool = True
+    sort_order: int = 0
+
+
+class CheckinStatusConfigCreate(CheckinStatusConfigBase):
+    pass
+
+
+class CheckinStatusConfigUpdate(BaseModel):
+    name: Optional[str] = None
+    code: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+
+class CheckinStatusConfigResponse(CheckinStatusConfigBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+# ==================== 请假状态相关 ====================
+class LeaveStatusResponse(BaseModel):
+    """当天请假状态"""
+    has_leave: bool
+    morning_leave: bool
+    afternoon_leave: bool
+    full_day_leave: bool
+
+
+# ==================== 每日上下午统计相关 ====================
+class DailyAttendanceItem(BaseModel):
+    """每日上下午考勤记录项"""
+    date: str  # YYYY-MM-DD
+    weekday: str  # 星期几（一、二、三...）
+    morning_status: Optional[str] = None  # 上午状态: normal/city_business/business_trip/leave/absent
+    afternoon_status: Optional[str] = None  # 下午状态: normal/city_business/business_trip/leave/absent
+
+
+class DailyAttendanceStatistics(BaseModel):
+    """用户每日上下午考勤统计"""
+    user_id: int
+    user_name: str
+    real_name: str
+    department: Optional[str] = None
+    items: List[DailyAttendanceItem]  # 每日记录，只包含工作日
+
+
+class DailyAttendanceStatisticsResponse(BaseModel):
+    """每日上下午考勤统计响应"""
+    start_date: str  # YYYY-MM-DD
+    end_date: str  # YYYY-MM-DD
+    statistics: List[DailyAttendanceStatistics]
 
 

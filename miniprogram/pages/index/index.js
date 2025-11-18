@@ -16,7 +16,14 @@ Page({
     hasOverviewPermission: false,
     isWorkday: true,  // 是否为工作日，用于控制打卡状态区域的显示
     showClockStatus: true,  // 是否显示打卡状态区域
-    todayAttendance: null  // 今日打卡记录
+    todayAttendance: null,  // 今日打卡记录
+    checkinStatusList: [
+      { name: '正常签到', code: 'normal' },
+      { name: '市区办事', code: 'city_business' },
+      { name: '出差', code: 'business_trip' }
+    ],
+    checkinStatusIndex: 0,  // 当前选中的状态索引
+    showStatusSelector: false  // 是否显示状态选择器
   },
 
   onLoad() {
@@ -91,8 +98,41 @@ Page({
     this.loadTodayAttendance();
     this.loadRecentAttendance();
     this.loadPendingCount();
+    this.loadCheckinStatuses();  // 加载打卡状态列表
     // 检查工作日并设置按钮状态
     this.checkAndSetAttendanceButtons();
+  },
+
+  // 加载打卡状态列表
+  async loadCheckinStatuses() {
+    try {
+      const statuses = await app.request({
+        url: '/attendance/checkin-statuses'
+      });
+      if (statuses && statuses.length > 0) {
+        // 过滤掉id为0的默认虚拟数据
+        const realStatuses = statuses.filter(s => s.id !== 0);
+        if (realStatuses.length > 0) {
+          this.setData({
+            checkinStatusList: realStatuses.map(s => ({
+              name: s.name,
+              code: s.code
+            })),
+            checkinStatusIndex: 0  // 重置为第一个
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('加载打卡状态列表失败:', error);
+      // 使用默认状态
+    }
+  },
+
+  // 状态选择器变化事件
+  onStatusChange(e) {
+    this.setData({
+      checkinStatusIndex: parseInt(e.detail.value)
+    });
   },
   
   // 检查审批权限
@@ -310,17 +350,52 @@ Page({
       
       if (!workdayCheck.is_workday) {
         // 非工作日，隐藏打卡状态区域，禁用打卡按钮
+        let reasonText = '';
         const reason = workdayCheck.reason || '休息日';
         const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
+        
+        if (reason === '周末') {
+          reasonText = `今日${reason}，无需打卡`;
+        } else if (reason === '公司节假日') {
+          reasonText = `今日公司节假日${holidayName}，无需打卡`;
+        } else if (reason === '法定节假日') {
+          reasonText = `今日法定节假日${holidayName}，无需打卡`;
+        } else {
+          reasonText = `今日${reason}，无需打卡${holidayName}`;
+        }
+        
         this.setData({
           isWorkday: false,
           showClockStatus: false,  // 隐藏打卡状态区域
           checkinDisabled: true,
           checkoutDisabled: true,
-          location: `今日休息，不需打卡。${holidayName}`
+          location: reasonText
         });
       } else {
-        // 工作日
+        // 工作日（包括调休工作日）- 获取打卡策略时间范围
+        const isMakeupWorkday = workdayCheck.reason === '调休工作日';
+        const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
+        
+        let checkinStartTime = '08:00';
+        let checkinEndTime = '11:30';
+        let checkoutStartTime = '17:20';
+        let checkoutEndTime = '20:00';
+        
+        try {
+          const policies = await app.request('/attendance/policies');
+          if (policies && policies.length > 0) {
+            const policy = policies.find(p => p.is_active) || policies[0];
+            if (policy) {
+              checkinStartTime = policy.checkin_start_time || checkinStartTime;
+              checkinEndTime = policy.checkin_end_time || checkinEndTime;
+              checkoutStartTime = policy.checkout_start_time || checkoutStartTime;
+              checkoutEndTime = policy.checkout_end_time || checkoutEndTime;
+            }
+          }
+        } catch (error) {
+          console.warn('获取打卡策略失败，使用默认时间:', error);
+        }
+        
         const hasCheckin = this.data.todayAttendance && this.data.todayAttendance.checkin_time;
         const hasCheckout = this.data.todayAttendance && this.data.todayAttendance.checkout_time;
         
@@ -330,11 +405,16 @@ Page({
         const currentMinute = now.getMinutes();
         const currentTime = currentHour * 60 + currentMinute; // 转换为分钟数
         
-        // 默认打卡时间范围
-        const checkinStart = 8 * 60;   // 08:00
-        const checkinEnd = 10 * 60;    // 10:00
-        const checkoutStart = 17 * 60; // 17:00
-        const checkoutEnd = 20 * 60;   // 20:00
+        // 解析打卡时间范围
+        const parseTime = (timeStr) => {
+          const [h, m] = timeStr.split(':').map(Number);
+          return h * 60 + m;
+        };
+        
+        const checkinStart = parseTime(checkinStartTime);
+        const checkinEnd = parseTime(checkinEndTime);
+        const checkoutStart = parseTime(checkoutStartTime);
+        const checkoutEnd = parseTime(checkoutEndTime);
         
         // 判断是否在打卡时间内
         const isInCheckinTime = currentTime >= checkinStart && currentTime <= checkinEnd;
@@ -344,41 +424,98 @@ Page({
         // 如果已打卡或是在打卡时间内且未打卡，显示打卡状态区域
         const showClockStatus = hasCheckin || hasCheckout || (isInPunchTime && !hasCheckin);
         
-        let locationText = '';
-        if (hasCheckin || hasCheckout) {
-          // 已打卡，显示位置信息
-          if (hasCheckout && this.data.todayAttendance && this.data.todayAttendance.checkout_location) {
-            locationText = `位置: ${this.data.todayAttendance.checkout_location}`;
-          } else if (hasCheckin && this.data.todayAttendance && this.data.todayAttendance.checkin_location) {
-            locationText = `位置: ${this.data.todayAttendance.checkin_location}`;
-          }
-        } else if (isInPunchTime) {
-          // 在打卡时间内且未打卡
-          locationText = '工作日，请及时打卡。';
-        } else {
-          // 不在打卡时间内且未打卡
-          locationText = '工作日，尚未开始打卡。';
+        // 检查请假状态
+        let leaveStatusInfo = null;
+        try {
+          leaveStatusInfo = await app.request('/attendance/leave-status');
+        } catch (error) {
+          console.warn('获取请假状态失败:', error);
         }
         
-        // 设置按钮状态（在 checkAndSetAttendanceButtons 中，如果未打卡，需要根据打卡时间判断）
+        let locationText = '';
+        // 如果是调休工作日且未打卡，优先显示调休工作日提示
+        if (isMakeupWorkday && !hasCheckin && !hasCheckout) {
+          locationText = `调休工作日${holidayName}，请正常打卡`;
+        } else if (hasCheckin && hasCheckout) {
+          // 已下班打卡，显示完成提示
+          locationText = '今天打卡完成，工作辛苦了！';
+        } else if (hasCheckin && !hasCheckout) {
+          // 已上班打卡但未下班打卡，显示签退时间范围或请假信息
+          if (leaveStatusInfo) {
+            if (leaveStatusInfo.full_day_leave) {
+              locationText = '今天全天请假';
+            } else if (leaveStatusInfo.afternoon_leave) {
+              locationText = '下午请假，无需签退';
+            } else {
+              locationText = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+            }
+          } else {
+            locationText = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+          }
+        } else if (leaveStatusInfo) {
+          // 显示请假状态提示
+          if (leaveStatusInfo.full_day_leave) {
+            locationText = '今天全天请假，无需打卡';
+          } else if (leaveStatusInfo.morning_leave) {
+            locationText = '上午请假，可在14:10前签到';
+          } else if (leaveStatusInfo.afternoon_leave) {
+            locationText = '下午请假，上午正常签到';
+          } else if (isInCheckinTime) {
+            const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+            locationText = `${workdayText}，请及时签到（${checkinStartTime}-${checkinEndTime}）`;
+          } else if (isInCheckoutTime) {
+            const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+            locationText = `${workdayText}，请及时签退（${checkoutStartTime}-${checkoutEndTime}）`;
+          } else if (currentTime < checkinStart) {
+            const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+            locationText = `${workdayText}，签到时间：${checkinStartTime}-${checkinEndTime}`;
+          } else if (currentTime > checkinEnd && currentTime < checkoutStart) {
+            const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+            locationText = `${workdayText}，签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+          } else {
+            const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+            locationText = `${workdayText}，已过打卡时间`;
+          }
+        } else if (isInCheckinTime) {
+          const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+          locationText = `${workdayText}，请及时签到（${checkinStartTime}-${checkinEndTime}）`;
+        } else if (isInCheckoutTime) {
+          const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+          locationText = `${workdayText}，请及时签退（${checkoutStartTime}-${checkoutEndTime}）`;
+        } else if (currentTime < checkinStart) {
+          const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+          locationText = `${workdayText}，签到时间：${checkinStartTime}-${checkinEndTime}`;
+        } else if (currentTime > checkinEnd && currentTime < checkoutStart) {
+          const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+          locationText = `${workdayText}，签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+        } else {
+          const workdayText = isMakeupWorkday ? '调休工作日' : '工作日';
+          locationText = `${workdayText}，已过打卡时间`;
+        }
+        
+        // 设置按钮状态
         let checkinDisabled = false;
         let checkoutDisabled = true; // 未上班时，下班按钮禁用
         
         if (!hasCheckin && !hasCheckout) {
           // 未打卡，根据打卡时间判断按钮状态
-          checkinDisabled = !isInPunchTime; // 不在打卡时间内，禁用上班打卡按钮
+          checkinDisabled = !isInCheckinTime; // 不在签到时间内，禁用上班打卡按钮
         } else if (hasCheckin) {
           // 已上班打卡
           checkinDisabled = true; // 已打卡，禁用上班打卡按钮
           checkoutDisabled = hasCheckout; // 已下班打卡则禁用，否则可用
         }
         
+        // 显示状态选择器（如果未打卡且在打卡时间内）
+        const showStatusSelector = !hasCheckin && isInPunchTime && !leaveStatusInfo?.full_day_leave;
+        
         this.setData({
           isWorkday: true,
           showClockStatus: showClockStatus,  // 根据状态显示/隐藏打卡状态区域
           checkinDisabled: checkinDisabled,
           checkoutDisabled: checkoutDisabled,
-          location: locationText
+          location: locationText,
+          showStatusSelector: showStatusSelector  // 显示/隐藏状态选择器
         });
       }
     } catch (error) {
@@ -396,6 +533,41 @@ Page({
         duration: 2000
       });
       return;
+    }
+    
+    // 检查请假状态
+    try {
+      const leaveStatus = await app.request({
+        url: '/attendance/leave-status'
+      });
+      if (leaveStatus.full_day_leave) {
+        wx.showToast({
+          title: '今天全天请假，无需打卡',
+          icon: 'none',
+          duration: 2000
+        });
+        return;
+      }
+      if (leaveStatus.morning_leave) {
+        // 检查是否在14:10前
+        const now = new Date();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
+        const currentTime = currentHour * 60 + currentMinute;
+        const deadline = 14 * 60 + 10;  // 14:10
+        
+        if (currentTime > deadline) {
+          wx.showToast({
+            title: '上午请假，已过签到时间（14:10前）',
+            icon: 'none',
+            duration: 2000
+          });
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn('检查请假状态失败:', error);
+      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
     
     // 检查是否为工作日
@@ -448,6 +620,11 @@ Page({
     try {
       const locationData = await this.getLocation();
       const displayLocation = locationData.address || locationData.location;
+      
+      // 获取选中的打卡状态
+      const selectedStatus = this.data.checkinStatusList[this.data.checkinStatusIndex];
+      locationData.checkin_status = selectedStatus ? selectedStatus.code : 'normal';
+      
       this.setData({ location: displayLocation });
       
       wx.showLoading({ title: '打卡中...' });
@@ -494,6 +671,24 @@ Page({
         duration: 2000
       });
       return;
+    }
+    
+    // 检查请假状态
+    try {
+      const leaveStatus = await app.request({
+        url: '/attendance/leave-status'
+      });
+      if (leaveStatus.afternoon_leave) {
+        wx.showToast({
+          title: '下午请假，无需签退',
+          icon: 'none',
+          duration: 2000
+        });
+        return;
+      }
+    } catch (error) {
+      console.warn('检查请假状态失败:', error);
+      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
     
     // 检查是否为工作日
@@ -619,12 +814,48 @@ Page({
         const hasCheckin = !!att.checkin_time;
         const hasCheckout = !!att.checkout_time;
         
-        // 显示位置信息
+        // 根据打卡状态显示相应信息
         let locationText = '';
-        if (hasCheckout && att.checkout_location) {
-          locationText = `位置: ${att.checkout_location}`;
-        } else if (hasCheckin && att.checkin_location) {
-          locationText = `位置: ${att.checkin_location}`;
+        if (hasCheckin && hasCheckout) {
+          // 已下班打卡，显示完成提示
+          locationText = '今天打卡完成，工作辛苦了！';
+        } else if (hasCheckin && !hasCheckout) {
+          // 已上班打卡但未下班打卡，需要获取签退时间范围或请假信息
+          // 获取打卡策略时间范围
+          let checkoutStartTime = '17:20';
+          let checkoutEndTime = '20:00';
+          try {
+            const policies = await app.request('/attendance/policies');
+            if (policies && policies.length > 0) {
+              const policy = policies.find(p => p.is_active) || policies[0];
+              if (policy) {
+                checkoutStartTime = policy.checkout_start_time || checkoutStartTime;
+                checkoutEndTime = policy.checkout_end_time || checkoutEndTime;
+              }
+            }
+          } catch (error) {
+            console.warn('获取打卡策略失败，使用默认时间:', error);
+          }
+          
+          // 检查请假状态
+          let leaveStatusInfo = null;
+          try {
+            leaveStatusInfo = await app.request('/attendance/leave-status');
+          } catch (error) {
+            console.warn('获取请假状态失败:', error);
+          }
+          
+          if (leaveStatusInfo) {
+            if (leaveStatusInfo.full_day_leave) {
+              locationText = '今天全天请假';
+            } else if (leaveStatusInfo.afternoon_leave) {
+              locationText = '下午请假，无需签退';
+            } else {
+              locationText = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+            }
+          } else {
+            locationText = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+          }
         }
         
         this.setData({

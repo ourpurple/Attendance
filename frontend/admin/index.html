@@ -86,6 +86,9 @@
                             <a href="#policies" class="nav-sub-item nav-link" data-page="policies">
                                 <span>策略管理</span>
                             </a>
+                            <a href="#checkin-status" class="nav-sub-item nav-link" data-page="checkin-status">
+                                <span>打卡状态配置</span>
+                            </a>
                             <a href="#holidays" class="nav-sub-item nav-link" data-page="holidays">
                                 <span>节假日配置</span>
                             </a>
@@ -458,6 +461,30 @@
                     </div>
                 </div>
 
+                <!-- 打卡状态配置 -->
+                <div id="checkin-status-content" class="content-section">
+                    <div class="section-header">
+                        <h2>打卡状态配置</h2>
+                        <button class="btn btn-primary" onclick="showAddCheckinStatusModal()">添加状态</button>
+                    </div>
+                    <div class="table-container">
+                        <table id="checkin-status-table">
+                            <thead>
+                                <tr>
+                                    <th>状态名称</th>
+                                    <th>状态代码</th>
+                                    <th>描述</th>
+                                    <th>排序</th>
+                                    <th>状态</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="checkin-status-tbody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- 节假日配置 -->
                 <div id="holidays-content" class="content-section">
                     <div class="section-header">
@@ -520,6 +547,7 @@
                     <div class="tabs">
                         <button class="tab-btn active" onclick="switchStatsTab('overall')">总统计</button>
                         <button class="tab-btn" onclick="switchStatsTab('attendance')">出勤统计</button>
+                        <button class="tab-btn" onclick="switchStatsTab('daily')">每日详细</button>
                         <button class="tab-btn" onclick="switchStatsTab('leave')">请假统计</button>
                         <button class="tab-btn" onclick="switchStatsTab('overtime')">加班统计</button>
                     </div>
@@ -563,6 +591,18 @@
                                     </tr>
                                 </thead>
                                 <tbody id="attendance-stats-tbody">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- 每日详细统计 -->
+                    <div id="daily-stats" class="stats-tab-content">
+                        <div class="table-container" style="overflow-x: auto;">
+                            <table id="daily-stats-table" style="min-width: 100%; border-collapse: collapse;">
+                                <thead id="daily-stats-thead">
+                                </thead>
+                                <tbody id="daily-stats-tbody">
                                 </tbody>
                             </table>
                         </div>

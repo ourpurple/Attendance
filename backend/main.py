@@ -35,11 +35,30 @@ app.include_router(attendance_viewers.router, prefix="/api")
 app.include_router(leave_types.router, prefix="/api")
 
 # 静态文件服务（用于前端）
+import os
+from pathlib import Path
+
+# 获取项目根目录（backend/main.py 的父目录的父目录）
+BASE_DIR = Path(__file__).resolve().parent.parent
+ADMIN_DIR = BASE_DIR / "frontend" / "admin"
+MOBILE_DIR = BASE_DIR / "frontend" / "mobile"
+
 try:
-    app.mount("/admin", StaticFiles(directory="frontend/admin", html=True), name="admin")
-    app.mount("/mobile", StaticFiles(directory="frontend/mobile", html=True), name="mobile")
-except:
-    pass  # 如果目录不存在，跳过
+    if ADMIN_DIR.exists():
+        app.mount("/admin", StaticFiles(directory=str(ADMIN_DIR), html=True), name="admin")
+        print(f"✓ Admin前端已挂载: {ADMIN_DIR}")
+    else:
+        print(f"⚠️  Admin前端目录不存在: {ADMIN_DIR}")
+    
+    if MOBILE_DIR.exists():
+        app.mount("/mobile", StaticFiles(directory=str(MOBILE_DIR), html=True), name="mobile")
+        print(f"✓ Mobile前端已挂载: {MOBILE_DIR}")
+    else:
+        print(f"⚠️  Mobile前端目录不存在: {MOBILE_DIR}")
+except Exception as e:
+    print(f"❌ 挂载静态文件失败: {e}")
+    import traceback
+    traceback.print_exc()
 
 
 @app.on_event("startup")

@@ -1,11 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, and_
-from typing import List
+from typing import List, Optional
 from datetime import datetime, timedelta, date
 from ..database import get_db
-from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday, LeaveType
-from ..schemas import AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse
+from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday, LeaveType, AttendanceStatus
+from ..schemas import (
+    AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse,
+    DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
+)
+from .attendance import get_leave_period_for_date
 def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationResponse:
     data = LeaveApplicationResponse.from_orm(leave).model_dump()
     data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
@@ -404,5 +408,139 @@ def get_user_overtime_details(
     ).order_by(OvertimeApplication.start_time.desc()).all()
     
     return overtimes
+
+
+def is_workday(target_date: date, db: Session) -> bool:
+    """判断指定日期是否为工作日"""
+    date_str = target_date.isoformat()
+    holiday = db.query(Holiday).filter(Holiday.date == date_str).first()
+    
+    if holiday:
+        if holiday.type == "workday":
+            return True
+        elif holiday.type in ["holiday", "company_holiday"]:
+            return False
+    
+    weekday = target_date.weekday()
+    return weekday < 5  # 周一到周五
+
+
+def get_weekday_name(target_date: date) -> str:
+    """获取星期几的中文名称"""
+    weekday_names = ["一", "二", "三", "四", "五", "六", "日"]
+    return weekday_names[target_date.weekday()]
+
+
+@router.get("/attendance/daily", response_model=DailyAttendanceStatisticsResponse)
+def get_daily_attendance_statistics(
+    start_date: date,
+    end_date: date,
+    department_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取每日上下午考勤详细统计（只统计工作日）"""
+    # 权限检查
+    if current_user.role not in [UserRole.ADMIN, UserRole.DEPARTMENT_HEAD, UserRole.VICE_PRESIDENT, UserRole.GENERAL_MANAGER]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="权限不足"
+        )
+    
+    # 构建查询（排除admin账户）
+    query = db.query(User).filter(User.username != "admin", User.is_active == True)
+    
+    # 如果是部门主任，只能查看本部门
+    if current_user.role == UserRole.DEPARTMENT_HEAD:
+        query = query.filter(User.department_id == current_user.department_id)
+    elif department_id:
+        query = query.filter(User.department_id == department_id)
+    
+    users = query.all()
+    
+    # 获取所有工作日
+    workdays = []
+    current_date = start_date
+    while current_date <= end_date:
+        if is_workday(current_date, db):
+            workdays.append(current_date)
+        current_date += timedelta(days=1)
+    
+    # 获取所有考勤记录
+    attendances = db.query(Attendance).filter(
+        and_(
+            func.date(Attendance.date) >= start_date,
+            func.date(Attendance.date) <= end_date
+        )
+    ).all()
+    
+    # 构建考勤记录字典 {(user_id, date): attendance}
+    attendance_dict = {}
+    for att in attendances:
+        att_date = att.date.date() if isinstance(att.date, datetime) else att.date
+        key = (att.user_id, att_date)
+        attendance_dict[key] = att
+    
+    # 构建统计结果
+    statistics_list = []
+    
+    for user in users:
+        items = []
+        
+        for workday in workdays:
+            # 获取该日期的考勤记录
+            att = attendance_dict.get((user.id, workday))
+            
+            # 获取请假信息
+            leave_info = get_leave_period_for_date(user.id, workday, db)
+            
+            # 确定上午状态（优先级：请假 > 打卡记录 > 缺勤）
+            morning_status = None
+            if leave_info['morning_leave'] or leave_info['full_day_leave']:
+                morning_status = AttendanceStatus.LEAVE.value
+            elif att and att.morning_status:
+                morning_status = att.morning_status
+            elif att and att.checkin_time:
+                # 如果有打卡记录但没有设置morning_status，使用checkin_status
+                checkin_time_only = att.checkin_time.time() if att.checkin_time else None
+                if checkin_time_only and (checkin_time_only.hour < 14 or (checkin_time_only.hour == 14 and checkin_time_only.minute < 10)):
+                    morning_status = att.checkin_status or AttendanceStatus.NORMAL.value
+                else:
+                    morning_status = AttendanceStatus.ABSENT.value
+            else:
+                morning_status = AttendanceStatus.ABSENT.value
+            
+            # 确定下午状态（优先级：请假 > 打卡记录 > 缺勤）
+            afternoon_status = None
+            if leave_info['afternoon_leave'] or leave_info['full_day_leave']:
+                afternoon_status = AttendanceStatus.LEAVE.value
+            elif att and att.afternoon_status:
+                afternoon_status = att.afternoon_status
+            elif att and att.checkout_time:
+                # 如果有签退记录但没有设置afternoon_status，使用checkin_status
+                afternoon_status = att.checkin_status or AttendanceStatus.NORMAL.value
+            else:
+                afternoon_status = AttendanceStatus.ABSENT.value
+            
+            items.append(DailyAttendanceItem(
+                date=workday.isoformat(),
+                weekday=get_weekday_name(workday),
+                morning_status=morning_status,
+                afternoon_status=afternoon_status
+            ))
+        
+        statistics_list.append(DailyAttendanceStatistics(
+            user_id=user.id,
+            user_name=user.username,
+            real_name=user.real_name,
+            department=user.department.name if user.department else None,
+            items=items
+        ))
+    
+    return DailyAttendanceStatisticsResponse(
+        start_date=start_date.isoformat(),
+        end_date=end_date.isoformat(),
+        statistics=statistics_list
+    )
 
 

@@ -88,9 +88,23 @@ class AttendancePolicy(Base):
     late_threshold_minutes = Column(Integer, default=0, comment="默认迟到阈值（分钟）")
     early_threshold_minutes = Column(Integer, default=0, comment="默认早退阈值（分钟）")
     weekly_rules = Column(Text, comment="每周特殊规则JSON: {0-6: {work_end_time, checkout_start_time, ...}}")
+    # 上下午工作时间配置
+    morning_start_time = Column(String(5), default="09:00", comment="上午上班时间 HH:MM")
+    morning_end_time = Column(String(5), default="12:00", comment="上午下班时间 HH:MM")
+    afternoon_start_time = Column(String(5), default="14:00", comment="下午上班时间 HH:MM")
+    afternoon_end_time = Column(String(5), default="17:30", comment="下午下班时间 HH:MM")
     is_active = Column(Boolean, default=True, comment="是否启用")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class AttendanceStatus(str, enum.Enum):
+    """考勤状态枚举"""
+    NORMAL = "normal"  # 正常签到
+    CITY_BUSINESS = "city_business"  # 市区办事
+    BUSINESS_TRIP = "business_trip"  # 出差
+    LEAVE = "leave"  # 请假
+    ABSENT = "absent"  # 缺勤
 
 
 class Attendance(Base):
@@ -111,6 +125,12 @@ class Attendance(Base):
     is_early_leave = Column(Boolean, default=False, comment="是否早退")
     work_hours = Column(Float, comment="工作时长（小时）")
     date = Column(DateTime, nullable=False, index=True, comment="考勤日期")
+    # 新增字段
+    checkin_status = Column(String(20), default=AttendanceStatus.NORMAL.value, comment="签到状态: normal/city_business/business_trip")
+    morning_status = Column(String(20), comment="上午状态: normal/city_business/business_trip/leave/absent")
+    afternoon_status = Column(String(20), comment="下午状态: normal/city_business/business_trip/leave/absent")
+    morning_leave = Column(Boolean, default=False, comment="是否上午请假")
+    afternoon_leave = Column(Boolean, default=False, comment="是否下午请假")
     created_at = Column(DateTime, default=datetime.now)
     
     # 关系
@@ -257,5 +277,19 @@ class AttendanceViewer(Base):
     
     # 关系
     user = relationship("User", foreign_keys=[user_id], post_update=True)
+
+
+class CheckinStatusConfig(Base):
+    """打卡状态配置表"""
+    __tablename__ = "checkin_status_configs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), nullable=False, comment="状态名称")
+    code = Column(String(20), unique=True, nullable=False, comment="状态代码")
+    description = Column(Text, comment="状态描述")
+    is_active = Column(Boolean, default=True, comment="是否启用")
+    sort_order = Column(Integer, default=0, comment="排序顺序")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 

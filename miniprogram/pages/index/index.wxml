@@ -27,6 +27,16 @@
       </button>
     </view>
 
+    <!-- 打卡状态选择器 -->
+    <view class="checkin-status-selector" wx:if="{{showStatusSelector}}" style="margin-top: 10px; padding: 10px;">
+      <text class="status-label">打卡状态：</text>
+      <picker mode="selector" range="{{checkinStatusList}}" range-key="name" value="{{checkinStatusIndex}}" bindchange="onStatusChange">
+        <view class="picker">
+          {{checkinStatusList[checkinStatusIndex].name}}
+        </view>
+      </picker>
+    </view>
+
     <view class="clock-location" wx:if="{{location}}">{{location}}</view>
   </view>
 

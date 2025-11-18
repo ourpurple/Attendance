@@ -267,6 +267,9 @@ function loadPageData(page) {
         case 'policies':
             loadPolicies();
             break;
+        case 'checkin-status':
+            loadCheckinStatuses();
+            break;
         case 'holidays':
             loadHolidays();
             break;
@@ -1056,6 +1059,216 @@ async function loadPolicies() {
     }
 }
 
+// 加载打卡状态配置
+async function loadCheckinStatuses() {
+    try {
+        // 管理后台需要显示所有状态（包括非激活的）
+        const statuses = await apiRequest('/attendance/checkin-statuses?include_inactive=true');
+        const tbody = document.getElementById('checkin-status-tbody');
+        
+        if (!tbody) {
+            console.error('找不到 checkin-status-tbody 元素');
+            return;
+        }
+        
+        if (!statuses || statuses.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">暂无数据</td></tr>';
+            return;
+        }
+        
+        // 过滤掉id为0的默认虚拟数据（这些是前端显示的默认值，不是真实记录）
+        const realStatuses = statuses.filter(s => s.id !== 0);
+        
+        if (realStatuses.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">暂无数据，请添加打卡状态</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = realStatuses.map(status => `
+            <tr>
+                <td>${status.name}</td>
+                <td>${status.code}</td>
+                <td>${status.description || '-'}</td>
+                <td>${status.sort_order}</td>
+                <td><span class="status-badge ${status.is_active ? 'status-active' : 'status-inactive'}">
+                    ${status.is_active ? '启用' : '禁用'}</span></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-small btn-primary" onclick="editCheckinStatus(${status.id})">编辑</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteCheckinStatus(${status.id})">删除</button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('加载打卡状态配置失败:', error);
+        const tbody = document.getElementById('checkin-status-tbody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #f00;">加载失败: ' + error.message + '</td></tr>';
+        }
+    }
+}
+
+// 显示添加打卡状态模态框
+function showAddCheckinStatusModal() {
+    const content = `
+        <div class="form-group">
+            <label>状态名称 *</label>
+            <input type="text" id="modal-status-name" class="form-input" required>
+        </div>
+        <div class="form-group">
+            <label>状态代码 *</label>
+            <input type="text" id="modal-status-code" class="form-input" required>
+        </div>
+        <div class="form-group">
+            <label>描述</label>
+            <textarea id="modal-status-description" class="form-input" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+            <label>排序顺序</label>
+            <input type="number" id="modal-status-sort" class="form-input" value="0" min="0">
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="modal-status-active" checked>
+                启用该状态
+            </label>
+        </div>
+    `;
+    
+    showModal('添加打卡状态', content, async () => {
+        const name = document.getElementById('modal-status-name').value;
+        const code = document.getElementById('modal-status-code').value;
+        const description = document.getElementById('modal-status-description').value;
+        const sortOrder = parseInt(document.getElementById('modal-status-sort').value);
+        const isActive = document.getElementById('modal-status-active').checked;
+        
+        if (!name || !code) {
+            alert('请填写必填项');
+            return;
+        }
+        
+        try {
+            await apiRequest('/attendance/checkin-statuses', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name,
+                    code,
+                    description,
+                    sort_order: sortOrder,
+                    is_active: isActive
+                })
+            });
+            
+            closeModal();
+            // 延迟一下确保后端数据已保存
+            setTimeout(async () => {
+                await loadCheckinStatuses();
+                alert('添加成功');
+            }, 300);
+        } catch (error) {
+            alert('添加失败: ' + error.message);
+        }
+    });
+}
+
+// 编辑打卡状态
+async function editCheckinStatus(id) {
+    try {
+        // 获取所有状态（包括非激活的）用于编辑
+        const statuses = await apiRequest('/attendance/checkin-statuses?include_inactive=true');
+        const currentStatus = statuses.find(s => s.id === id);
+        
+        if (!currentStatus) {
+            alert('状态配置不存在');
+            return;
+        }
+        
+        const content = `
+            <div class="form-group">
+                <label>状态名称 *</label>
+                <input type="text" id="modal-status-name" class="form-input" value="${currentStatus.name}" required>
+            </div>
+            <div class="form-group">
+                <label>状态代码 *</label>
+                <input type="text" id="modal-status-code" class="form-input" value="${currentStatus.code}" required>
+            </div>
+            <div class="form-group">
+                <label>描述</label>
+                <textarea id="modal-status-description" class="form-input" rows="3">${currentStatus.description || ''}</textarea>
+            </div>
+            <div class="form-group">
+                <label>排序顺序</label>
+                <input type="number" id="modal-status-sort" class="form-input" value="${currentStatus.sort_order}" min="0">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="modal-status-active" ${currentStatus.is_active ? 'checked' : ''}>
+                    启用该状态
+                </label>
+            </div>
+        `;
+        
+        showModal('编辑打卡状态', content, async () => {
+            const name = document.getElementById('modal-status-name').value;
+            const code = document.getElementById('modal-status-code').value;
+            const description = document.getElementById('modal-status-description').value;
+            const sortOrder = parseInt(document.getElementById('modal-status-sort').value);
+            const isActive = document.getElementById('modal-status-active').checked;
+            
+            if (!name || !code) {
+                alert('请填写必填项');
+                return;
+            }
+            
+            try {
+                await apiRequest(`/attendance/checkin-statuses/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify({
+                        name,
+                        code,
+                        description,
+                        sort_order: sortOrder,
+                        is_active: isActive
+                    })
+                });
+                
+                closeModal();
+                // 延迟一下确保后端数据已保存
+                setTimeout(async () => {
+                    await loadCheckinStatuses();
+                    alert('更新成功');
+                }, 300);
+            } catch (error) {
+                alert('更新失败: ' + error.message);
+            }
+        });
+    } catch (error) {
+        alert('加载状态配置失败: ' + error.message);
+    }
+}
+
+// 删除打卡状态
+async function deleteCheckinStatus(id) {
+    if (!confirm('确定要删除这个打卡状态吗？')) {
+        return;
+    }
+    
+    try {
+        await apiRequest(`/attendance/checkin-statuses/${id}`, {
+            method: 'DELETE'
+        });
+        
+        // 延迟一下确保后端数据已删除
+        setTimeout(async () => {
+            await loadCheckinStatuses();
+            alert('删除成功');
+        }, 300);
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
 // 加载统计数据
 // 全局变量存储统计数据
 let statisticsData = [];
@@ -1164,6 +1377,7 @@ async function loadAllStatistics() {
         // 加载各个统计视图
         loadOverallStats(periodStats);
         loadAttendanceStats();
+        await loadDailyStats(startDate, endDate);
         await loadLeaveStats();
         loadOvertimeStats();
     } catch (error) {
@@ -1199,6 +1413,97 @@ function loadAttendanceStats() {
             <td>${stat.work_hours.toFixed(1)}</td>
         </tr>
     `).join('');
+}
+
+// 加载每日详细统计
+async function loadDailyStats(startDate, endDate) {
+    try {
+        const dailyData = await apiRequest(`/statistics/attendance/daily?start_date=${startDate}&end_date=${endDate}`);
+        
+        if (!dailyData || !dailyData.statistics || dailyData.statistics.length === 0) {
+            document.getElementById('daily-stats-tbody').innerHTML = '<tr><td colspan="100">暂无数据</td></tr>';
+            return;
+        }
+        
+        // 获取所有日期（工作日）
+        const dates = [];
+        if (dailyData.statistics.length > 0 && dailyData.statistics[0].items) {
+            dates.push(...dailyData.statistics[0].items.map(item => item.date));
+        }
+        
+        // 构建表头
+        const thead = document.getElementById('daily-stats-thead');
+        let headerHtml = '<tr><th rowspan="2">姓名</th>';
+        
+        // 第一行：日期和星期
+        dates.forEach(date => {
+            const dateObj = new Date(date);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            // 获取星期（从第一个用户的items中获取）
+            let weekday = '';
+            if (dailyData.statistics.length > 0 && dailyData.statistics[0].items) {
+                const item = dailyData.statistics[0].items.find(i => i.date === date);
+                if (item) weekday = item.weekday;
+            }
+            headerHtml += `<th colspan="2">${day}<br><small>${weekday}</small></th>`;
+        });
+        headerHtml += '</tr><tr>';
+        
+        // 第二行：上下午
+        dates.forEach(() => {
+            headerHtml += '<th>上午</th><th>下午</th>';
+        });
+        headerHtml += '</tr>';
+        
+        thead.innerHTML = headerHtml;
+        
+        // 构建表体
+        const tbody = document.getElementById('daily-stats-tbody');
+        tbody.innerHTML = dailyData.statistics.map(stat => {
+            let rowHtml = `<tr><td>${stat.real_name || stat.user_name}</td>`;
+            
+            // 添加每日上下午状态
+            stat.items.forEach(item => {
+                const morningStatus = getStatusDisplay(item.morning_status);
+                const afternoonStatus = getStatusDisplay(item.afternoon_status);
+                rowHtml += `<td class="status-cell ${getStatusClass(item.morning_status)}">${morningStatus}</td>`;
+                rowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status)}">${afternoonStatus}</td>`;
+            });
+            
+            rowHtml += '</tr>';
+            return rowHtml;
+        }).join('');
+        
+    } catch (error) {
+        console.error('加载每日详细统计失败:', error);
+        document.getElementById('daily-stats-tbody').innerHTML = '<tr><td colspan="100">加载失败</td></tr>';
+    }
+}
+
+// 获取状态显示文本
+function getStatusDisplay(status) {
+    if (!status) return '/';
+    const statusMap = {
+        'normal': '正常',
+        'city_business': '市区办事',
+        'business_trip': '出差',
+        'leave': '请假',
+        'absent': '缺勤'
+    };
+    return statusMap[status] || status;
+}
+
+// 获取状态样式类
+function getStatusClass(status) {
+    if (!status) return '';
+    const classMap = {
+        'normal': 'status-normal',
+        'city_business': 'status-city',
+        'business_trip': 'status-trip',
+        'leave': 'status-leave',
+        'absent': 'status-absent'
+    };
+    return classMap[status] || '';
 }
 
 // 加载请假统计
@@ -2734,6 +3039,22 @@ function showAddPolicyModal() {
             <input type="number" id="modal-early-threshold" class="form-input" value="0" min="0">
         </div>
         <div class="form-group">
+            <label>上午上班时间 *</label>
+            <input type="time" id="modal-morning-start" class="form-input" value="09:00" required>
+        </div>
+        <div class="form-group">
+            <label>上午下班时间 *</label>
+            <input type="time" id="modal-morning-end" class="form-input" value="12:00" required>
+        </div>
+        <div class="form-group">
+            <label>下午上班时间 *</label>
+            <input type="time" id="modal-afternoon-start" class="form-input" value="14:00" required>
+        </div>
+        <div class="form-group">
+            <label>下午下班时间 *</label>
+            <input type="time" id="modal-afternoon-end" class="form-input" value="17:30" required>
+        </div>
+        <div class="form-group">
             <label>
                 <input type="checkbox" id="modal-policy-active" checked>
                 启用该策略
@@ -2751,6 +3072,10 @@ function showAddPolicyModal() {
         const checkoutEnd = document.getElementById('modal-checkout-end').value;
         const lateThreshold = parseInt(document.getElementById('modal-late-threshold').value);
         const earlyThreshold = parseInt(document.getElementById('modal-early-threshold').value);
+        const morningStart = document.getElementById('modal-morning-start').value;
+        const morningEnd = document.getElementById('modal-morning-end').value;
+        const afternoonStart = document.getElementById('modal-afternoon-start').value;
+        const afternoonEnd = document.getElementById('modal-afternoon-end').value;
         const isActive = document.getElementById('modal-policy-active').checked;
         
         if (!name || !workStart || !workEnd) {
@@ -2771,6 +3096,10 @@ function showAddPolicyModal() {
                     checkout_end_time: checkoutEnd,
                     late_threshold_minutes: lateThreshold,
                     early_threshold_minutes: earlyThreshold,
+                    morning_start_time: morningStart,
+                    morning_end_time: morningEnd,
+                    afternoon_start_time: afternoonStart,
+                    afternoon_end_time: afternoonEnd,
                     is_active: isActive
                 })
             });
@@ -2874,6 +3203,22 @@ async function editPolicy(id) {
             <label>早退阈值（分钟）</label>
             <input type="number" id="modal-early-threshold" class="form-input" value="${currentPolicy.early_threshold_minutes}" min="0">
         </div>
+        <div class="form-group">
+            <label>上午上班时间 *</label>
+            <input type="time" id="modal-morning-start" class="form-input" value="${currentPolicy.morning_start_time || '09:00'}" required>
+        </div>
+        <div class="form-group">
+            <label>上午下班时间 *</label>
+            <input type="time" id="modal-morning-end" class="form-input" value="${currentPolicy.morning_end_time || '12:00'}" required>
+        </div>
+        <div class="form-group">
+            <label>下午上班时间 *</label>
+            <input type="time" id="modal-afternoon-start" class="form-input" value="${currentPolicy.afternoon_start_time || '14:00'}" required>
+        </div>
+        <div class="form-group">
+            <label>下午下班时间 *</label>
+            <input type="time" id="modal-afternoon-end" class="form-input" value="${currentPolicy.afternoon_end_time || '17:30'}" required>
+        </div>
         
         <h4 style="margin-top: 20px; margin-bottom: 10px; color: #333;">每周特殊规则（可选）</h4>
         <p style="color: #666; font-size: 14px; margin-bottom: 15px;">针对特定星期设置不同的下班时间，勾选后填写即可覆盖默认规则</p>
@@ -2910,6 +3255,10 @@ async function editPolicy(id) {
         const checkoutEnd = document.getElementById('modal-checkout-end').value;
         const lateThreshold = parseInt(document.getElementById('modal-late-threshold').value);
         const earlyThreshold = parseInt(document.getElementById('modal-early-threshold').value);
+        const morningStart = document.getElementById('modal-morning-start').value;
+        const morningEnd = document.getElementById('modal-morning-end').value;
+        const afternoonStart = document.getElementById('modal-afternoon-start').value;
+        const afternoonEnd = document.getElementById('modal-afternoon-end').value;
         const isActive = document.getElementById('modal-policy-active').checked;
         
         if (!name || !workStart || !workEnd) {
@@ -2939,6 +3288,10 @@ async function editPolicy(id) {
                 body: JSON.stringify({
                     name,
                     work_start_time: workStart,
+                    morning_start_time: morningStart,
+                    morning_end_time: morningEnd,
+                    afternoon_start_time: afternoonStart,
+                    afternoon_end_time: afternoonEnd,
                     work_end_time: workEnd,
                     checkin_start_time: checkinStart,
                     checkin_end_time: checkinEnd,

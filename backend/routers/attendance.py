@@ -6,12 +6,13 @@ from datetime import datetime, date, timedelta
 import json
 import httpx
 from ..database import get_db
-from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday
+from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday, LeaveStatus, CheckinStatusConfig
 from ..schemas import (
     AttendanceCheckin, AttendanceCheckout, AttendanceResponse, 
     AttendancePolicyResponse, AttendancePolicyCreate, AttendancePolicyUpdate,
     BatchGeocodeRequest, BatchGeocodeResponse, GeocodeResult, LocationPoint,
-    AttendanceOverviewResponse, AttendanceOverviewItem
+    AttendanceOverviewResponse, AttendanceOverviewItem, LeaveStatusResponse,
+    CheckinStatusConfigResponse, CheckinStatusConfigCreate, CheckinStatusConfigUpdate
 )
 from ..security import get_current_user, get_current_active_admin
 from ..config import settings
@@ -95,6 +96,114 @@ def is_early_leave(checkout_time: datetime, policy: AttendancePolicy) -> bool:
     return checkout < work_end_with_threshold
 
 
+def get_leave_period_for_date(user_id: int, target_date: date, db: Session) -> Dict[str, bool]:
+    """
+    获取指定用户在指定日期的请假时段
+    
+    Args:
+        user_id: 用户ID
+        target_date: 目标日期
+        db: 数据库会话
+        
+    Returns:
+        包含请假信息的字典: {
+            'has_leave': bool,  # 是否有请假
+            'morning_leave': bool,  # 是否上午请假
+            'afternoon_leave': bool,  # 是否下午请假
+            'full_day_leave': bool  # 是否全天请假
+        }
+    """
+    result = {
+        'has_leave': False,
+        'morning_leave': False,
+        'afternoon_leave': False,
+        'full_day_leave': False
+    }
+    
+    # 查询该日期范围内的有效请假（排除已拒绝和已取消的请假）
+    # 只要有请假申请（无论是否被核准），都应该按请假计算
+    target_datetime_start = datetime.combine(target_date, datetime.min.time())
+    target_datetime_end = datetime.combine(target_date, datetime.max.time())
+    
+    leaves = db.query(LeaveApplication).filter(
+        and_(
+            LeaveApplication.user_id == user_id,
+            LeaveApplication.status.notin_([LeaveStatus.REJECTED.value, LeaveStatus.CANCELLED.value]),
+            LeaveApplication.start_date <= target_datetime_end,
+            LeaveApplication.end_date >= target_datetime_start
+        )
+    ).all()
+    
+    if not leaves:
+        return result
+    
+    result['has_leave'] = True
+    
+    for leave in leaves:
+        start_date_only = leave.start_date.date() if isinstance(leave.start_date, datetime) else leave.start_date
+        end_date_only = leave.end_date.date() if isinstance(leave.end_date, datetime) else leave.end_date
+        start_time = leave.start_date.time() if isinstance(leave.start_date, datetime) else datetime.min.time()
+        end_time = leave.end_date.time() if isinstance(leave.end_date, datetime) else datetime.max.time()
+        
+        # 判断规则1: 起始时间为9点且时长为0.5天的 → 上午请假
+        if (start_time.hour == 9 and start_time.minute == 0 and 
+            leave.days == 0.5 and start_date_only == target_date):
+            result['morning_leave'] = True
+            continue
+        
+        # 判断规则2: 起始时间为14点的，请假起始的当天记录为 下午请假
+        if (start_time.hour == 14 and start_time.minute == 0 and 
+            start_date_only == target_date):
+            result['afternoon_leave'] = True
+            continue
+        
+        # 判断规则3: 假期时长大于等于一天的且请假结束时间为12点的，假期结束当天上午记录为请假
+        if (leave.days >= 1.0 and end_time.hour == 12 and end_time.minute == 0 and 
+            end_date_only == target_date):
+            result['morning_leave'] = True
+            continue
+        
+        # 如果请假跨天，且目标日期在中间，则全天请假
+        if start_date_only < target_date < end_date_only:
+            result['full_day_leave'] = True
+            result['morning_leave'] = True
+            result['afternoon_leave'] = True
+            continue
+        
+        # 如果请假开始日期和结束日期都是目标日期
+        if start_date_only == target_date == end_date_only:
+            # 根据开始和结束时间判断
+            if start_time.hour < 12:  # 上午开始
+                if end_time.hour < 14:  # 上午结束
+                    result['morning_leave'] = True
+                else:  # 下午或全天结束
+                    result['full_day_leave'] = True
+                    result['morning_leave'] = True
+                    result['afternoon_leave'] = True
+            elif start_time.hour >= 14:  # 下午开始
+                result['afternoon_leave'] = True
+            else:  # 中午开始
+                result['afternoon_leave'] = True
+        elif start_date_only == target_date:
+            # 请假开始日期是目标日期
+            if start_time.hour < 12:
+                result['morning_leave'] = True
+            else:
+                result['afternoon_leave'] = True
+        elif end_date_only == target_date:
+            # 请假结束日期是目标日期
+            if end_time.hour < 14:
+                result['morning_leave'] = True
+            else:
+                result['afternoon_leave'] = True
+    
+    # 如果上午和下午都请假，则全天请假
+    if result['morning_leave'] and result['afternoon_leave']:
+        result['full_day_leave'] = True
+    
+    return result
+
+
 @router.post("/checkin", response_model=AttendanceResponse)
 def checkin(
     checkin_data: AttendanceCheckin,
@@ -102,8 +211,12 @@ def checkin(
     current_user: User = Depends(get_current_user)
 ):
     """上班打卡"""
-    # 获取当前日期
+    from ..models import AttendanceStatus
+    
+    # 获取当前日期和时间
     today = datetime.now().date()
+    checkin_time = datetime.now()
+    checkin_time_only = checkin_time.time()
     
     # 检查今天是否已经打过卡
     existing_attendance = db.query(Attendance).filter(
@@ -122,42 +235,92 @@ def checkin(
     # 获取活跃的打卡策略
     policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
     
-    checkin_time = datetime.now()
+    # 检查请假情况
+    leave_info = get_leave_period_for_date(current_user.id, today, db)
+    
+    # 如果全天请假，不允许打卡
+    if leave_info['full_day_leave']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="今天全天请假，无需打卡"
+        )
+    
+    # 如果上午请假，检查是否在14:10前
+    if leave_info['morning_leave']:
+        # 上午请假时，14:10前可以正常签到
+        afternoon_checkin_deadline = datetime.strptime("14:10", "%H:%M").time()
+        if checkin_time_only > afternoon_checkin_deadline:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="上午请假，签到时间已过（14:10后不可签到）"
+            )
     
     # 验证打卡时间是否在策略允许的范围内
     if policy:
         rules = get_policy_for_date(policy, checkin_time)
         checkin_start = datetime.strptime(rules['checkin_start_time'], "%H:%M").time()
         checkin_end = datetime.strptime(rules['checkin_end_time'], "%H:%M").time()
-        checkin_time_only = checkin_time.time()
         
-        if checkin_time_only < checkin_start or checkin_time_only > checkin_end:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"当前时间不在上班打卡时间范围内（{rules['checkin_start_time']} - {rules['checkin_end_time']}）"
-            )
+        # 如果上午请假，允许在14:10前签到，否则按正常时间范围检查
+        if not leave_info['morning_leave']:
+            if checkin_time_only < checkin_start or checkin_time_only > checkin_end:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"当前时间不在上班打卡时间范围内（{rules['checkin_start_time']} - {rules['checkin_end_time']}）"
+                )
     
-    late = is_late(checkin_time, policy) if policy else False
+    # 判断是否迟到（只有在非上午请假的情况下才判断）
+    late = False
+    if not leave_info['morning_leave'] and policy:
+        late = is_late(checkin_time, policy)
+    
+    # 获取签到状态，默认为normal
+    checkin_status = checkin_data.checkin_status or AttendanceStatus.NORMAL.value
+    
+    # 根据打卡时间和请假情况确定上下午状态
+    morning_status = None
+    afternoon_status = None
+    
+    # 判断是上午还是下午打卡
+    if checkin_time_only.hour < 14 or (checkin_time_only.hour == 14 and checkin_time_only.minute < 10):
+        # 上午或14:10前打卡
+        if leave_info['morning_leave']:
+            morning_status = AttendanceStatus.LEAVE.value
+        else:
+            morning_status = checkin_status
+    else:
+        # 下午打卡（理论上不应该到这里，因为checkin_end_time是11:30）
+        afternoon_status = checkin_status
     
     if existing_attendance:
         # 更新现有记录
         existing_attendance.checkin_time = checkin_time
-        # 优先使用地址文本，如果没有则使用坐标字符串
         existing_attendance.checkin_location = checkin_data.address or checkin_data.location
         existing_attendance.checkin_latitude = checkin_data.latitude
         existing_attendance.checkin_longitude = checkin_data.longitude
         existing_attendance.is_late = late
+        existing_attendance.checkin_status = checkin_status
+        if morning_status:
+            existing_attendance.morning_status = morning_status
+        if afternoon_status:
+            existing_attendance.afternoon_status = afternoon_status
+        existing_attendance.morning_leave = leave_info['morning_leave']
+        existing_attendance.afternoon_leave = leave_info['afternoon_leave']
         attendance = existing_attendance
     else:
         # 创建新记录
         attendance = Attendance(
             user_id=current_user.id,
             checkin_time=checkin_time,
-            # 优先使用地址文本，如果没有则使用坐标字符串
             checkin_location=checkin_data.address or checkin_data.location,
             checkin_latitude=checkin_data.latitude,
             checkin_longitude=checkin_data.longitude,
             is_late=late,
+            checkin_status=checkin_status,
+            morning_status=morning_status,
+            afternoon_status=afternoon_status,
+            morning_leave=leave_info['morning_leave'],
+            afternoon_leave=leave_info['afternoon_leave'],
             date=datetime.combine(today, datetime.min.time())
         )
         db.add(attendance)
@@ -175,8 +338,11 @@ def checkout(
     current_user: User = Depends(get_current_user)
 ):
     """下班打卡"""
-    # 获取当前日期
+    from ..models import AttendanceStatus
+    
+    # 获取当前日期和时间
     today = datetime.now().date()
+    checkout_time = datetime.now()
     
     # 查找今天的考勤记录
     attendance = db.query(Attendance).filter(
@@ -198,17 +364,26 @@ def checkout(
             detail="今天已经打过下班卡"
         )
     
+    # 检查请假情况
+    leave_info = get_leave_period_for_date(current_user.id, today, db)
+    
+    # 如果下午请假，不允许签退
+    if leave_info['afternoon_leave']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="下午请假，无需签退"
+        )
+    
     # 获取活跃的打卡策略
     policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
     
-    checkout_time = datetime.now()
+    checkout_time_only = checkout_time.time()
     
     # 验证打卡时间是否在策略允许的范围内
     if policy:
         rules = get_policy_for_date(policy, checkout_time)
         checkout_start = datetime.strptime(rules['checkout_start_time'], "%H:%M").time()
         checkout_end = datetime.strptime(rules['checkout_end_time'], "%H:%M").time()
-        checkout_time_only = checkout_time.time()
         
         if checkout_time_only < checkout_start or checkout_time_only > checkout_end:
             raise HTTPException(
@@ -220,11 +395,19 @@ def checkout(
     
     # 更新记录
     attendance.checkout_time = checkout_time
-    # 优先使用地址文本，如果没有则使用坐标字符串
     attendance.checkout_location = checkout_data.address or checkout_data.location
     attendance.checkout_latitude = checkout_data.latitude
     attendance.checkout_longitude = checkout_data.longitude
     attendance.is_early_leave = early
+    
+    # 更新下午状态（如果还没有设置）
+    if not attendance.afternoon_status:
+        # 使用签到时的状态，如果没有则使用normal
+        checkin_status = attendance.checkin_status or AttendanceStatus.NORMAL.value
+        attendance.afternoon_status = checkin_status
+    
+    # 更新请假标记
+    attendance.afternoon_leave = leave_info['afternoon_leave']
     
     # 计算工作时长
     if attendance.checkin_time:
@@ -286,6 +469,239 @@ def check_early_leave(
         "work_end_time": work_end,
         "current_time": checkout_time.strftime("%H:%M:%S")
     }
+
+
+@router.get("/checkin-statuses", response_model=List[CheckinStatusConfigResponse])
+def get_checkin_statuses(
+    include_inactive: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取打卡状态列表"""
+    from ..models import AttendanceStatus
+    from datetime import datetime
+    from sqlalchemy.exc import OperationalError
+    
+    try:
+        # 如果是管理员且要求包含非激活状态，或者用于管理后台，返回所有记录
+        query = db.query(CheckinStatusConfig)
+        if not include_inactive:
+            # 普通用户只获取激活的状态
+            query = query.filter(CheckinStatusConfig.is_active == True)
+        
+        statuses = query.order_by(CheckinStatusConfig.sort_order, CheckinStatusConfig.id).all()
+        
+        # 将SQLAlchemy对象转换为Pydantic模型
+        if statuses:
+            result = []
+            for status in statuses:
+                try:
+                    # 使用 model_validate 将 SQLAlchemy 对象转换为 Pydantic 模型
+                    result.append(CheckinStatusConfigResponse.model_validate(status))
+                except Exception as e:
+                    # 如果转换失败，手动构建响应对象
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"转换状态配置失败，使用手动构建: {e}")
+                    result.append(CheckinStatusConfigResponse(
+                        id=status.id,
+                        name=status.name,
+                        code=status.code,
+                        description=status.description,
+                        is_active=status.is_active,
+                        sort_order=status.sort_order,
+                        created_at=status.created_at or datetime.now(),
+                        updated_at=status.updated_at or datetime.now()
+                    ))
+            return result
+        
+        # 如果没有配置且是普通用户，返回默认状态（使用Pydantic模型）
+        if not include_inactive:
+            now = datetime.now()
+            default_statuses = [
+                CheckinStatusConfigResponse(
+                    id=0,
+                    name="正常签到",
+                    code=AttendanceStatus.NORMAL.value,
+                    description="正常签到",
+                    is_active=True,
+                    sort_order=0,
+                    created_at=now,
+                    updated_at=now
+                ),
+                CheckinStatusConfigResponse(
+                    id=0,
+                    name="市区办事",
+                    code=AttendanceStatus.CITY_BUSINESS.value,
+                    description="市区办事",
+                    is_active=True,
+                    sort_order=1,
+                    created_at=now,
+                    updated_at=now
+                ),
+                CheckinStatusConfigResponse(
+                    id=0,
+                    name="出差",
+                    code=AttendanceStatus.BUSINESS_TRIP.value,
+                    description="出差",
+                    is_active=True,
+                    sort_order=2,
+                    created_at=now,
+                    updated_at=now
+                )
+            ]
+            return default_statuses
+        
+        # 如果没有数据且包含非激活状态，返回空列表
+        return []
+    except OperationalError as e:
+        # 表不存在，返回默认状态
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"CheckinStatusConfig表不存在，返回默认状态: {e}")
+        
+        now = datetime.now()
+        default_statuses = [
+            CheckinStatusConfigResponse(
+                id=0,
+                name="正常签到",
+                code=AttendanceStatus.NORMAL.value,
+                description="正常签到",
+                is_active=True,
+                sort_order=0,
+                created_at=now,
+                updated_at=now
+            ),
+            CheckinStatusConfigResponse(
+                id=0,
+                name="市区办事",
+                code=AttendanceStatus.CITY_BUSINESS.value,
+                description="市区办事",
+                is_active=True,
+                sort_order=1,
+                created_at=now,
+                updated_at=now
+            ),
+            CheckinStatusConfigResponse(
+                id=0,
+                name="出差",
+                code=AttendanceStatus.BUSINESS_TRIP.value,
+                description="出差",
+                is_active=True,
+                sort_order=2,
+                created_at=now,
+                updated_at=now
+            )
+        ]
+        return default_statuses
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"获取打卡状态列表失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取打卡状态列表失败: {str(e)}"
+        )
+
+
+# ==================== 打卡状态配置管理 ====================
+@router.post("/checkin-statuses", response_model=CheckinStatusConfigResponse, status_code=status.HTTP_201_CREATED)
+def create_checkin_status(
+    status_create: CheckinStatusConfigCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """创建打卡状态配置（管理员）"""
+    try:
+        status_config = CheckinStatusConfig(**status_create.model_dump())
+        db.add(status_config)
+        db.commit()
+        db.refresh(status_config)
+        # 转换为Pydantic模型
+        return CheckinStatusConfigResponse.model_validate(status_config)
+    except Exception as e:
+        db.rollback()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"创建打卡状态配置失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"创建打卡状态配置失败: {str(e)}"
+        )
+
+
+@router.put("/checkin-statuses/{status_id}", response_model=CheckinStatusConfigResponse)
+def update_checkin_status(
+    status_id: int,
+    status_update: CheckinStatusConfigUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """更新打卡状态配置（管理员）"""
+    status_config = db.query(CheckinStatusConfig).filter(CheckinStatusConfig.id == status_id).first()
+    if not status_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="状态配置不存在"
+        )
+    
+    try:
+        update_data = status_update.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(status_config, field, value)
+        
+        db.commit()
+        db.refresh(status_config)
+        # 转换为Pydantic模型
+        return CheckinStatusConfigResponse.model_validate(status_config)
+    except Exception as e:
+        db.rollback()
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"更新打卡状态配置失败: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"更新打卡状态配置失败: {str(e)}"
+        )
+
+
+@router.delete("/checkin-statuses/{status_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_checkin_status(
+    status_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """删除打卡状态配置（管理员）"""
+    status_config = db.query(CheckinStatusConfig).filter(CheckinStatusConfig.id == status_id).first()
+    if not status_config:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="状态配置不存在"
+        )
+    
+    db.delete(status_config)
+    db.commit()
+    return None
+
+
+@router.get("/leave-status", response_model=LeaveStatusResponse)
+def get_leave_status(
+    target_date: Optional[date] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取当天请假状态"""
+    if target_date is None:
+        target_date = date.today()
+    
+    leave_info = get_leave_period_for_date(current_user.id, target_date, db)
+    
+    return LeaveStatusResponse(
+        has_leave=leave_info['has_leave'],
+        morning_leave=leave_info['morning_leave'],
+        afternoon_leave=leave_info['afternoon_leave'],
+        full_day_leave=leave_info['full_day_leave']
+    )
 
 
 @router.get("/my", response_model=List[AttendanceResponse])
