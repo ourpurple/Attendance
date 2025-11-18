@@ -2008,11 +2008,18 @@ async function loadMyOvertimeApplications() {
                 pendingApprover = ot.assigned_approver_name ? `待审批: ${ot.assigned_approver_name}` : '待审批: 审批人';
             }
             
+            // 获取加班类型显示
+            const overtimeTypeText = ot.overtime_type === 'passive' ? '被动加班' : '主动加班';
+            const overtimeTypeClass = ot.overtime_type === 'passive' ? 'passive' : 'active';
+            
             return `
                 <div class="list-item">
                     <div class="list-item-header">
                         <span class="list-item-title">${formatTimeRange(ot.start_time, ot.end_time)}</span>
-                        <span class="status-badge status-${getStatusClass(ot.status)}">${getOvertimeStatusName(ot.status)}</span>
+                        <div style="display: flex; gap: 5px; align-items: center;">
+                            <span class="overtime-type-badge overtime-type-${overtimeTypeClass}">${overtimeTypeText}</span>
+                            <span class="status-badge status-${getStatusClass(ot.status)}">${getOvertimeStatusName(ot.status)}</span>
+                        </div>
                     </div>
                     <div class="list-item-content">
                         <div><strong>天数:</strong> ${ot.days}天</div>
@@ -2123,26 +2130,33 @@ async function loadPendingOvertimes() {
             return;
         }
 
-        container.innerHTML = overtimes.map(ot => `
-            <div class="list-item">
-                <div class="list-item-header">
-                    <span class="list-item-title">${formatTimeRange(ot.start_time, ot.end_time)}</span>
-                    <span class="status-badge status-${getStatusClass(ot.status)}">${getOvertimeStatusName(ot.status)}</span>
-                </div>
-                <div class="list-item-content">
-                    <div style="display: flex; margin-bottom: 8px;">
-                        <div style="flex: 1;"><strong>申请人:</strong> ${ot.applicant_name || `用户${ot.user_id}`}</div>
-                        <div style="flex: 1;"><strong>加班天数:</strong> ${ot.days}天</div>
+        container.innerHTML = overtimes.map(ot => {
+            // 获取加班类型显示
+            const overtimeTypeText = ot.overtime_type === 'passive' ? '被动加班' : '主动加班';
+            const overtimeTypeClass = ot.overtime_type === 'passive' ? 'passive' : 'active';
+            
+            return `
+                <div class="list-item">
+                    <div class="list-item-header">
+                        <span class="list-item-title">${formatTimeRange(ot.start_time, ot.end_time)}</span>
+                        <span class="status-badge status-${getStatusClass(ot.status)}">${getOvertimeStatusName(ot.status)}</span>
                     </div>
-                    <div><strong>原因:</strong> ${ot.reason}</div>
+                    <div class="list-item-content">
+                        <div style="display: flex; margin-bottom: 8px;">
+                            <div style="flex: 1;"><strong>申请人:</strong> ${ot.applicant_name || `用户${ot.user_id}`}</div>
+                            <div style="flex: 1;"><strong>加班天数:</strong> ${ot.days}天</div>
+                        </div>
+                        <div style="margin-bottom:6px;"><strong>加班性质:</strong> ${overtimeTypeText}</div>
+                        <div><strong>原因:</strong> ${ot.reason}</div>
+                    </div>
+                    <div class="list-item-footer" style="display: flex; gap: 10px;">
+                        <button class="btn btn-primary btn-small" style="flex: 1;" onclick="viewOvertimeDetail(${ot.id})">详情</button>
+                        <button class="btn btn-success btn-small" style="flex: 1;" onclick="approveOvertime(${ot.id}, true)">批准</button>
+                        <button class="btn btn-danger btn-small" style="flex: 1;" onclick="approveOvertime(${ot.id}, false)">拒绝</button>
+                    </div>
                 </div>
-                <div class="list-item-footer" style="display: flex; gap: 10px;">
-                    <button class="btn btn-primary btn-small" style="flex: 1;" onclick="viewOvertimeDetail(${ot.id})">详情</button>
-                    <button class="btn btn-success btn-small" style="flex: 1;" onclick="approveOvertime(${ot.id}, true)">批准</button>
-                    <button class="btn btn-danger btn-small" style="flex: 1;" onclick="approveOvertime(${ot.id}, false)">拒绝</button>
-                </div>
-            </div>
-        `).join('');
+            `;
+        }).join('');
     } catch (error) {
         console.error('加载待审批加班失败:', error);
     }
@@ -2708,14 +2722,25 @@ function showNewOvertimeForm() {
                     <button class="modal-close" onclick="closeFormModal()">×</button>
                 </div>
                 <form id="overtime-form" onsubmit="submitOvertimeForm(event)">
-                    <div class="form-group">
-                        <label class="form-label">加班类型 *</label>
-                        <select id="overtime-type" class="form-input" onchange="handleOvertimeTypeChange()" required>
-                            <option value="">请选择</option>
-                            <option value="single">单日</option>
-                            <option value="multi">多日</option>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 1; margin-right: 10px;">
+                            <label class="form-label">加班性质 *</label>
+                            <select id="overtime-nature" class="form-input" required>
+                                <option value="">请选择</option>
+                                <option value="active">主动加班</option>
+                                <option value="passive">被动加班</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex: 1;">
+                            <label class="form-label">加班类型 *</label>
+                            <select id="overtime-type" class="form-input" onchange="handleOvertimeTypeChange()" required>
+                                <option value="">请选择</option>
+                                <option value="single" selected>单日</option>
+                                <option value="multi">多日</option>
+                            </select>
+                        </div>
                     </div>
+                    <small style="color: #888; font-size: 0.9em; display: block; margin-bottom: 15px;">主动加班：员工主动申请；被动加班：领导安排</small>
                     
                     <!-- 单日加班 -->
                     <div id="single-day-section" style="display: none;">
@@ -2724,18 +2749,22 @@ function showNewOvertimeForm() {
                             <input type="date" id="overtime-date" class="form-input" onchange="calculateOvertimeDays()">
                         </div>
                         <div class="form-group">
-                            <label class="form-label">开始时间节点 *</label>
-                            <select id="overtime-start-time-node" class="form-input" onchange="calculateOvertimeDays()">
-                                <option value="">请选择</option>
-                                ${startTimeNodeOptions}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">结束时间节点 *</label>
-                            <select id="overtime-end-time-node" class="form-input" onchange="calculateOvertimeDays()">
-                                <option value="">请选择</option>
-                                ${endTimeNodeOptions}
-                            </select>
+                            <label class="form-label">加班时间 *</label>
+                            <div class="time-row">
+                                <div class="time-item">
+                                    <select id="overtime-start-time-node" class="form-input" onchange="calculateOvertimeDays()">
+                                        <option value="">请选择</option>
+                                        ${startTimeNodeOptions}
+                                    </select>
+                                </div>
+                                <div class="time-separator">-</div>
+                                <div class="time-item">
+                                    <select id="overtime-end-time-node" class="form-input" onchange="calculateOvertimeDays()">
+                                        <option value="">请选择</option>
+                                        ${endTimeNodeOptions}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">计算出的加班天数</label>
@@ -2747,26 +2776,32 @@ function showNewOvertimeForm() {
                     <!-- 多日加班 -->
                     <div id="multi-day-section" style="display: none;">
                         <div class="form-group">
-                            <label class="form-label">开始日期 *</label>
-                            <input type="date" id="overtime-start-date" class="form-input" onchange="calculateOvertimeDays()">
+                            <label class="form-label">开始时间 *</label>
+                            <div class="date-time-row">
+                                <div class="date-item">
+                                    <input type="date" id="overtime-start-date" class="form-input" onchange="calculateOvertimeDays()">
+                                </div>
+                                <div class="time-item">
+                                    <select id="overtime-start-date-time-node" class="form-input" onchange="calculateOvertimeDays()">
+                                        <option value="">请选择</option>
+                                        ${startTimeNodeOptions}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">开始日期时间节点 *</label>
-                            <select id="overtime-start-date-time-node" class="form-input" onchange="calculateOvertimeDays()">
-                                <option value="">请选择</option>
-                                ${startTimeNodeOptions}
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">结束日期 *</label>
-                            <input type="date" id="overtime-end-date" class="form-input" onchange="calculateOvertimeDays()">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">结束日期时间节点 *</label>
-                            <select id="overtime-end-date-time-node" class="form-input" onchange="calculateOvertimeDays()">
-                                <option value="">请选择</option>
-                                ${endTimeNodeOptions}
-                            </select>
+                            <label class="form-label">结束时间 *</label>
+                            <div class="date-time-row">
+                                <div class="date-item">
+                                    <input type="date" id="overtime-end-date" class="form-input" onchange="calculateOvertimeDays()">
+                                </div>
+                                <div class="time-item">
+                                    <select id="overtime-end-date-time-node" class="form-input" onchange="calculateOvertimeDays()">
+                                        <option value="">请选择</option>
+                                        ${endTimeNodeOptions}
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">计算出的加班天数</label>
@@ -2822,14 +2857,43 @@ function showNewOvertimeForm() {
     
     document.getElementById('modal-container').innerHTML = modalHtml;
     
-    // 设置默认日期
-    const today = new Date().toISOString().split('T')[0];
+    // 设置默认日期为今天（使用本地时间）
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    
     const dateInput = document.getElementById('overtime-date');
     const startDateInput = document.getElementById('overtime-start-date');
     const endDateInput = document.getElementById('overtime-end-date');
-    if (dateInput) dateInput.value = today;
-    if (startDateInput) startDateInput.value = today;
-    if (endDateInput) endDateInput.value = today;
+    if (dateInput) {
+        dateInput.value = today;
+        dateInput.setAttribute('value', today); // 确保默认值设置
+    }
+    if (startDateInput) {
+        startDateInput.value = today;
+        startDateInput.setAttribute('value', today);
+        // 添加日期联动事件监听器
+        startDateInput.addEventListener('change', function() {
+            if (endDateInput) {
+                endDateInput.value = this.value;
+            }
+            calculateOvertimeDays();
+        });
+    }
+    if (endDateInput) {
+        endDateInput.value = today;
+        endDateInput.setAttribute('value', today);
+    }
+    
+    // 设置默认值：加班类型为单日
+    const overtimeTypeSelect = document.getElementById('overtime-type');
+    if (overtimeTypeSelect) {
+        overtimeTypeSelect.value = 'single';
+        // 触发change事件以显示单日表单
+        handleOvertimeTypeChange();
+    }
     
     setDefaultSingleOvertimeNodes();
     setDefaultMultiOvertimeNodes();
@@ -3241,10 +3305,11 @@ function getActualStartTime(startTime) {
 async function submitOvertimeForm(event) {
     event.preventDefault();
     
+    const nature = document.getElementById('overtime-nature').value;
     const type = document.getElementById('overtime-type').value;
     const reason = document.getElementById('overtime-reason').value;
     
-    if (!type || !reason) {
+    if (!nature || !type || !reason) {
         await showToast('请填写所有必填项', 'warning');
         return;
     }
@@ -3375,7 +3440,8 @@ async function submitOvertimeForm(event) {
         end_time: formatDateTime(endTime),
         hours: parseFloat(hours.toFixed(2)), // 保留两位小数
         days: parseFloat(days.toFixed(1)), // 保留一位小数
-        reason: reason.trim()
+        reason: reason.trim(),
+        overtime_type: nature // 添加加班类型字段
     };
     
     // 如果指定了审批人，添加到请求中
@@ -3739,6 +3805,9 @@ async function viewOvertimeDetail(overtimeId) {
             }
         }
         
+        // 获取加班类型显示
+        const overtimeTypeText = overtime.overtime_type === 'passive' ? '被动加班' : '主动加班';
+        
         // 构建详情内容
         let content = `
             <div style="line-height: 1.8; padding: 10px 0;">
@@ -3749,6 +3818,10 @@ async function viewOvertimeDetail(overtimeId) {
                 <div style="margin-bottom: 15px; display: flex; align-items: center;">
                     <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">申请人:</span>
                     <span style="font-size: 1em; font-weight: 500;">${applicantName}</span>
+                </div>
+                <div style="margin-bottom: 15px; display: flex; align-items: center;">
+                    <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">加班类型:</span>
+                    <span style="font-size: 1em;">${overtimeTypeText}</span>
                 </div>
                 <div style="margin-bottom: 15px; display: flex; align-items: center;">
                     <span style="font-size: 0.9em; color: #666; margin-right: 8px; min-width: 80px;">开始时间:</span>

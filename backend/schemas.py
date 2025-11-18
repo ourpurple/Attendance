@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, List
 from datetime import datetime
-from .models import UserRole, LeaveStatus, OvertimeStatus
+from .models import UserRole, LeaveStatus, OvertimeStatus, OvertimeType
 
 
 # ==================== 用户相关 ====================
@@ -298,6 +298,7 @@ class OvertimeApplicationBase(BaseModel):
     hours: float
     days: float
     reason: str
+    overtime_type: OvertimeType = OvertimeType.ACTIVE
     
     @validator('end_time')
     def validate_times(cls, v, values):
@@ -318,6 +319,7 @@ class OvertimeApplicationBase(BaseModel):
 
 class OvertimeApplicationCreate(OvertimeApplicationBase):
     assigned_approver_id: Optional[int] = None  # 手动指定的审批人ID
+    overtime_type: OvertimeType = OvertimeType.ACTIVE
 
 
 class OvertimeApplicationUpdate(BaseModel):
@@ -326,6 +328,7 @@ class OvertimeApplicationUpdate(BaseModel):
     hours: Optional[float] = None
     days: Optional[float] = None
     reason: Optional[str] = None
+    overtime_type: Optional[OvertimeType] = None
 
 
 class OvertimeApplicationResponse(OvertimeApplicationBase):
@@ -339,6 +342,7 @@ class OvertimeApplicationResponse(OvertimeApplicationBase):
     approver_name: Optional[str] = None
     approved_at: Optional[datetime] = None
     comment: Optional[str] = None
+    overtime_type: OvertimeType = OvertimeType.ACTIVE
     created_at: datetime
     
     class Config:
@@ -371,6 +375,11 @@ class AttendanceStatistics(BaseModel):
     leave_count: int = 0
     overtime_days: float
     overtime_count: int = 0
+    # 新增加班类型分类字段
+    active_overtime_days: float = 0.0
+    active_overtime_count: int = 0
+    passive_overtime_days: float = 0.0
+    passive_overtime_count: int = 0
     work_hours: float
     leave_type_breakdown: List[LeaveTypeSummary] = []
 

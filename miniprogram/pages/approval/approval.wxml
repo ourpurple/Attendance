@@ -63,6 +63,7 @@
             <view style="flex: 1;"><text class="label">申请人:</text> {{item.applicant_name ? item.applicant_name : '用户' + item.user_id}}</view>
             <view style="flex: 1;"><text class="label">加班天数:</text> {{item.days}}天</view>
           </view>
+          <view style="margin-bottom:6px;"><text class="label">加班性质:</text> {{item.overtime_type === 'passive' ? '被动加班' : '主动加班'}}</view>
           <view><text class="label">原因:</text> {{item.reason}}</view>
         </view>
         <view class="list-item-footer">
@@ -187,6 +188,10 @@
         <view class="detail-item">
           <text class="detail-label">申请人:</text>
           <text class="detail-value">{{detailData.applicant}}</text>
+        </view>
+        <view class="detail-item">
+          <text class="detail-label">加班性质:</text>
+          <text class="detail-value">{{detailData.overtimeType}}</text>
         </view>
         <view class="detail-item">
           <text class="detail-label">加班时间:</text>

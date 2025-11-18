@@ -4,7 +4,7 @@ from sqlalchemy import func, and_
 from typing import List, Optional
 from datetime import datetime, timedelta, date
 from ..database import get_db
-from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday, LeaveType, AttendanceStatus
+from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday, LeaveType, AttendanceStatus, OvertimeType
 from ..schemas import (
     AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse,
     DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
@@ -136,8 +136,19 @@ def get_attendance_statistics(
                 leave_type_totals[lt_id]["total_days"] += leave.days or 0
                 leave_type_totals[lt_id]["total_count"] += 1
         leave_type_breakdown = list(leave_type_totals.values())
-        overtime_days = sum(o.days for o in overtimes if o.days is not None)
-        overtime_count = len(overtimes)  # 加班次数（只统计已批准的）
+        
+        # 按类型分类统计加班数据
+        active_overtimes = [o for o in overtimes if o.overtime_type == OvertimeType.ACTIVE]
+        passive_overtimes = [o for o in overtimes if o.overtime_type == OvertimeType.PASSIVE]
+        
+        active_overtime_days = sum(o.days for o in active_overtimes if o.days is not None)
+        active_overtime_count = len(active_overtimes)
+        passive_overtime_days = sum(o.days for o in passive_overtimes if o.days is not None)
+        passive_overtime_count = len(passive_overtimes)
+        
+        overtime_days = active_overtime_days + passive_overtime_days
+        overtime_count = active_overtime_count + passive_overtime_count
+        
         work_hours = sum(a.work_hours for a in attendances if a.work_hours is not None)
         absence_days = total_days - present_days - int(leave_days)
         
@@ -154,6 +165,10 @@ def get_attendance_statistics(
             leave_count=leave_count,
             overtime_days=overtime_days,
             overtime_count=overtime_count,
+            active_overtime_days=active_overtime_days,
+            active_overtime_count=active_overtime_count,
+            passive_overtime_days=passive_overtime_days,
+            passive_overtime_count=passive_overtime_count,
             work_hours=work_hours,
             leave_type_breakdown=leave_type_breakdown
         )
@@ -312,8 +327,19 @@ def get_my_statistics(
     early_leave_days = sum(1 for a in attendances if a.is_early_leave)
     leave_days = sum(l.days for l in leaves if l.days is not None)
     leave_count = len(leaves)  # 请假次数（只统计已批准的）
-    overtime_days = sum(o.days for o in overtimes if o.days is not None)
-    overtime_count = len(overtimes)  # 加班次数（只统计已批准的）
+    
+    # 按类型分类统计加班数据
+    active_overtimes = [o for o in overtimes if o.overtime_type == OvertimeType.ACTIVE]
+    passive_overtimes = [o for o in overtimes if o.overtime_type == OvertimeType.PASSIVE]
+    
+    active_overtime_days = sum(o.days for o in active_overtimes if o.days is not None)
+    active_overtime_count = len(active_overtimes)
+    passive_overtime_days = sum(o.days for o in passive_overtimes if o.days is not None)
+    passive_overtime_count = len(passive_overtimes)
+    
+    overtime_days = active_overtime_days + passive_overtime_days
+    overtime_count = active_overtime_count + passive_overtime_count
+    
     work_hours = sum(a.work_hours for a in attendances if a.work_hours is not None)
     absence_days = total_days - present_days - int(leave_days)
     
@@ -330,6 +356,10 @@ def get_my_statistics(
         leave_count=leave_count,
         overtime_days=overtime_days,
         overtime_count=overtime_count,
+        active_overtime_days=active_overtime_days,
+        active_overtime_count=active_overtime_count,
+        passive_overtime_days=passive_overtime_days,
+        passive_overtime_count=passive_overtime_count,
         work_hours=work_hours
     )
 

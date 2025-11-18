@@ -3,9 +3,18 @@ const app = getApp();
 
 Page({
   data: {
-    overtimeType: '', // 'single' 单日 或 'multi' 多日
-    overtimeTypeIndex: -1,
-    overtimeTypeText: '',
+    overtimeType: 'single', // 'single' 单日 或 'multi' 多日，默认为单日
+    overtimeTypeIndex: 0,
+    overtimeTypeText: '单日',
+    
+    // 加班类型相关
+    overtimeClassOptions: [
+      { value: 'active', name: '主动加班' },
+      { value: 'passive', name: '被动加班' }
+    ],
+    overtimeClassIndex: -1,  // 默认不选中任何选项
+    selectedOvertimeClass: '',
+    selectedOvertimeClassName: '',
     
     // 单日相关
     date: '',
@@ -52,16 +61,25 @@ Page({
   },
 
   async onLoad() {
-    // 设置默认日期为今天
-    const today = new Date().toISOString().split('T')[0];
-    this.setData({ 
+    // 设置默认日期为今天（使用本地时间）
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
+    
+    this.setData({
       date: today,
       startDate: today,
       endDate: today
     });
     
+    // 默认显示单日表单并设置默认节点
     this.setDefaultSingleNodes();
     this.setDefaultMultiNodes();
+    
+    // 由于默认选择单日，计算单日加班天数
+    this.calculateSingleDay();
     
     // 加载审批人列表
     await this.loadApprovers();
@@ -119,6 +137,17 @@ Page({
     });
   },
 
+  // 加班类型选择改变
+  onOvertimeClassChange(e) {
+    const index = parseInt(e.detail.value);
+    const selected = this.data.overtimeClassOptions[index];
+    this.setData({
+      overtimeClassIndex: index,
+      selectedOvertimeClass: selected.value,
+      selectedOvertimeClassName: selected.name
+    });
+  },
+
   // 加班类型改变
   onTypeChange(e) {
     const index = parseInt(e.detail.value);
@@ -172,7 +201,11 @@ Page({
 
   // 多日：开始日期改变
   onStartDateChange(e) {
-    this.setData({ startDate: e.detail.value });
+    const newStartDate = e.detail.value;
+    this.setData({
+      startDate: newStartDate,
+      endDate: newStartDate  // 结束日期自动调整为相同日期
+    });
     this.calculateMultiDay();
   },
 
@@ -551,9 +584,9 @@ Page({
 
   // 提交申请
   async submitForm() {
-    const { overtimeType, calculatedDays, reason, useManualDays, manualDays } = this.data;
+    const { overtimeType, calculatedDays, reason, useManualDays, manualDays, selectedOvertimeClass } = this.data;
 
-    if (!overtimeType || !reason) {
+    if (!overtimeType || !reason || !selectedOvertimeClass) {
       wx.showToast({
         title: '请填写所有必填项',
         icon: 'none'
@@ -689,7 +722,8 @@ Page({
         end_time: formatDateTime(endDateTime),
         hours: parseFloat(hours.toFixed(2)), // 保留两位小数
         days: parseFloat(finalDays.toFixed(1)), // 保留一位小数
-        reason: reason.trim()
+        reason: reason.trim(),
+        overtime_type: this.data.selectedOvertimeClass  // 新增加班类型字段
       };
 
       if (this.data.assignedApproverId) {

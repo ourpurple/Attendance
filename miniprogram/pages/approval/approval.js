@@ -672,9 +672,15 @@ Page({
         return 'pending';
       };
       
+      // 获取加班性质显示文本
+      const getOvertimeTypeText = (type) => {
+        return type === 'passive' ? '被动加班' : '主动加班';
+      };
+      
       // 构建详情内容
       let content = `状态: ${getStatusName(overtime.status)}\n`;
       content += `申请人: ${overtime.applicant_name || `用户${overtime.user_id}`}\n`;
+      content += `加班性质: ${getOvertimeTypeText(overtime.overtime_type)}\n`;
       content += `开始时间: ${formatDateTime(overtime.start_time)}\n`;
       content += `结束时间: ${formatDateTime(overtime.end_time)}\n`;
       content += `天数: ${overtime.days}天\n`;
@@ -699,6 +705,7 @@ Page({
           status: getStatusName(overtime.status),
           statusClass: getStatusClass(overtime.status),
           applicant: overtime.applicant_name || `用户${overtime.user_id}`,
+          overtimeType: getOvertimeTypeText(overtime.overtime_type),
           timeRange: formatTimeRange(overtime.start_time, overtime.end_time), // 使用智能格式化时间范围
           startTime: formatDateTime(overtime.start_time),
           endTime: formatDateTime(overtime.end_time),

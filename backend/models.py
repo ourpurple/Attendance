@@ -32,6 +32,12 @@ class OvertimeStatus(str, enum.Enum):
     CANCELLED = "cancelled"  # 已取消
 
 
+class OvertimeType(str, enum.Enum):
+    """加班类型"""
+    ACTIVE = "active"      # 主动加班
+    PASSIVE = "passive"    # 被动加班
+
+
 class Department(Base):
     """部门表"""
     __tablename__ = "departments"
@@ -216,6 +222,7 @@ class OvertimeApplication(Base):
     approver_id = Column(Integer, ForeignKey("users.id"), comment="审批人ID")
     approved_at = Column(DateTime, comment="审批时间")
     comment = Column(Text, comment="审批意见")
+    overtime_type = Column(SQLEnum(OvertimeType), default=OvertimeType.ACTIVE, comment="加班类型：主动加班/被动加班")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     

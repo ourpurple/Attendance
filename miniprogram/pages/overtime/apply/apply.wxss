@@ -55,3 +55,91 @@
   margin-top: 8rpx;
 }
 
+
+/* 时间行布局 */
+.time-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.time-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.time-label {
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+}
+
+.time-picker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  border: 1rpx solid #e5e5e5;
+}
+
+.time-separator {
+  font-size: 32rpx;
+  color: #999;
+  font-weight: bold;
+  margin-top: 32rpx;
+}
+
+/* 日期时间行布局 */
+.date-time-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.date-item {
+  flex: 1.2;
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.date-label {
+  font-size: 28rpx;
+  color: #666;
+  text-align: center;
+}
+
+.date-picker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 24rpx;
+  background: #ffffff;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  border: 1rpx solid #e5e5e5;
+}
+
+/* 表单行布局 */
+.form-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.form-row .form-group {
+  flex: 1;
+  margin-bottom: 0;
+}
+
+.form-row .form-group:first-child {
+  margin-right: 10rpx;
+}

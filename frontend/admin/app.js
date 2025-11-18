@@ -1002,11 +1002,16 @@ async function loadOvertimeApplications() {
                 approvedTime = ot.approved_at ? formatDateTime(ot.approved_at) : '-';
             }
             
+            // 加班类型显示
+            const overtimeTypeText = ot.overtime_type === 'active' ? '主动加班' : '被动加班';
+            const overtimeTypeClass = ot.overtime_type === 'active' ? 'type-active' : 'type-passive';
+            
             return `
                 <tr>
                     <td>${userMap[ot.user_id]}</td>
                     <td>${formatTimeRange(ot.start_time, ot.end_time)}</td>
                     <td>${ot.days}天</td>
+                    <td><span class="overtime-type ${overtimeTypeClass}">${overtimeTypeText}</span></td>
                     <td>${ot.reason}</td>
                     <td>${formatDateTime(ot.created_at)}</td>
                     <td>
@@ -1581,12 +1586,16 @@ function loadOvertimeStats() {
         .filter(stat => stat.overtime_days > 0)
         .map(stat => ({
             ...stat,
-            overtime_count: stat.overtime_count || 0 // 使用后端返回的真实次数
+            overtime_count: stat.overtime_count || 0, // 使用后端返回的真实次数
+            active_overtime_days: stat.active_overtime_days || 0,
+            passive_overtime_days: stat.passive_overtime_days || 0,
+            active_overtime_count: stat.active_overtime_count || 0,
+            passive_overtime_count: stat.passive_overtime_count || 0
         }))
         .sort((a, b) => b.overtime_days - a.overtime_days);
     
     if (overtimeData.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">暂无加班记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">暂无加班记录</td></tr>';
         return;
     }
     
@@ -1595,6 +1604,8 @@ function loadOvertimeStats() {
             <td>${stat.user_name}</td>
             <td>${stat.department || '-'}</td>
             <td>${stat.overtime_days.toFixed(1)}</td>
+            <td>${stat.active_overtime_days.toFixed(1)}</td>
+            <td>${stat.passive_overtime_days.toFixed(1)}</td>
             <td>${stat.overtime_count}</td>
             <td>
                 <button class="btn btn-small btn-primary" data-user-id="${stat.user_id}" data-user-name="${stat.user_name.replace(/"/g, '&quot;')}" data-action="overtime-details">详情</button>

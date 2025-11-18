@@ -4,7 +4,7 @@ from sqlalchemy import func
 from typing import List, Optional
 from datetime import datetime, date
 from ..database import get_db
-from ..models import OvertimeApplication, User, UserRole, OvertimeStatus
+from ..models import OvertimeApplication, User, UserRole, OvertimeStatus, OvertimeType
 from ..schemas import OvertimeApplicationCreate, OvertimeApplicationUpdate, OvertimeApplicationResponse, OvertimeApproval
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import assign_approver_for_overtime, can_approve_overtime
@@ -34,7 +34,8 @@ def create_overtime_application(
         days=overtime_create.days,
         reason=overtime_create.reason,
         status=OvertimeStatus.PENDING,
-        assigned_approver_id=overtime_create.assigned_approver_id
+        assigned_approver_id=overtime_create.assigned_approver_id,
+        overtime_type=overtime_create.overtime_type or OvertimeType.ACTIVE
     )
     
     # 根据申请人角色自动分配审批人

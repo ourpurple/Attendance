@@ -635,6 +635,79 @@ button:disabled {
     color: var(--primary-color);
 }
 
+/* 加班类型标签 */
+.overtime-type-badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.overtime-type-active {
+    background: rgba(0, 122, 255, 0.1);
+    color: var(--primary-color);
+}
+
+.overtime-type-passive {
+    background: rgba(255, 149, 0, 0.1);
+    color: var(--warning-color);
+}
+
+/* 时间行布局 */
+.time-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.time-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.time-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+.time-separator {
+    font-size: 18px;
+    color: var(--text-tertiary);
+    font-weight: bold;
+    margin-top: 20px;
+    text-align: center;
+}
+
+/* 日期时间行布局 */
+.date-time-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.date-item {
+    flex: 1.2;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.date-label {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
 /* 统计网格 */
 .stats-grid {
     display: grid;
