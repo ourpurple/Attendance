@@ -1,7 +1,10 @@
 <view class="container">
   <view class="date-card">
     <picker mode="date" value="{{targetDate}}" end="{{today}}" bindchange="handleDateChange">
-      <view class="picker-value">{{targetDate}}</view>
+      <view class="date-picker-wrapper">
+        <text class="date-value">{{targetDate}}</text>
+        <text class="date-icon">📅</text>
+      </view>
     </picker>
   </view>
 

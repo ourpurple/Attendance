@@ -2074,8 +2074,12 @@ async function showNewLeaveForm() {
     
     document.getElementById('modal-container').innerHTML = modalHtml;
     
-    // 设置默认日期
-    const today = new Date().toISOString().split('T')[0];
+    // 设置默认日期为今天（使用本地时间）
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const today = `${year}-${month}-${day}`;
     document.getElementById('leave-start-date').value = today;
     document.getElementById('leave-end-date').value = today;
     
