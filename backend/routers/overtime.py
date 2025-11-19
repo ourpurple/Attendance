@@ -8,8 +8,45 @@ from ..models import OvertimeApplication, User, UserRole, OvertimeStatus, Overti
 from ..schemas import OvertimeApplicationCreate, OvertimeApplicationUpdate, OvertimeApplicationResponse, OvertimeApproval
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import assign_approver_for_overtime, can_approve_overtime
+from ..services.wechat_message import send_approval_notification, send_approval_result_notification
 
 router = APIRouter(prefix="/overtime", tags=["加班管理"])
+
+
+def format_datetime_value(value: Optional[datetime]) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+    if value:
+        return str(value)
+    return ""
+
+
+def build_overtime_application_detail(overtime: OvertimeApplication) -> str:
+    start_str = format_datetime_value(overtime.start_time)
+    end_str = format_datetime_value(overtime.end_time)
+    if start_str and end_str:
+        detail = f"{start_str} 至 {end_str}"
+    else:
+        detail = start_str or end_str or ""
+    if overtime.hours is not None:
+        detail = f"{detail} 共{overtime.hours}小时" if detail else f"共{overtime.hours}小时"
+    return detail
+
+
+def get_overtime_application_item(overtime: OvertimeApplication) -> str:
+    if overtime.overtime_type == OvertimeType.PASSIVE:
+        return "被动加班"
+    if overtime.overtime_type == OvertimeType.ACTIVE:
+        return "主动加班"
+    return "加班"
+
+
+def get_overtime_application_time(overtime: OvertimeApplication) -> str:
+    return format_datetime_value(getattr(overtime, "created_at", None) or datetime.now())
+
+
+def get_overtime_reason(overtime: OvertimeApplication) -> str:
+    return overtime.reason or "无"
 
 
 @router.post("/", response_model=OvertimeApplicationResponse, status_code=status.HTTP_201_CREATED)
@@ -80,6 +117,26 @@ def create_overtime_application(
     db.add(overtime)
     db.commit()
     db.refresh(overtime)
+    
+    # 发送审批提醒消息给审批人
+    try:
+        if overtime.assigned_approver_id:
+            approver = db.query(User).filter(User.id == overtime.assigned_approver_id).first()
+            if approver and approver.wechat_openid:
+                send_approval_notification(
+                    approver_openid=approver.wechat_openid,
+                    application_type="overtime",
+                    application_id=overtime.id,
+                    applicant_name=current_user.real_name,
+                    application_item=get_overtime_application_item(overtime),
+                    application_time=get_overtime_application_time(overtime),
+                    application_detail=build_overtime_application_detail(overtime),
+                    reason=get_overtime_reason(overtime)
+                )
+    except Exception as e:
+        # 消息推送失败不影响主流程，只记录日志
+        import logging
+        logging.getLogger(__name__).error(f"发送审批提醒消息失败: {str(e)}")
     
     return overtime
 
@@ -348,6 +405,24 @@ def approve_overtime_application(
     
     db.commit()
     db.refresh(overtime)
+    
+    # 发送审批结果通知给申请人
+    try:
+        if applicant and applicant.wechat_openid:
+            send_approval_result_notification(
+                applicant_openid=applicant.wechat_openid,
+                application_type="overtime",
+                application_id=overtime.id,
+                applicant_name=applicant.real_name,
+                application_item=get_overtime_application_item(overtime),
+                approved=approval.approved,
+                approver_name=current_user.real_name,
+                approval_date=(overtime.approved_at.strftime("%Y-%m-%d") if overtime.approved_at else datetime.now().strftime("%Y-%m-%d"))
+            )
+    except Exception as e:
+        # 消息推送失败不影响主流程，只记录日志
+        import logging
+        logging.getLogger(__name__).error(f"发送审批结果通知失败: {str(e)}")
     
     return overtime
 

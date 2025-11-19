@@ -12,6 +12,7 @@ from ..approval_assigner import (
     assign_general_manager_for_leave,
     can_approve_leave
 )
+from ..services.wechat_message import send_approval_notification, send_approval_result_notification
 
 router = APIRouter(prefix="/leave", tags=["请假管理"])
 
@@ -25,6 +26,54 @@ def to_leave_response(leave: LeaveApplication, extra: Optional[dict] = None) -> 
     if extra:
         data.update(extra)
     return LeaveApplicationResponse(**data)
+
+
+def format_datetime_value(value: Optional[datetime]) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d %H:%M")
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time()).strftime("%Y-%m-%d %H:%M")
+    if value:
+        return str(value)
+    return ""
+
+
+def format_date_value(value: Optional[date]) -> str:
+    if isinstance(value, datetime):
+        return value.strftime("%Y-%m-%d")
+    if isinstance(value, date):
+        return value.strftime("%Y-%m-%d")
+    if value:
+        return str(value)
+    return ""
+
+
+def build_leave_application_detail(leave: LeaveApplication) -> str:
+    start_str = format_date_value(leave.start_date)
+    end_str = format_date_value(leave.end_date)
+    if start_str and end_str:
+        return f"{start_str} 至 {end_str} 共{leave.days}天"
+    return start_str or end_str or ""
+
+
+def get_leave_type_name(leave: LeaveApplication, db: Session, preset: Optional[str] = None) -> str:
+    if preset:
+        return preset
+    if leave.leave_type and leave.leave_type.name:
+        return leave.leave_type.name
+    if leave.leave_type_id:
+        leave_type = db.query(LeaveType).filter(LeaveType.id == leave.leave_type_id).first()
+        if leave_type:
+            return leave_type.name
+    return "普通请假"
+
+
+def get_leave_application_time(leave: LeaveApplication) -> str:
+    return format_datetime_value(getattr(leave, "created_at", None) or datetime.now())
+
+
+def get_leave_reason(leave: LeaveApplication) -> str:
+    return leave.reason or "无"
 
 
 def get_active_leave_type(db: Session, leave_type_id: int) -> LeaveType:
@@ -65,6 +114,7 @@ def create_leave_application(
         )
     
     leave_type = get_active_leave_type(db, leave_create.leave_type_id)
+    leave_type_name = leave_type.name if leave_type else "普通请假"
     
     leave = LeaveApplication(
         user_id=current_user.id,
@@ -133,6 +183,53 @@ def create_leave_application(
     db.add(leave)
     db.commit()
     db.refresh(leave)
+    
+    # 发送审批提醒消息给第一个审批人
+    try:
+        application_time = get_leave_application_time(leave)
+        application_detail = build_leave_application_detail(leave)
+        reason_text = get_leave_reason(leave)
+        first_approver = None
+        if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+            # 员工和部门主任：第一个审批人是部门主任
+            if current_user.department_id:
+                dept = db.query(Department).filter(Department.id == current_user.department_id).first()
+                if dept and dept.head_id:
+                    first_approver = db.query(User).filter(
+                        User.id == dept.head_id,
+                        User.is_active == True
+                    ).first()
+                # 如果部门没有设置head_id，查找该部门中角色为部门主任的用户
+                if not first_approver:
+                    first_approver = db.query(User).filter(
+                        User.department_id == current_user.department_id,
+                        User.role == UserRole.DEPARTMENT_HEAD,
+                        User.is_active == True
+                    ).first()
+        elif current_user.role == UserRole.VICE_PRESIDENT:
+            # 副总：第一个审批人是assigned_vp_id
+            if leave.assigned_vp_id:
+                first_approver = db.query(User).filter(User.id == leave.assigned_vp_id).first()
+        elif current_user.role == UserRole.GENERAL_MANAGER:
+            # 总经理：第一个审批人是assigned_gm_id（自己）
+            if leave.assigned_gm_id:
+                first_approver = db.query(User).filter(User.id == leave.assigned_gm_id).first()
+        
+        if first_approver and first_approver.wechat_openid:
+            send_approval_notification(
+                approver_openid=first_approver.wechat_openid,
+                application_type="leave",
+                application_id=leave.id,
+                applicant_name=current_user.real_name,
+                application_item=leave_type_name,
+                application_time=application_time,
+                application_detail=application_detail,
+                reason=reason_text
+            )
+    except Exception as e:
+        # 消息推送失败不影响主流程，只记录日志
+        import logging
+        logging.getLogger(__name__).error(f"发送审批提醒消息失败: {str(e)}")
     
     return to_leave_response(leave)
 
@@ -622,6 +719,82 @@ def approve_leave_application(
     
     db.commit()
     db.refresh(leave)
+    
+    # 发送消息通知
+    try:
+        # 获取申请人信息（如果之前没有获取）
+        if not applicant:
+            applicant = db.query(User).filter(User.id == leave.user_id).first()
+        
+        application_item = get_leave_type_name(leave, db)
+        application_time = get_leave_application_time(leave)
+        application_detail = build_leave_application_detail(leave)
+        reason_text = get_leave_reason(leave)
+        
+        if approval.approved:
+            # 审批通过
+            if leave.status == LeaveStatus.APPROVED:
+                # 审批完成，给申请人发送结果通知
+                if applicant and applicant.wechat_openid:
+                    send_approval_result_notification(
+                        applicant_openid=applicant.wechat_openid,
+                        application_type="leave",
+                        application_id=leave.id,
+                        applicant_name=applicant.real_name,
+                        application_item=application_item,
+                        approved=True,
+                        approver_name=current_user.real_name,
+                        approval_date=now.strftime("%Y-%m-%d")
+                    )
+            elif leave.status == LeaveStatus.DEPT_APPROVED:
+                # 部门主任已批准，需要副总审批，给副总发送消息
+                if leave.assigned_vp_id:
+                    next_approver = db.query(User).filter(User.id == leave.assigned_vp_id).first()
+                    if next_approver and next_approver.wechat_openid:
+                        send_approval_notification(
+                            approver_openid=next_approver.wechat_openid,
+                            application_type="leave",
+                            application_id=leave.id,
+                            applicant_name=applicant.real_name if applicant else "未知",
+                            application_item=application_item,
+                            application_time=application_time,
+                            application_detail=application_detail,
+                            reason=reason_text,
+                            status_text="待副总审批"
+                        )
+            elif leave.status == LeaveStatus.VP_APPROVED:
+                # 副总已批准，需要总经理审批，给总经理发送消息
+                if leave.assigned_gm_id:
+                    next_approver = db.query(User).filter(User.id == leave.assigned_gm_id).first()
+                    if next_approver and next_approver.wechat_openid:
+                        send_approval_notification(
+                            approver_openid=next_approver.wechat_openid,
+                            application_type="leave",
+                            application_id=leave.id,
+                            applicant_name=applicant.real_name if applicant else "未知",
+                            application_item=application_item,
+                            application_time=application_time,
+                            application_detail=application_detail,
+                            reason=reason_text,
+                            status_text="待总经理审批"
+                        )
+        else:
+            # 审批拒绝，给申请人发送结果通知
+            if applicant and applicant.wechat_openid:
+                send_approval_result_notification(
+                    applicant_openid=applicant.wechat_openid,
+                    application_type="leave",
+                    application_id=leave.id,
+                    applicant_name=applicant.real_name,
+                    application_item=application_item,
+                    approved=False,
+                    approver_name=current_user.real_name,
+                    approval_date=now.strftime("%Y-%m-%d")
+                )
+    except Exception as e:
+        # 消息推送失败不影响主流程，只记录日志
+        import logging
+        logging.getLogger(__name__).error(f"发送审批消息失败: {str(e)}")
     
     return to_leave_response(leave)
 

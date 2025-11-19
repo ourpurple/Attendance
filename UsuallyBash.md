@@ -13,6 +13,9 @@ python3 init_db.py
 
 # 修复sqlite数据库读写权限  
 ./fix_permissions.sh
+
+# 备份数据库
+cp attendance.db attendance.db.backup.$(date +%Y%m%d_%H%M%S)
 ```
 
 ## systemd 日志

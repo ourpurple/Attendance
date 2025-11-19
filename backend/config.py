@@ -25,6 +25,8 @@ class Settings(BaseSettings):
     # 微信小程序配置
     WECHAT_APPID: Optional[str] = None  # 微信小程序AppID
     WECHAT_SECRET: Optional[str] = None  # 微信小程序AppSecret
+    WECHAT_APPROVAL_TEMPLATE_ID: Optional[str] = None  # 审批提醒订阅消息模板ID
+    WECHAT_RESULT_TEMPLATE_ID: Optional[str] = None  # 审批结果通知订阅消息模板ID
     
     class Config:
         env_file = ".env"

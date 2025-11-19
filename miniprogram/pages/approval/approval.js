@@ -78,8 +78,31 @@ Page({
     
     // 如果有权限，加载数据
     if (hasPermission) {
+      // 请求订阅消息授权（作为备用，如果登录时未授权）
+      this.requestSubscribeMessage();
       this.loadPendingCount();
       this.loadPendingLeaves();
+    }
+  },
+
+  // 请求订阅消息授权
+  requestSubscribeMessage() {
+    // 注意：这里的模板ID需要替换为实际在微信公众平台配置的模板ID
+    const tmplIds = [
+      'JzcNdxTsNr-OTqMjqzF4xx1GRZab-lMXXq6ux-vIdxM',  // 审批提醒模板ID
+      '58inG1DfC2U_9Za0Csn4zxilWJP_kqAP5SejR6rAF4A'     // 审批结果通知模板ID
+    ];
+    
+    if (typeof wx.requestSubscribeMessage === 'function') {
+      wx.requestSubscribeMessage({
+        tmplIds: tmplIds,
+        success: (res) => {
+          console.log('订阅消息授权结果:', res);
+        },
+        fail: (err) => {
+          console.warn('请求订阅消息授权失败:', err);
+        }
+      });
     }
   },
 
