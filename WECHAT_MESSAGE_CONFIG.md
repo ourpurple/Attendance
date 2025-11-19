@@ -29,22 +29,21 @@
 **模板字段（待审批通知）：**
 - `name1`：申请人（类型：name）
 - `time2`：申请时间（类型：time，示例：2024-02-01 09:00）
-- `thing28`：申请项目（类型：thing，可填写“普通请假/加班调休/年假调休/主动加班/被动加班”）
-- `thing4`：申请详情（类型：thing，用于展示请假/加班时间段等说明）
+- `thing4`：申请项目（类型：thing，可填写"普通请假/加班调休/年假调休/主动加班/被动加班"）
 - `thing11`：事由（类型：thing，用于填写加班或请假的原因）
 - `phrase16`：审核状态（类型：phrase，示例：待审批/待副总审批等）
 
 > 系统会根据申请类型自动填充 `普通请假/加班调休/年假调休/主动加班/被动加班` 等值，你也可以在模板中自定义说明。
 
-**模板标题示例：** `您有新的审批待处理`
+**模板标题示例：** `待审批通知`
 
 **模板内容示例：**
 ```
-申请人：{{thing1.DATA}}
-申请类型：{{thing2.DATA}}
-开始日期：{{date3.DATA}}
-结束日期：{{date4.DATA}}
-申请原因：{{thing5.DATA}}
+申请人：{{name1.DATA}}
+申请时间：{{time2.DATA}}
+申请项目：{{thing4.DATA}}
+事由：{{thing11.DATA}}
+审核状态：{{phrase16.DATA}}
 ```
 
 ### 步骤4：选择/创建审批结果通知模板
@@ -198,8 +197,7 @@ requestSubscribeMessage() {
 data = {
     "name1": {"value": applicant_name},           # 申请人
     "time2": {"value": application_time},         # 申请时间（例如：2024-02-01 09:30）
-    "thing28": {"value": application_item},       # 申请项目（普通请假/主动加班等）
-    "thing4": {"value": application_detail},      # 申请详情（时间段、时长等）
+    "thing4": {"value": application_item},        # 申请项目（普通请假/加班调休/年假调休/主动加班/被动加班）
     "thing11": {"value": reason},                 # 事由
     "phrase16": {"value": status_text}            # 审核状态（待审批/待副总审批等）
 }

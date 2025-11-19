@@ -139,7 +139,6 @@ def send_approval_notification(
     applicant_name: str,
     application_item: str,
     application_time: str,
-    application_detail: str,
     reason: str,
     status_text: str = "待审批"
 ) -> bool:
@@ -151,9 +150,10 @@ def send_approval_notification(
         applicant_name: 申请人姓名
         application_type: 申请类型 ("leave" 或 "overtime")
         application_id: 申请ID
-        start_date: 开始日期
-        end_date: 结束日期
+        application_item: 申请项目（请假类型：普通请假、加班调休、年假调休；加班性质：主动加班、被动加班）
+        application_time: 申请时间
         reason: 申请原因
+        status_text: 审核状态
     
     Returns:
         是否发送成功
@@ -170,14 +170,16 @@ def send_approval_notification(
     
     # 构建模板数据
     # 字段对应"待审批通知"模板
-    # thing28: 申请项目（请假类型：普通请假、加班调休、年假调休；加班性质：主动加班、被动加班）
-    # thing4: 申请详情（时间段等）
-    logger.info(f"发送审批提醒消息 - 申请项目: {application_item}, 申请详情: {application_detail}")
+    # name1: 申请人
+    # time2: 申请时间
+    # thing4: 申请项目（请假类型：普通请假、加班调休、年假调休；加班性质：主动加班、被动加班）
+    # thing11: 事由
+    # phrase16: 审核状态
+    logger.info(f"发送审批提醒消息 - 申请项目: {application_item}, 申请时间: {application_time}")
     data = {
         "name1": {"value": _clip(applicant_name)},               # 申请人
         "time2": {"value": _clip(application_time)},             # 申请时间
-        "thing28": {"value": _clip(application_item)},           # 申请项目（请假类型或加班性质）
-        "thing4": {"value": _clip(application_detail)},          # 申请详情（时间段等）
+        "thing4": {"value": _clip(application_item)},            # 申请项目（请假类型或加班性质）
         "thing11": {"value": _clip(reason or "无")},             # 事由
         "phrase16": {"value": _clip(status_text)}                # 审核状态
     }

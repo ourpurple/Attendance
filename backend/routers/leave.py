@@ -189,7 +189,6 @@ def create_leave_application(
         # 确保正确获取请假类型名称
         application_item = get_leave_type_name(leave, db, leave_type_name)
         application_time = get_leave_application_time(leave)
-        application_detail = build_leave_application_detail(leave)
         reason_text = get_leave_reason(leave)
         first_approver = None
         if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
@@ -225,7 +224,6 @@ def create_leave_application(
                 applicant_name=current_user.real_name,
                 application_item=application_item,
                 application_time=application_time,
-                application_detail=application_detail,
                 reason=reason_text
             )
     except Exception as e:
@@ -730,7 +728,6 @@ def approve_leave_application(
         
         application_item = get_leave_type_name(leave, db)
         application_time = get_leave_application_time(leave)
-        application_detail = build_leave_application_detail(leave)
         reason_text = get_leave_reason(leave)
         
         if approval.approved:
@@ -760,7 +757,6 @@ def approve_leave_application(
                             applicant_name=applicant.real_name if applicant else "未知",
                             application_item=application_item,
                             application_time=application_time,
-                            application_detail=application_detail,
                             reason=reason_text,
                             status_text="待副总审批"
                         )
@@ -776,7 +772,6 @@ def approve_leave_application(
                             applicant_name=applicant.real_name if applicant else "未知",
                             application_item=application_item,
                             application_time=application_time,
-                            application_detail=application_detail,
                             reason=reason_text,
                             status_text="待总经理审批"
                         )

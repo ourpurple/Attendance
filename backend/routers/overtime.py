@@ -130,7 +130,6 @@ def create_overtime_application(
                     applicant_name=current_user.real_name,
                     application_item=get_overtime_application_item(overtime),
                     application_time=get_overtime_application_time(overtime),
-                    application_detail=build_overtime_application_detail(overtime),
                     reason=get_overtime_reason(overtime)
                 )
     except Exception as e:
