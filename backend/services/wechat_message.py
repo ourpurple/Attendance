@@ -169,11 +169,14 @@ def send_approval_notification(
         page = f"pages/approval/approval?type=overtime&id={application_id}"
     
     # 构建模板数据
-    # 字段对应“待审批通知”模板
+    # 字段对应"待审批通知"模板
+    # thing28: 申请项目（请假类型：普通请假、加班调休、年假调休；加班性质：主动加班、被动加班）
+    # thing4: 申请详情（时间段等）
+    logger.info(f"发送审批提醒消息 - 申请项目: {application_item}, 申请详情: {application_detail}")
     data = {
         "name1": {"value": _clip(applicant_name)},               # 申请人
         "time2": {"value": _clip(application_time)},             # 申请时间
-        "thing28": {"value": _clip(application_item)},           # 申请项目
+        "thing28": {"value": _clip(application_item)},           # 申请项目（请假类型或加班性质）
         "thing4": {"value": _clip(application_detail)},          # 申请详情（时间段等）
         "thing11": {"value": _clip(reason or "无")},             # 事由
         "phrase16": {"value": _clip(status_text)}                # 审核状态
