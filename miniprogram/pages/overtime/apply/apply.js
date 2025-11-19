@@ -582,6 +582,11 @@ Page({
     return startTime;
   },
 
+  // 请求订阅消息授权
+  requestSubscribeMessage() {
+    return app.requestSubscribeMessage();
+  },
+
   // 提交申请
   async submitForm() {
     const { overtimeType, calculatedDays, reason, useManualDays, manualDays, selectedOvertimeClass } = this.data;
@@ -604,6 +609,8 @@ Page({
       });
       return;
     }
+
+    await this.requestSubscribeMessage();
 
     wx.showLoading({ title: '提交中...' });
 

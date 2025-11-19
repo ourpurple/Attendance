@@ -3,7 +3,43 @@ App({
   globalData: {
     userInfo: null,
     token: null,
-    apiBaseUrl: 'https://oa.ruoshui-edu.cn/api'  // 生产环境需要替换为实际域名
+    apiBaseUrl: 'https://oa.ruoshui-edu.cn/api',  // 生产环境需要替换为实际域名
+    subscribeTemplateIds: [
+      'JzcNdxTsNr-OTqMjqzF4xx1GRZab-lMXXq6ux-vIdxM',  // TODO: 替换为审批提醒模板ID
+      'JzcNdxTsNr-OTqMjqzF4xx1GRZab-lMXXq6ux-vIdxM'     // TODO: 替换为审批结果通知模板ID
+    ]
+  },
+  /**
+   * 统一请求订阅消息授权
+   * @param {string[]} extraTemplateIds 可选，额外指定模板ID
+   * @returns {Promise<{success?: boolean, skipped?: boolean}>}
+   */
+  requestSubscribeMessage(extraTemplateIds = []) {
+    const idsFromGlobal = Array.isArray(this.globalData.subscribeTemplateIds)
+      ? this.globalData.subscribeTemplateIds
+      : [];
+    const tmplIds = (Array.isArray(extraTemplateIds) && extraTemplateIds.length
+      ? extraTemplateIds
+      : idsFromGlobal
+    ).filter(id => !!id);
+
+    if (!tmplIds.length || typeof wx.requestSubscribeMessage !== 'function') {
+      return Promise.resolve({ skipped: true });
+    }
+
+    return new Promise(resolve => {
+      wx.requestSubscribeMessage({
+        tmplIds,
+        success: (res) => {
+          console.log('订阅消息授权结果:', res);
+          resolve({ success: true, res });
+        },
+        fail: (err) => {
+          console.warn('请求订阅消息授权失败:', err);
+          resolve({ success: false, err });
+        }
+      });
+    });
   },
   
   // 公司信息

@@ -216,12 +216,14 @@ def create_leave_application(
                 first_approver = db.query(User).filter(User.id == leave.assigned_gm_id).first()
         
         if first_approver and first_approver.wechat_openid:
+            # 使用函数获取请假类型名称，确保正确
+            application_item = get_leave_type_name(leave, db, leave_type_name)
             send_approval_notification(
                 approver_openid=first_approver.wechat_openid,
                 application_type="leave",
                 application_id=leave.id,
                 applicant_name=current_user.real_name,
-                application_item=leave_type_name,
+                application_item=application_item,
                 application_time=application_time,
                 application_detail=application_detail,
                 reason=reason_text

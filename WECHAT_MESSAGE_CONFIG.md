@@ -115,9 +115,29 @@ WECHAT_RESULT_TEMPLATE_ID=xyz789uvw456rst123opq890mno345klm678
 
 ## 三、在小程序代码中替换模板ID占位符
 
-需要修改**两个文件**：
+### 步骤1：在 `app.js` 中配置统一模板ID
 
-### 文件1：`miniprogram/pages/login/login.js`
+打开 `miniprogram/app.js`，在 `globalData.subscribeTemplateIds` 中填入真实模板ID，并确保 `requestSubscribeMessage` 方法存在：
+
+```javascript
+App({
+  globalData: {
+    subscribeTemplateIds: [
+      '审批提醒模板ID',
+      '审批结果通知模板ID'
+    ]
+  },
+
+  requestSubscribeMessage(extraTemplateIds = []) {
+    const ids = extraTemplateIds.length ? extraTemplateIds : this.globalData.subscribeTemplateIds;
+    // ... 统一调用 wx.requestSubscribeMessage
+  }
+});
+```
+
+后续所有页面直接调用 `app.requestSubscribeMessage()` 即可保证弹窗来自用户点击。
+
+### 步骤2：`miniprogram/pages/login/login.js`
 
 找到 `requestSubscribeMessage` 方法（约第14行），替换模板ID：
 
@@ -145,25 +165,26 @@ const tmplIds = [
 ];
 ```
 
-### 文件2：`miniprogram/pages/approval/approval.js`
+### 步骤3：`miniprogram/pages/approval/approval.js`
 
 找到 `requestSubscribeMessage` 方法（约第89行），同样替换：
 
 **修改前：**
 ```javascript
-const tmplIds = [
-  'YOUR_APPROVAL_TEMPLATE_ID',  // 审批提醒模板ID
-  'YOUR_RESULT_TEMPLATE_ID'     // 审批结果通知模板ID
-];
+requestSubscribeMessage() {
+  return app.requestSubscribeMessage();
+}
 ```
 
-**修改后：**
-```javascript
-const tmplIds = [
-  '你的审批提醒模板ID',      // 替换为实际的模板ID
-  '你的审批结果通知模板ID'    // 替换为实际的模板ID
-];
-```
+### 步骤4：提交/审批按钮中主动触发订阅
+
+为确保一定弹出授权，在以下页面的按钮点击过程中已经调用 `app.requestSubscribeMessage()`：
+
+- `miniprogram/pages/leave/apply/apply.js` → `submitForm`（提交请假时触发）
+- `miniprogram/pages/overtime/apply/apply.js` → `submitForm`（提交加班时触发）
+- `miniprogram/pages/approval/approval.js` → `approveLeave` / `approveOvertime`（审批前触发）
+
+如需在其他按钮（如撤销、再次提交）中提醒，可同样调用 `await app.requestSubscribeMessage();`。
 
 ---
 

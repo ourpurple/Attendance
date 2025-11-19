@@ -356,6 +356,11 @@ Page({
     this.setData({ showGmSelector });
   },
 
+  // 请求订阅消息授权
+  requestSubscribeMessage() {
+    return app.requestSubscribeMessage();
+  },
+
   // 提交申请
   async submitForm() {
     const { startDate, startTimeNode, endDate, endTimeNode, calculatedDays, reason, selectedLeaveTypeId } = this.data;
@@ -393,6 +398,8 @@ Page({
       });
       return;
     }
+
+    await this.requestSubscribeMessage();
 
     wx.showLoading({ title: '提交中...' });
 
