@@ -660,7 +660,7 @@ function getOverviewExtraText(categoryKey, item) {
             return '';
         case 'onLeave':
             if (item.leave_start_date) {
-                return formatLeaveRange(item.leave_start_date, item.leave_end_date);
+                return formatLeaveRange(item.leave_start_date, item.leave_end_date, item.leave_days);
             }
             return item.leave_days ? `${item.leave_days}天` : '请假';
         case 'onOvertime':
@@ -673,7 +673,7 @@ function getOverviewExtraText(categoryKey, item) {
     }
 }
 
-function formatLeaveRange(start, end) {
+function formatLeaveRange(start, end, leaveDays) {
     if (!start) return '请假';
     const startDate = new Date(start);
     const endDate = end ? new Date(end) : new Date(start);
@@ -684,11 +684,16 @@ function formatLeaveRange(start, end) {
         return `${start} - ${end}`;
     }
     
-    const days = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+    // 使用后端返回的请假天数，而不是计算日期差
+    // 这样可以正确处理0.5天的情况
+    const days = leaveDays !== undefined && leaveDays !== null ? leaveDays : 1;
     const startText = formatFullDate(startDate);
-    if (days <= 1) {
-        return `${startText} 共1天`;
+    
+    // 如果开始日期和结束日期是同一天，只显示开始日期
+    if (formatFullDate(startDate) === formatFullDate(endDate)) {
+        return `${startText} 共${days}天`;
     }
+    
     const endText = formatFullDate(endDate);
     return `${startText} - ${endText} 共${days}天`;
 }

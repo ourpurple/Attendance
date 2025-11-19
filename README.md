@@ -61,7 +61,7 @@ python run.py
 | 部门主任 | tech_head | tech123 |
 | 普通员工 | employee1 | emp123 |
 
-**首次登录后请立即修改密码！**
+**⚠️ 首次登录后请立即修改密码！**
 
 ## 项目结构
 
@@ -102,6 +102,10 @@ CORS_ORIGINS=["https://your-domain.com"]
 
 # 高德地图API（可选，用于逆地理编码）
 AMAP_API_KEY=your-amap-api-key
+
+# 微信小程序配置（可选）
+WECHAT_APPID=your-wechat-appid
+WECHAT_SECRET=your-wechat-secret
 ```
 
 ## 部署
@@ -121,7 +125,6 @@ pip install -r requirements.txt
 python init_db.py
 
 # 4. 配置环境变量
-cp .env.example .env
 # 编辑 .env 文件
 
 # 5. 使用 systemd 部署（推荐）

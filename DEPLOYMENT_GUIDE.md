@@ -49,7 +49,7 @@ DATABASE_URL=sqlite:///./attendance.db
 SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(32))")
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=10080
-CORS_ORIGINS=["https://oa.ruoshui-edu.cn","http://oa.ruoshui-edu.cn"]
+CORS_ORIGINS=["https://your-domain.com","http://your-domain.com"]
 AMAP_API_KEY=your-amap-api-key
 WECHAT_APPID=your-wechat-appid
 WECHAT_SECRET=your-wechat-secret
@@ -143,21 +143,6 @@ sudo journalctl -u attendance-backend --since today
 sudo journalctl -u attendance-backend -p err
 ```
 
-### 日志轮转
-
-```bash
-sudo cat > /etc/logrotate.d/attendance << EOF
-/www/wwwroot/attendance-system/logs/*.log {
-    daily
-    rotate 30
-    compress
-    missingok
-    notifempty
-    create 0644 www www
-}
-EOF
-```
-
 ## 代码更新
 
 ```bash
@@ -186,11 +171,11 @@ sudo systemctl start attendance-backend
 server {
     listen 80;
     listen 443 ssl http2;
-    server_name oa.ruoshui-edu.cn;
+    server_name your-domain.com;
     root /www/wwwroot/attendance-system/frontend/mobile;
     
-    ssl_certificate /www/server/panel/vhost/cert/oa.ruoshui-edu.cn/fullchain.pem;
-    ssl_certificate_key /www/server/panel/vhost/cert/oa.ruoshui-edu.cn/privkey.pem;
+    ssl_certificate /path/to/fullchain.pem;
+    ssl_certificate_key /path/to/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     
     # API代理
@@ -301,8 +286,8 @@ sudo systemctl start attendance-backend
 # 服务管理
 sudo systemctl start attendance-backend      # 启动
 sudo systemctl stop attendance-backend       # 停止
-sudo systemctl restart attendance-backend    # 重启
-sudo systemctl status attendance-backend     # 状态
+sudo systemctl restart attendance-backend      # 重启
+sudo systemctl status attendance-backend    # 状态
 
 # 日志查看
 sudo journalctl -u attendance-backend -f    # 实时日志
