@@ -492,6 +492,8 @@ button:disabled {
 .action-icon {
     font-size: 32px;
     margin-bottom: 8px;
+    position: relative;
+    display: inline-block;
 }
 
 .action-label {
@@ -502,8 +504,8 @@ button:disabled {
 
 .badge {
     position: absolute;
-    top: -8px;
-    right: -8px;
+    top: -12px;
+    right: -12px;
     background: var(--danger-color);
     color: white;
     font-size: 10px;
@@ -511,6 +513,10 @@ button:disabled {
     padding: 2px 6px;
     border-radius: 10px;
     min-width: 18px;
+    text-align: center;
+    line-height: 1.2;
+    z-index: 10;
+    transform: translate(50%, -50%);
 }
 
 /* 列表 */

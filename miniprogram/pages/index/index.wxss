@@ -101,6 +101,8 @@
 .action-icon {
   font-size: 64rpx;
   margin-bottom: 16rpx;
+  position: relative;
+  display: inline-block;
 }
 
 .action-label {
@@ -111,8 +113,8 @@
 
 .badge {
   position: absolute;
-  top: -16rpx;
-  right: -16rpx;
+  top: -12rpx;
+  right: -12rpx;
   background: #FF3B30;
   color: #ffffff;
   font-size: 20rpx;
@@ -121,6 +123,9 @@
   border-radius: 20rpx;
   min-width: 36rpx;
   text-align: center;
+  line-height: 1.2;
+  z-index: 10;
+  transform: translate(50%, -50%);
 }
 
 .card-link {

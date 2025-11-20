@@ -12,6 +12,8 @@ Page({
     location: '',
     locationColor: '#8E8E93',  // 位置信息文字颜色
     pendingCount: 0,
+    leavePendingCount: 0,  // 未完成的请假申请数量
+    overtimePendingCount: 0,  // 未完成的加班申请数量
     recentAttendance: [],
     hasApprovalPermission: false,
     hasOverviewPermission: false,
@@ -99,6 +101,7 @@ Page({
     this.loadTodayAttendance();
     this.loadRecentAttendance();
     this.loadPendingCount();
+    this.loadMyPendingCounts();  // 加载我的未完成申请数量
     this.loadCheckinStatuses();  // 加载打卡状态列表
     // 检查工作日并设置按钮状态
     this.checkAndSetAttendanceButtons();
@@ -1063,6 +1066,38 @@ Page({
       this.setData({ recentAttendance });
     } catch (error) {
       console.error('加载最近考勤失败:', error);
+    }
+  },
+
+  // 加载我的未完成申请数量（请假和加班）
+  async loadMyPendingCounts() {
+    try {
+      // 获取我的请假申请和加班申请
+      const [leaves, overtimes] = await Promise.all([
+        app.request({ url: '/leave/my' }).catch(() => []),
+        app.request({ url: '/overtime/my' }).catch(() => [])
+      ]);
+      
+      // 统计未完成的请假申请（pending, dept_approved, vp_approved）
+      const leavePendingCount = Array.isArray(leaves) 
+        ? leaves.filter(leave => ['pending', 'dept_approved', 'vp_approved'].includes(leave.status)).length 
+        : 0;
+      
+      // 统计未完成的加班申请（pending）
+      const overtimePendingCount = Array.isArray(overtimes)
+        ? overtimes.filter(ot => ot.status === 'pending').length
+        : 0;
+      
+      this.setData({
+        leavePendingCount: leavePendingCount,
+        overtimePendingCount: overtimePendingCount
+      });
+    } catch (error) {
+      console.error('加载未完成申请数量失败:', error);
+      this.setData({
+        leavePendingCount: 0,
+        overtimePendingCount: 0
+      });
     }
   },
 

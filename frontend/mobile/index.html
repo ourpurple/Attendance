@@ -125,19 +125,25 @@
                             <div class="action-label">出勤情况</div>
                         </div>
                         <div class="quick-action-item" onclick="showSection('leave')">
-                            <div class="action-icon">🏖️</div>
+                            <div class="action-icon">
+                                <span>🏖️</span>
+                                <span id="leave-pending-count" class="badge" style="display: none;">0</span>
+                            </div>
                             <div class="action-label">请假申请</div>
                         </div>
                         <div class="quick-action-item" onclick="showSection('overtime')">
-                            <div class="action-icon">⏰</div>
+                            <div class="action-icon">
+                                <span>⏰</span>
+                                <span id="overtime-pending-count" class="badge" style="display: none;">0</span>
+                            </div>
                             <div class="action-label">加班申请</div>
                         </div>
                         <div class="quick-action-item approval-only" onclick="showSection('approval')" style="display: none;">
-                            <div class="action-icon">✅</div>
-                            <div class="action-label">
-                                <span>我的审批</span>
-                                <span id="pending-count" class="badge">0</span>
+                            <div class="action-icon">
+                                <span>✅</span>
+                                <span id="pending-count" class="badge" style="display: none;">0</span>
                             </div>
+                            <div class="action-label">我的审批</div>
                         </div>
                         <div class="quick-action-item" onclick="showSection('stats')">
                             <div class="action-icon">📊</div>

@@ -513,6 +513,9 @@ function updateApprovalVisibility() {
         loadPendingCount();
     }
     
+    // 加载我的未完成申请数量
+    loadMyPendingCounts();
+    
     // 检查出勤情况查看权限
     checkAttendanceOverviewPermission();
 }
@@ -1065,6 +1068,7 @@ async function checkin() {
         });
 
         await showToast('上班打卡成功！', 'success', { timeout: 2000 });
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
         // 刷新整个首页数据（会自动设置按钮状态）
         await loadHomeData();
         // 刷新页面以确保所有数据都是最新的
@@ -1603,6 +1607,7 @@ async function loadHomeData() {
     await loadTodayAttendance();
     await loadRecentAttendance();
     await loadPendingCount();
+    await loadMyPendingCounts();  // 加载我的未完成申请数量
     // 检查工作日并设置按钮状态（会考虑打卡状态）
     await checkAndSetAttendanceButtons();
 }
@@ -1856,6 +1861,48 @@ async function loadPendingCount() {
         updateTabBadges(leaves.length, overtimes.length);
     } catch (error) {
         console.error('加载待审批数量失败:', error);
+    }
+}
+
+// 加载我的未完成申请数量（请假和加班）
+async function loadMyPendingCounts() {
+    try {
+        // 获取我的请假申请和加班申请
+        const [leaves, overtimes] = await Promise.all([
+            apiRequest('/leave/my').catch(() => []),
+            apiRequest('/overtime/my').catch(() => [])
+        ]);
+        
+        // 统计未完成的请假申请（pending, dept_approved, vp_approved）
+        const leavePendingCount = Array.isArray(leaves) 
+            ? leaves.filter(leave => ['pending', 'dept_approved', 'vp_approved'].includes(leave.status)).length 
+            : 0;
+        
+        // 统计未完成的加班申请（pending）
+        const overtimePendingCount = Array.isArray(overtimes)
+            ? overtimes.filter(ot => ot.status === 'pending').length
+            : 0;
+        
+        // 更新请假申请徽章
+        const leaveBadge = document.getElementById('leave-pending-count');
+        if (leaveBadge) {
+            leaveBadge.textContent = leavePendingCount;
+            leaveBadge.style.display = leavePendingCount > 0 ? 'inline-block' : 'none';
+        }
+        
+        // 更新加班申请徽章
+        const overtimeBadge = document.getElementById('overtime-pending-count');
+        if (overtimeBadge) {
+            overtimeBadge.textContent = overtimePendingCount;
+            overtimeBadge.style.display = overtimePendingCount > 0 ? 'inline-block' : 'none';
+        }
+    } catch (error) {
+        console.error('加载未完成申请数量失败:', error);
+        // 出错时隐藏徽章
+        const leaveBadge = document.getElementById('leave-pending-count');
+        const overtimeBadge = document.getElementById('overtime-pending-count');
+        if (leaveBadge) leaveBadge.style.display = 'none';
+        if (overtimeBadge) overtimeBadge.style.display = 'none';
     }
 }
 
@@ -2694,6 +2741,7 @@ async function submitLeaveForm(event) {
         await showToast('请假申请提交成功！', 'success', { timeout: 2000 });
         closeFormModal();
         loadMyLeaveApplications();
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
     } catch (error) {
         await showToast('提交失败: ' + error.message, 'error');
     }
@@ -3466,6 +3514,7 @@ async function submitOvertimeForm(event) {
         await showToast('加班申请提交成功！', 'success', { timeout: 2000 });
         closeFormModal();
         loadMyOvertimeApplications();
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
     } catch (error) {
         await showToast('提交失败: ' + error.message, 'error');
     }
@@ -3494,6 +3543,7 @@ async function cancelLeaveApplication(leaveId) {
         
         await showToast('请假申请已撤回！', 'success', { timeout: 2000 });
         loadMyLeaveApplications();
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
     } catch (error) {
         await showToast('撤回失败: ' + error.message, 'error');
     }
@@ -3517,6 +3567,7 @@ async function deleteLeaveApplication(leaveId) {
         
         await showToast('请假申请已删除！', 'success', { timeout: 2000 });
         loadMyLeaveApplications();
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
     } catch (error) {
         await showToast('删除失败: ' + error.message, 'error');
     }
@@ -3539,6 +3590,7 @@ async function cancelOvertimeApplication(overtimeId) {
         
         await showToast('加班申请已撤回！', 'success', { timeout: 2000 });
         loadMyOvertimeApplications();
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
     } catch (error) {
         await showToast('撤回失败: ' + error.message, 'error');
     }
@@ -3562,6 +3614,7 @@ async function deleteOvertimeApplication(overtimeId) {
         
         await showToast('加班申请已删除！', 'success', { timeout: 2000 });
         loadMyOvertimeApplications();
+        loadMyPendingCounts();  // 更新未完成申请数量徽章
     } catch (error) {
         await showToast('删除失败: ' + error.message, 'error');
     }

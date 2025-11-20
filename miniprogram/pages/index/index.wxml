@@ -47,19 +47,25 @@
       <view class="action-label">出勤情况</view>
     </view>
     <view class="quick-action-item" bindtap="goToLeave">
-      <view class="action-icon">🏖️</view>
+      <view class="action-icon">
+        <text>🏖️</text>
+        <text class="badge" wx:if="{{leavePendingCount > 0}}">{{leavePendingCount}}</text>
+      </view>
       <view class="action-label">请假申请</view>
     </view>
     <view class="quick-action-item" bindtap="goToOvertime">
-      <view class="action-icon">⏰</view>
+      <view class="action-icon">
+        <text>⏰</text>
+        <text class="badge" wx:if="{{overtimePendingCount > 0}}">{{overtimePendingCount}}</text>
+      </view>
       <view class="action-label">加班申请</view>
     </view>
     <view class="quick-action-item approval-only" bindtap="goToApproval" wx:if="{{hasApprovalPermission}}">
-      <view class="action-icon">✅</view>
-      <view class="action-label">
-        <text>我的审批</text>
+      <view class="action-icon">
+        <text>✅</text>
         <text class="badge" wx:if="{{pendingCount > 0}}">{{pendingCount}}</text>
       </view>
+      <view class="action-label">我的审批</view>
     </view>
     <view class="quick-action-item" bindtap="goToStats">
       <view class="action-icon">📊</view>
