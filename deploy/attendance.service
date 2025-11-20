@@ -8,7 +8,7 @@ User=www
 Group=www
 WorkingDirectory=/www/wwwroot/attendance-system
 Environment="PATH=/www/wwwroot/attendance-system/venv/bin"
-ExecStart=/www/wwwroot/attendance-system/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
+ExecStart=/www/wwwroot/attendance-system/venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000 --log-level info
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=3

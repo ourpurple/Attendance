@@ -1,9 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+import logging
+import sys
 from .config import settings
 from .database import init_db
 from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types
+
+# 配置日志，确保输出到标准输出（systemd journal）
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stdout)
+    ]
+)
 
 # 创建FastAPI应用
 app = FastAPI(
