@@ -82,8 +82,10 @@
     </view>
 
     <view class="form-group">
-      <view class="form-label">计算出的加班天数</view>
-      <view class="form-display">{{calculatedDays}} 天</view>
+      <view class="form-label-row">
+        <text class="form-label">加班天数：</text>
+        <view class="form-display-inline-right">{{calculatedDays}} 天</view>
+      </view>
       <view class="form-hint">系统根据时间节点自动计算</view>
     </view>
   </view>
@@ -147,31 +149,35 @@
     </view>
 
     <view class="form-group">
-      <view class="form-label">计算出的加班天数</view>
-      <view class="form-display" wx:if="{{!useManualDays}}">{{calculatedDays}} 天</view>
-      <view class="form-display" wx:else style="color: #999;">
-        <text>自动计算: {{autoCalculatedDays}} 天</text>
-        <text style="margin-left: 20rpx; color: #1890ff;">手动设置: {{calculatedDays}} 天</text>
+      <view class="form-label-row">
+        <text class="form-label">加班天数：</text>
+        <view class="form-display-inline-right" wx:if="{{!useManualDays}}">{{calculatedDays}} 天</view>
+        <view class="form-display-inline-right" wx:else>
+          <text style="color: #999;">自动计算: {{autoCalculatedDays}} 天</text>
+          <text style="margin-left: 20rpx; color: #1890ff;">手动设置: {{calculatedDays}} 天</text>
+        </view>
       </view>
       <view class="form-hint">系统根据日期和时间节点自动计算</view>
     </view>
 
     <view class="form-group">
-      <view class="form-label">手动调节加班天数（可选）</view>
-      <view style="display: flex; align-items: center; margin: 10px 0;">
-        <switch checked="{{useManualDays}}" bindchange="onUseManualDaysChange" style="margin-right: 10px;" />
-        <text style="font-size: 28rpx; color: #666;">启用手动调节</text>
+      <view class="manual-days-toggle-row">
+        <text class="form-label inline">手动调节加班天数（可选）</text>
+        <view class="manual-days-switch">
+          <switch checked="{{useManualDays}}" bindchange="onUseManualDaysChange" />
+          <text class="manual-days-switch-text">启用手动调节</text>
+        </view>
       </view>
-          <view wx:if="{{useManualDays}}" style="margin-top: 20rpx;">
-            <input 
-              type="digit" 
-              class="form-input" 
-              value="{{manualDays}}" 
-              bindinput="onManualDaysInput"
-              placeholder="请输入加班天数（整数或x.5）"
-            />
-            <view class="form-hint">手动输入加班天数，将覆盖自动计算结果（只能输入整数天或x.5天，如：1、1.5、2、2.5）</view>
-          </view>
+      <view wx:if="{{useManualDays}}" style="margin-top: 20rpx;">
+        <input 
+          type="digit" 
+          class="form-input manual-days-input" 
+          value="{{manualDays}}" 
+          bindinput="onManualDaysInput"
+          placeholder="请输入加班天数（整数或x.5）"
+        />
+        <view class="form-hint">手动输入加班天数，将覆盖自动计算结果（只能输入整数天或x.5天，如：1、1.5、2、2.5）</view>
+      </view>
     </view>
   </view>
 

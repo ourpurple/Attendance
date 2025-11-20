@@ -57,6 +57,103 @@
   margin-top: 8rpx;
 }
 
+.form-display-card {
+  align-items: flex-start;
+}
+
+.form-display-single {
+  width: 100%;
+  text-align: center;
+}
+
+.form-display-manual {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12rpx;
+  font-size: 30rpx;
+  color: #4a4a4a;
+}
+
+.form-display-manual-row {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.manual-label {
+  color: #666;
+}
+
+.manual-value {
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.manual-highlight .manual-label {
+  color: #1890ff;
+}
+
+.manual-days-input {
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 32rpx;
+}
+
+.manual-days-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin: 10px 0;
+}
+
+.form-label.inline {
+  margin-bottom: 0;
+  flex: 0 0 auto;
+}
+
+.manual-days-switch {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.manual-days-switch text,
+.manual-days-switch-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.form-label-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.form-label-row .form-label {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.form-display-inline-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #1890ff;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.form-display-inline-right text {
+  white-space: nowrap;
+}
+
 
 /* 时间行布局 */
 .time-row {

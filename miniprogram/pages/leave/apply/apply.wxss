@@ -37,6 +37,35 @@
   margin-top: 8rpx;
 }
 
+.form-label-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.form-label-row .form-label {
+  flex: 0 0 auto;
+  margin-bottom: 0;
+}
+
+.form-display-inline-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #1890ff;
+  text-align: left;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: nowrap;
+}
+
+.form-display-inline-right text {
+  white-space: nowrap;
+}
+
 /* 表单行布局 */
 .form-row {
   display: flex;

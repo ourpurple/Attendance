@@ -76,8 +76,10 @@
   </view>
 
   <view class="form-group">
-    <view class="form-label">计算出的请假天数</view>
-    <view class="form-display">{{calculatedDays}} 天</view>
+    <view class="form-label-row">
+      <text class="form-label">请假天数：</text>
+      <view class="form-display-inline-right">{{calculatedDays}} 天</view>
+    </view>
     <view class="form-hint">系统根据日期和时间节点自动计算</view>
   </view>
 
