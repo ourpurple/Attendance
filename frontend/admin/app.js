@@ -3493,7 +3493,7 @@ window.editLeaveApplication = async function(id) {
         startDateInput.addEventListener('change', calculateDays);
         endDateInput.addEventListener('change', calculateDays);
     } catch (error) {
-        alert('加载请假申请失败: ' + error.message);
+        showAlert('加载请假申请失败: ' + error.message, 'error', '加载失败');
     }
 }
 
@@ -3508,12 +3508,12 @@ window.submitEditLeaveForm = async function(event, leaveId) {
     const reason = document.getElementById('edit-reason').value.trim();
     
     if (!leaveTypeId || !startDate || !endDate || !days || !reason) {
-        alert('请填写所有必填项');
+        showAlert('请填写所有必填项', 'warning', '表单验证');
         return;
     }
     
     if (new Date(endDate) < new Date(startDate)) {
-        alert('结束时间不能早于开始时间');
+        showAlert('结束时间不能早于开始时间', 'warning', '表单验证');
         return;
     }
     
@@ -3529,11 +3529,11 @@ window.submitEditLeaveForm = async function(event, leaveId) {
             })
         });
         
-        alert('编辑成功！');
+        showAlert('编辑成功！', 'success', '操作成功');
         closeModal();
         loadLeaveApplications();
     } catch (error) {
-        alert('编辑失败: ' + error.message);
+        showAlert('编辑失败: ' + error.message, 'error', '操作失败');
     }
 }
 
@@ -3674,7 +3674,7 @@ window.editOvertimeApplication = async function(id) {
         startTimeInput.addEventListener('change', calculateTime);
         endTimeInput.addEventListener('change', calculateTime);
     } catch (error) {
-        alert('加载加班申请失败: ' + error.message);
+        showAlert('加载加班申请失败: ' + error.message, 'error', '加载失败');
     }
 }
 
@@ -3690,18 +3690,18 @@ window.submitEditOvertimeForm = async function(event, overtimeId) {
     const reason = document.getElementById('edit-reason').value.trim();
     
     if (!overtimeType || !startTime || !endTime || !hours || !days || !reason) {
-        alert('请填写所有必填项');
+        showAlert('请填写所有必填项', 'warning', '表单验证');
         return;
     }
     
     if (new Date(endTime) < new Date(startTime)) {
-        alert('结束时间不能早于开始时间');
+        showAlert('结束时间不能早于开始时间', 'warning', '表单验证');
         return;
     }
     
     // 验证天数格式（必须是整数或 x.5）
     if (days % 0.5 !== 0) {
-        alert('加班天数只能是整数或整数.5（如1, 1.5, 2, 2.5）');
+        showAlert('加班天数只能是整数或整数.5（如1, 1.5, 2, 2.5）', 'warning', '表单验证');
         return;
     }
     
@@ -3718,11 +3718,11 @@ window.submitEditOvertimeForm = async function(event, overtimeId) {
             })
         });
         
-        alert('编辑成功！');
+        showAlert('编辑成功！', 'success', '操作成功');
         closeModal();
         loadOvertimeApplications();
     } catch (error) {
-        alert('编辑失败: ' + error.message);
+        showAlert('编辑失败: ' + error.message, 'error', '操作失败');
     }
 }
 
@@ -3778,6 +3778,182 @@ function handleConfirm() {
         window.currentConfirmCallback();
     }
     closeConfirmModal();
+}
+
+// ==================== 美化的提示框和确认框 ====================
+// 美化的提示框（替换alert）
+function showAlert(message, type = 'info', title = '提示') {
+    const modalContainer = document.getElementById('modal-container');
+    
+    const icons = {
+        success: '✅',
+        error: '❌',
+        warning: '⚠️',
+        info: 'ℹ️'
+    };
+    
+    const colors = {
+        success: 'linear-gradient(135deg, var(--success-color) 0%, #2ECC71 100%)',
+        error: 'linear-gradient(135deg, var(--danger-color) 0%, #E74C3C 100%)',
+        warning: 'linear-gradient(135deg, var(--warning-color) 0%, #F39C12 100%)',
+        info: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)'
+    };
+    
+    modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="closeAlert()">
+            <div class="modal alert-modal" onclick="event.stopPropagation()" style="max-width: 420px;">
+                <div class="modal-header" style="background: ${colors[type]};">
+                    <h3>${title}</h3>
+                    <button class="modal-close" onclick="closeAlert()" title="关闭">×</button>
+                </div>
+                <div class="modal-content">
+                    <div class="alert-message">
+                        <div class="alert-icon" style="font-size: 56px; margin-bottom: 16px; animation: alertIconBounce 0.6s ease-out;">${icons[type]}</div>
+                        <p style="font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin: 0;">${message}</p>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="btn btn-primary" onclick="closeAlert()" style="width: 100%;">确定</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modalContainer.style.display = 'flex';
+}
+
+function closeAlert() {
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer) {
+        modalContainer.innerHTML = '';
+        modalContainer.style.display = 'none';
+    }
+}
+
+// 美化的确认框（替换confirm）
+function showConfirmDialog(message, onConfirm, onCancel = null, title = '确认操作', confirmText = '确定', cancelText = '取消', type = 'warning') {
+    const modalContainer = document.getElementById('modal-container');
+    
+    const icons = {
+        warning: '⚠️',
+        danger: '🗑️',
+        info: 'ℹ️',
+        question: '❓'
+    };
+    
+    const headerColors = {
+        warning: 'linear-gradient(135deg, var(--warning-color) 0%, #FF6B35 100%)',
+        danger: 'linear-gradient(135deg, var(--danger-color) 0%, #E74C3C 100%)',
+        info: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
+        question: 'linear-gradient(135deg, #5856D6 0%, #7B68EE 100%)'
+    };
+    
+    modalContainer.innerHTML = `
+        <div class="modal-overlay" onclick="closeConfirmDialog()">
+            <div class="modal confirm-dialog-modal" onclick="event.stopPropagation()" style="max-width: 420px;">
+                <div class="modal-header" style="background: ${headerColors[type]};">
+                    <h3>${title}</h3>
+                    <button class="modal-close" onclick="closeConfirmDialog()" title="关闭">×</button>
+                </div>
+                <div class="modal-content">
+                    <div class="confirm-dialog-message">
+                        <div class="confirm-dialog-icon" style="font-size: 56px; margin-bottom: 20px; animation: confirmIconPulse 0.6s ease-out;">${icons[type]}</div>
+                        <p style="font-size: 15px; color: var(--text-secondary); line-height: 1.6; margin: 0; text-align: center;">${message}</p>
+                    </div>
+                </div>
+                <div class="modal-actions" style="gap: 12px;">
+                    <button class="btn btn-secondary" onclick="closeConfirmDialog()" style="flex: 1;">${cancelText}</button>
+                    <button class="btn ${type === 'danger' ? 'btn-danger' : 'btn-primary'}" onclick="handleConfirmDialog()" style="flex: 1;">${confirmText}</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modalContainer.style.display = 'flex';
+    
+    // 保存回调函数
+    window.currentConfirmCallback = onConfirm;
+    window.currentCancelCallback = onCancel;
+}
+
+function closeConfirmDialog() {
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer) {
+        modalContainer.innerHTML = '';
+        modalContainer.style.display = 'none';
+    }
+    if (window.currentCancelCallback) {
+        window.currentCancelCallback();
+    }
+    window.currentConfirmCallback = null;
+    window.currentCancelCallback = null;
+}
+
+function handleConfirmDialog() {
+    if (window.currentConfirmCallback) {
+        window.currentConfirmCallback();
+    }
+    closeConfirmDialog();
+}
+
+// 动画关键帧
+if (!document.getElementById('modal-animations')) {
+    const style = document.createElement('style');
+    style.id = 'modal-animations';
+    style.textContent = `
+        @keyframes alertIconBounce {
+            0% {
+                transform: scale(0.3) rotate(-10deg);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1) rotate(5deg);
+            }
+            70% {
+                transform: scale(0.9) rotate(-2deg);
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes confirmIconPulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.15);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        
+        .alert-modal,
+        .confirm-dialog-modal {
+            animation: modalSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .modal-content {
+            background: var(--bg-primary);
+        }
+        
+        .alert-message,
+        .confirm-dialog-message {
+            text-align: center;
+            padding: 8px 0;
+        }
+        
+        .alert-icon,
+        .confirm-dialog-icon {
+            display: block;
+            margin: 0 auto;
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 // ==================== Toast 提示 ====================
@@ -4203,36 +4379,48 @@ async function deleteHoliday(holidayId) {
 
 // 删除请假申请
 async function deleteLeaveApplication(leaveId) {
-    if (!confirm('确定要删除这个请假申请吗？删除后无法恢复！')) {
-        return;
-    }
-
-    try {
-        await apiRequest(`/leave/${leaveId}/delete`, {
-            method: 'DELETE'
-        });
-        alert('删除成功！');
-        loadLeaveApplications();
-    } catch (error) {
-        alert('删除失败: ' + error.message);
-    }
+    showConfirmDialog(
+        '确定要删除这个请假申请吗？删除后无法恢复！',
+        async () => {
+            try {
+                await apiRequest(`/leave/${leaveId}/delete`, {
+                    method: 'DELETE'
+                });
+                showAlert('删除成功！', 'success', '操作成功');
+                loadLeaveApplications();
+            } catch (error) {
+                showAlert('删除失败: ' + error.message, 'error', '操作失败');
+            }
+        },
+        null,
+        '删除请假申请',
+        '确定删除',
+        '取消',
+        'danger'
+    );
 }
 
 // 删除加班申请
 async function deleteOvertimeApplication(overtimeId) {
-    if (!confirm('确定要删除这个加班申请吗？删除后无法恢复！')) {
-        return;
-    }
-
-    try {
-        await apiRequest(`/overtime/${overtimeId}/delete`, {
-            method: 'DELETE'
-        });
-        alert('删除成功！');
-        loadOvertimeApplications();
-    } catch (error) {
-        alert('删除失败: ' + error.message);
-    }
+    showConfirmDialog(
+        '确定要删除这个加班申请吗？删除后无法恢复！',
+        async () => {
+            try {
+                await apiRequest(`/overtime/${overtimeId}/delete`, {
+                    method: 'DELETE'
+                });
+                showAlert('删除成功！', 'success', '操作成功');
+                loadOvertimeApplications();
+            } catch (error) {
+                showAlert('删除失败: ' + error.message, 'error', '操作失败');
+            }
+        },
+        null,
+        '删除加班申请',
+        '确定删除',
+        '取消',
+        'danger'
+    );
 }
 
 
