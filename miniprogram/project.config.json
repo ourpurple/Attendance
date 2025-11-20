@@ -12,7 +12,8 @@
       "outputPath": ""
     },
     "useCompilerPlugins": false,
-    "minifyWXML": true
+    "minifyWXML": true,
+    "condition": true
   },
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},

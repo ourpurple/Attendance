@@ -1017,13 +1017,13 @@ Page({
     }
   },
 
-  // 加载最近考勤
+  // 加载最近考勤（只显示最新的3天）
   async loadRecentAttendance() {
     try {
       const endDate = new Date().toISOString().split('T')[0];
       const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const data = await app.request({
-        url: `/attendance/my?start_date=${startDate}&end_date=${endDate}&limit=5`
+        url: `/attendance/my?start_date=${startDate}&end_date=${endDate}&limit=10`
       });
 
       const formatTime = (dateStr) => {
@@ -1044,11 +1044,17 @@ Page({
       // 确保 data 是数组
       const safeData = Array.isArray(data) ? data : [];
       
-      const recentAttendance = safeData.map(att => {
-        // 确保 att 不是 null
-        if (!att || typeof att !== 'object') {
-          return null;
-        }
+      // 按日期排序（最新的在前），然后只取前3条
+      const sortedData = safeData
+        .filter(att => att && typeof att === 'object' && att.date)
+        .sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          return dateB - dateA; // 降序，最新的在前
+        })
+        .slice(0, 3); // 只取最新的3条
+      
+      const recentAttendance = sortedData.map(att => {
         const date = new Date(att.date);
         return {
           id: att.id,
@@ -1061,7 +1067,7 @@ Page({
           checkinLocation: att.checkin_location || null,
           checkoutLocation: att.checkout_location || null
         };
-      }).filter(item => item !== null);
+      });
 
       this.setData({ recentAttendance });
     } catch (error) {
