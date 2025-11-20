@@ -4,6 +4,7 @@
 import httpx
 import time
 import logging
+from datetime import datetime
 from typing import Optional, Dict, Any
 from ..config import settings
 
@@ -108,8 +109,6 @@ def send_subscribe_message(
             "page": page,
             "data": data
         }
-        
-        logger.debug(f"发送订阅消息 - 模板ID: {template_id[:20]}..., 页面: {page}, 数据: {data}")
         
         with httpx.Client(timeout=10.0) as client:
             response = client.post(url, json=payload)
@@ -239,8 +238,25 @@ def send_approval_result_notification(
     # 处理日期格式：微信的date类型要求YYYYMMDD格式（8位数字，不带横线）
     # 如果传入的是YYYY-MM-DD格式，转换为YYYYMMDD
     formatted_date = approval_date
-    if formatted_date and "-" in formatted_date:
-        formatted_date = formatted_date.replace("-", "")
+    if formatted_date:
+        # 转换为字符串
+        formatted_date = str(formatted_date).strip()
+        # 移除横线
+        if "-" in formatted_date:
+            formatted_date = formatted_date.replace("-", "")
+        # 移除空格和其他分隔符
+        formatted_date = formatted_date.replace(" ", "").replace("/", "").replace(".", "")
+        
+        # 验证日期格式：必须是8位数字（YYYYMMDD）
+        if not formatted_date.isdigit() or len(formatted_date) != 8:
+            logger.error(f"日期格式错误: {approval_date} -> {formatted_date}，应为YYYYMMDD格式（8位数字）")
+            # 如果格式错误，使用当前日期
+            formatted_date = datetime.now().strftime("%Y%m%d")
+            logger.warning(f"使用当前日期替代: {formatted_date}")
+    else:
+        # 如果日期为空，使用当前日期
+        formatted_date = datetime.now().strftime("%Y%m%d")
+        logger.warning(f"审批日期为空，使用当前日期: {formatted_date}")
     
     logger.info(f"发送审批结果通知 - 申请人: {applicant_name}, 审批事项: {application_item}, 结果: {status_text}, 审批人: {approver_name}, 日期: {formatted_date}")
     
@@ -249,7 +265,7 @@ def send_approval_result_notification(
         "thing28": {"value": _clip(application_item)},       # 审批事项
         "phrase1": {"value": _clip(status_text)},            # 审批结果
         "name2": {"value": _clip(approver_name)},            # 审批人
-        "date3": {"value": formatted_date}                   # 审批日期（YYYYMMDD格式）
+        "date3": {"value": formatted_date}                   # 审批日期（YYYYMMDD格式，8位数字）
     }
     
     return send_subscribe_message(

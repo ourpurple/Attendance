@@ -39,12 +39,93 @@ Page({
   async checkAutoLogin() {
     const isValid = await app.checkLoginStatus();
     if (isValid) {
-      // 已登录，请求订阅消息授权
-      this.requestSubscribeMessage();
+      // 已登录，请求订阅消息授权（首次登录时显示提示）
+      // 等待授权流程完全完成后再跳转
+      await this.requestSubscribeMessageWithTip();
       // 已登录，跳转到首页
       wx.switchTab({
         url: '/pages/index/index'
       });
+    }
+  },
+
+  // 请求订阅消息授权（带提示）
+  async requestSubscribeMessageWithTip() {
+    // 检查是否首次登录（通过检查是否已授权过）
+    const hasAuthorized = wx.getStorageSync('subscribe_message_authorized');
+    
+    if (!hasAuthorized) {
+      // 首次登录，显示详细说明
+      const authResult = await app.requestSubscribeMessage([], {
+        showTip: true,
+        tipTitle: '订阅消息授权',
+        tipContent: '为了及时通知您重要的审批信息，需要您授权接收订阅消息。\n\n' +
+          '📋 待审批通知：审批人接收待审批申请提醒\n' +
+          '📋 审批结果通知：申请人接收审批结果通知\n\n' +
+          '⚠️ 如果拒绝授权，将无法收到重要通知，建议允许授权。'
+      });
+      
+      // 检查授权结果并给出详细反馈
+      if (authResult && authResult.success) {
+        // 保存授权状态
+        const authStatus = {
+          allAccepted: authResult.allAccepted,
+          acceptedCount: authResult.accepted,
+          totalCount: authResult.total,
+          timestamp: Date.now()
+        };
+        wx.setStorageSync('subscribe_message_auth_status', authStatus);
+        
+        // 如果部分授权，延迟显示提示（避免与成功提示冲突）
+        if (authResult.partialAccepted) {
+          setTimeout(() => {
+            wx.showModal({
+              title: '授权提醒',
+              content: `您已授权 ${authResult.accepted} 个模板，但拒绝了 ${authResult.rejected} 个模板。\n\n为了确保能收到所有类型的通知，建议允许所有模板授权。`,
+              showCancel: true,
+              cancelText: '稍后',
+              confirmText: '重新授权',
+              success: (res) => {
+                if (res.confirm) {
+                  // 用户选择重新授权，清除状态并重新授权
+                  wx.removeStorageSync('subscribe_message_authorized');
+                  this.requestSubscribeMessageWithTip();
+                }
+              }
+            });
+          }, 2500);
+        }
+      }
+      
+      // 标记已授权过（无论成功与否）
+      wx.setStorageSync('subscribe_message_authorized', true);
+    } else {
+      // 非首次登录，静默授权（不显示提示）
+      const authResult = await app.requestSubscribeMessage();
+      
+      // 检查授权状态，如果之前是部分授权，现在检查是否全部授权成功
+      if (authResult && authResult.success) {
+        const previousStatus = wx.getStorageSync('subscribe_message_auth_status');
+        if (previousStatus && !previousStatus.allAccepted) {
+          // 之前是部分授权，现在检查是否全部授权成功
+          if (authResult.allAccepted) {
+            wx.showToast({
+              title: '授权已完成',
+              icon: 'success',
+              duration: 2000
+            });
+          }
+        }
+        
+        // 更新授权状态
+        const authStatus = {
+          allAccepted: authResult.allAccepted,
+          acceptedCount: authResult.accepted,
+          totalCount: authResult.total,
+          timestamp: Date.now()
+        };
+        wx.setStorageSync('subscribe_message_auth_status', authStatus);
+      }
     }
   },
 
@@ -153,8 +234,10 @@ Page({
 
       if (result.autoLogin) {
         // 自动登录成功
-        // 请求订阅消息授权
-        this.requestSubscribeMessage();
+        // 请求订阅消息授权（首次登录时显示提示）
+        await this.requestSubscribeMessageWithTip();
+        // 延迟一下，确保授权弹窗已显示
+        await new Promise(resolve => setTimeout(resolve, 100));
         wx.switchTab({
           url: '/pages/index/index'
         });
@@ -232,10 +315,10 @@ Page({
                   this.setData({ isWechatBinding: false });
                   // 直接执行登录，不带微信code
                   wx.showLoading({ title: '登录中...' });
-                  app.login(username, password, null).then(() => {
+                  app.login(username, password, null).then(async () => {
                     wx.hideLoading();
-                    // 请求订阅消息授权
-                    this.requestSubscribeMessage();
+                    // 请求订阅消息授权（首次登录时显示提示）
+                    await this.requestSubscribeMessageWithTip();
                     wx.switchTab({
                       url: '/pages/index/index'
                     });
@@ -322,16 +405,18 @@ Page({
         });
         
         // 延迟跳转，让用户看到提示
-        setTimeout(() => {
-          // 请求订阅消息授权
-          this.requestSubscribeMessage();
+        setTimeout(async () => {
+          // 请求订阅消息授权（首次登录时显示提示）
+          await this.requestSubscribeMessageWithTip();
           wx.switchTab({
             url: '/pages/index/index'
           });
         }, 1500);
       } else {
-        // 请求订阅消息授权
-        this.requestSubscribeMessage();
+        // 请求订阅消息授权（首次登录时显示提示）
+        await this.requestSubscribeMessageWithTip();
+        // 延迟一下，确保授权弹窗已显示
+        await new Promise(resolve => setTimeout(resolve, 100));
         wx.switchTab({
           url: '/pages/index/index'
         });
@@ -361,9 +446,9 @@ Page({
                   duration: 2000
                 });
                 
-                setTimeout(() => {
-                  // 请求订阅消息授权
-                  this.requestSubscribeMessage();
+                setTimeout(async () => {
+                  // 请求订阅消息授权（首次登录时显示提示）
+                  await this.requestSubscribeMessageWithTip();
                   wx.switchTab({
                     url: '/pages/index/index'
                   });
@@ -418,9 +503,9 @@ Page({
             content: '微信绑定失败（code已过期），但登录成功。下次登录时可重新绑定微信。',
             showCancel: false,
             confirmText: '知道了',
-            success: () => {
-              // 请求订阅消息授权
-              this.requestSubscribeMessage();
+            success: async () => {
+              // 请求订阅消息授权（首次登录时显示提示）
+              await this.requestSubscribeMessageWithTip();
               wx.switchTab({
                 url: '/pages/index/index'
               });

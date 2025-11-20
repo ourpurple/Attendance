@@ -399,7 +399,18 @@ Page({
       return;
     }
 
-    await this.requestSubscribeMessage();
+    // 提交申请前，确保已授权"审批结果通知"模板
+    const authResult = await this.requestSubscribeMessage();
+    
+    // 如果用户拒绝了授权，提示但不阻止提交
+    if (authResult && authResult.rejected > 0) {
+      wx.showModal({
+        title: '授权提示',
+        content: '您拒绝了订阅消息授权，将无法收到审批结果通知。\n\n建议允许授权，以便及时了解审批状态。',
+        showCancel: false,
+        confirmText: '知道了'
+      });
+    }
 
     wx.showLoading({ title: '提交中...' });
 

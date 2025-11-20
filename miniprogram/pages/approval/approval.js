@@ -79,10 +79,16 @@ Page({
     // 如果有权限，加载数据
     if (hasPermission) {
       // 请求订阅消息授权（作为备用，如果登录时未授权）
-      this.requestSubscribeMessage();
+      // 审批人需要授权"待审批通知"模板
+      this.requestSubscribeMessageSilently();
       this.loadPendingCount();
       this.loadPendingLeaves();
     }
+  },
+
+  // 静默请求订阅消息授权（不显示提示）
+  requestSubscribeMessageSilently() {
+    return app.requestSubscribeMessage();
   },
 
   // 请求订阅消息授权
