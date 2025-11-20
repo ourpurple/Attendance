@@ -1,7 +1,9 @@
 /* pages/overtime/apply/apply.wxss */
 .textarea {
-  min-height: 200rpx;
+  min-height: 120rpx;
   padding: 24rpx 32rpx;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .picker {

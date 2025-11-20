@@ -16,6 +16,10 @@ python3 init_db.py
 
 # 备份数据库
 cp attendance.db attendance.db.backup.$(date +%Y%m%d_%H%M%S)
+
+# 保存日志到 /tmp
+sudo journalctl -u attendance-backend -n 50 > /tmp/attendance_recent.log
+
 ```
 
 ## systemd 日志

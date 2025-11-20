@@ -121,6 +121,7 @@ button[disabled],
   border-radius: 20rpx;
   font-size: 32rpx;
   background: #ffffff;
+  box-sizing: border-box;
 }
 
 /* 列表 */
