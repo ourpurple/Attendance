@@ -235,37 +235,37 @@ def send_approval_result_notification(
     # 字段对应"审批结果通知"模板
     status_text = "已通过" if approved else "已拒绝"
     
-    # 处理日期格式：微信的date类型要求YYYYMMDD格式（8位数字，不带横线）
-    # 如果传入的是YYYY-MM-DD格式，转换为YYYYMMDD
-    formatted_date = approval_date
-    if formatted_date:
-        # 转换为字符串
-        formatted_date = str(formatted_date).strip()
-        original_date = formatted_date
+    # 处理日期格式：微信的date类型要求格式为 "YYYY年MM月DD日"
+    # 例如：2025年11月20日
+    try:
+        if approval_date:
+            # 尝试解析日期
+            if isinstance(approval_date, str):
+                # 如果是字符串，尝试解析
+                if "-" in approval_date:
+                    # YYYY-MM-DD 格式
+                    date_obj = datetime.strptime(approval_date.split()[0], "%Y-%m-%d")
+                elif len(approval_date) == 8 and approval_date.isdigit():
+                    # YYYYMMDD 格式
+                    date_obj = datetime.strptime(approval_date, "%Y%m%d")
+                else:
+                    # 尝试其他格式
+                    date_obj = datetime.strptime(approval_date.split()[0], "%Y-%m-%d")
+            else:
+                # 如果不是字符串，假设是datetime对象
+                date_obj = approval_date if isinstance(approval_date, datetime) else datetime.now()
+        else:
+            # 如果日期为空，使用当前日期
+            date_obj = datetime.now()
+            logger.warning(f"审批日期为空，使用当前日期")
         
-        # 移除横线
-        if "-" in formatted_date:
-            formatted_date = formatted_date.replace("-", "")
-        # 移除空格和其他分隔符
-        formatted_date = formatted_date.replace(" ", "").replace("/", "").replace(".", "")
+        # 格式化为微信要求的格式：YYYY年MM月DD日
+        final_date = date_obj.strftime("%Y年%m月%d日")
         
-        # 验证日期格式：必须是8位数字（YYYYMMDD）
-        if not formatted_date.isdigit() or len(formatted_date) != 8:
-            logger.error(f"日期格式错误: 原始值={approval_date}, 处理后={formatted_date}，应为YYYYMMDD格式（8位数字）")
-            # 如果格式错误，使用当前日期
-            formatted_date = datetime.now().strftime("%Y%m%d")
-            logger.warning(f"使用当前日期替代: {formatted_date}")
-    else:
-        # 如果日期为空，使用当前日期
-        formatted_date = datetime.now().strftime("%Y%m%d")
-        logger.warning(f"审批日期为空，使用当前日期: {formatted_date}")
-    
-    # 最终验证日期格式：确保是8位数字（YYYYMMDD）
-    # date类型字段必须严格符合YYYYMMDD格式，不能使用_clip函数
-    final_date = str(formatted_date).strip()
-    if not final_date.isdigit() or len(final_date) != 8:
-        logger.error(f"日期格式验证失败: 原始值={approval_date}, 处理后={final_date}，使用当前日期")
-        final_date = datetime.now().strftime("%Y%m%d")
+    except (ValueError, AttributeError) as e:
+        # 如果解析失败，使用当前日期
+        logger.error(f"日期格式解析失败: {approval_date}, 错误: {str(e)}，使用当前日期")
+        final_date = datetime.now().strftime("%Y年%m月%d日")
     
     logger.info(f"发送审批结果通知 - 申请人: {applicant_name}, 审批事项: {application_item}, 结果: {status_text}, 审批人: {approver_name}, 日期: {final_date}")
     
@@ -274,7 +274,7 @@ def send_approval_result_notification(
         "thing28": {"value": _clip(application_item)},       # 审批事项
         "phrase1": {"value": _clip(status_text)},            # 审批结果
         "name2": {"value": _clip(approver_name)},            # 审批人
-        "date3": {"value": final_date}                       # 审批日期（YYYYMMDD格式，8位数字，不使用_clip）
+        "date3": {"value": final_date}                       # 审批日期（YYYY年MM月DD日格式，不使用_clip）
     }
     
     return send_subscribe_message(
