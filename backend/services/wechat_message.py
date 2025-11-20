@@ -109,6 +109,8 @@ def send_subscribe_message(
             "data": data
         }
         
+        logger.debug(f"发送订阅消息 - 模板ID: {template_id[:20]}..., 页面: {page}, 数据: {data}")
+        
         with httpx.Client(timeout=10.0) as client:
             response = client.post(url, json=payload)
             response.raise_for_status()
@@ -116,19 +118,19 @@ def send_subscribe_message(
             
             errcode = result.get("errcode", 0)
             if errcode == 0:
-                logger.info(f"成功发送订阅消息给用户 {openid[:10]}...")
+                logger.info(f"成功发送订阅消息给用户 {openid[:10]}... (模板ID: {template_id[:20]}...)")
                 return True
             else:
                 errmsg = result.get("errmsg", "未知错误")
                 # 43101表示用户拒绝接收消息，这是正常情况，不记录为错误
                 if errcode == 43101:
-                    logger.info(f"用户 {openid[:10]}... 拒绝接收订阅消息")
+                    logger.info(f"用户 {openid[:10]}... 拒绝接收订阅消息 (模板ID: {template_id[:20]}...)")
                 else:
-                    logger.warning(f"发送订阅消息失败: {errmsg} (errcode: {errcode})")
+                    logger.warning(f"发送订阅消息失败: {errmsg} (errcode: {errcode}, 模板ID: {template_id[:20]}..., 用户: {openid[:10]}...)")
                 return False
                 
     except Exception as e:
-        logger.error(f"发送订阅消息异常: {str(e)}")
+        logger.error(f"发送订阅消息异常: {str(e)} (模板ID: {template_id[:20]}..., 用户: {openid[:10]}...)")
         return False
 
 
@@ -211,13 +213,17 @@ def send_approval_result_notification(
         application_id: 申请ID
         approved: 是否通过
         approver_name: 审批人姓名
-        comment: 审批意见
+        approval_date: 审批日期（格式：YYYY-MM-DD 或 YYYYMMDD）
     
     Returns:
         是否发送成功
     """
     if not settings.WECHAT_RESULT_TEMPLATE_ID:
         logger.warning("审批结果通知模板ID未配置，跳过消息推送")
+        return False
+    
+    if not applicant_openid:
+        logger.warning("申请人openid为空，跳过审批结果通知推送")
         return False
     
     # 构建页面路径
@@ -227,14 +233,23 @@ def send_approval_result_notification(
         page = f"pages/overtime/overtime?id={application_id}"
     
     # 构建模板数据
-    # 字段对应“审批结果通知”模板
+    # 字段对应"审批结果通知"模板
     status_text = "已通过" if approved else "已拒绝"
+    
+    # 处理日期格式：微信的date类型要求YYYYMMDD格式（8位数字，不带横线）
+    # 如果传入的是YYYY-MM-DD格式，转换为YYYYMMDD
+    formatted_date = approval_date
+    if formatted_date and "-" in formatted_date:
+        formatted_date = formatted_date.replace("-", "")
+    
+    logger.info(f"发送审批结果通知 - 申请人: {applicant_name}, 审批事项: {application_item}, 结果: {status_text}, 审批人: {approver_name}, 日期: {formatted_date}")
+    
     data = {
         "thing14": {"value": _clip(applicant_name)},         # 申请人
         "thing28": {"value": _clip(application_item)},       # 审批事项
         "phrase1": {"value": _clip(status_text)},            # 审批结果
         "name2": {"value": _clip(approver_name)},            # 审批人
-        "date3": {"value": _clip(approval_date)}             # 审批日期
+        "date3": {"value": formatted_date}                   # 审批日期（YYYYMMDD格式）
     }
     
     return send_subscribe_message(
