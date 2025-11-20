@@ -26,7 +26,8 @@ Page({
       { name: '出差', code: 'business_trip' }
     ],
     checkinStatusIndex: 0,  // 当前选中的状态索引
-    showStatusSelector: false  // 是否显示状态选择器
+    showStatusSelector: false,  // 是否显示状态选择器
+    attendanceEnabled: true
   },
 
   onLoad() {
@@ -92,19 +93,53 @@ Page({
   
   // 加载页面数据（提取为独立方法，便于复用）
   loadData() {
+    const attendanceEnabled = app.globalData.userInfo
+      ? app.globalData.userInfo.enable_attendance !== false
+      : true;
+    this.updateAttendanceAvailability(attendanceEnabled);
+
     // 确保数据已初始化，避免渲染时出错
     this.setData({
       recentAttendance: this.data.recentAttendance || [],
       pendingCount: this.data.pendingCount || 0
     });
     
-    this.loadTodayAttendance();
+    if (attendanceEnabled) {
+      this.loadTodayAttendance();
+    } else {
+      this.setData({
+        checkinStatus: '未打卡',
+        checkoutStatus: '未打卡'
+      });
+    }
     this.loadRecentAttendance();
     this.loadPendingCount();
     this.loadMyPendingCounts();  // 加载我的未完成申请数量
     this.loadCheckinStatuses();  // 加载打卡状态列表
     // 检查工作日并设置按钮状态
-    this.checkAndSetAttendanceButtons();
+    if (attendanceEnabled) {
+      this.checkAndSetAttendanceButtons();
+    }
+  },
+
+  updateAttendanceAvailability(isEnabled) {
+    if (isEnabled) {
+      this.setData({
+        attendanceEnabled: true,
+        location: '',
+        locationColor: '#8E8E93'
+      });
+    } else {
+      this.setData({
+        attendanceEnabled: false,
+        showClockStatus: false,
+        checkinDisabled: true,
+        checkoutDisabled: true,
+        showStatusSelector: false,
+        location: '您不用打卡!',
+        locationColor: '#34c759'
+      });
+    }
   },
 
   // 加载打卡状态列表
@@ -341,6 +376,10 @@ Page({
 
   // 检查并设置打卡按钮状态
   async checkAndSetAttendanceButtons() {
+    if (!this.data.attendanceEnabled) {
+      return;
+    }
+
     try {
       // 先获取今日打卡状态，以确定按钮是否应该禁用
       let todayAttendance = null;
@@ -607,6 +646,15 @@ Page({
 
   // 上班打卡
   async checkin() {
+    if (!this.data.attendanceEnabled) {
+      wx.showToast({
+        title: '您不用打卡!',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
     // 如果按钮已禁用（已打卡），直接返回
     if (this.data.checkinDisabled) {
       wx.showToast({
@@ -758,6 +806,15 @@ Page({
 
   // 下班打卡
   async checkout() {
+    if (!this.data.attendanceEnabled) {
+      wx.showToast({
+        title: '您不用打卡!',
+        icon: 'none',
+        duration: 2000
+      });
+      return;
+    }
+
     // 如果按钮已禁用（已打卡），直接返回
     if (this.data.checkoutDisabled) {
       wx.showToast({
@@ -872,6 +929,10 @@ Page({
 
   // 加载今日打卡状态
   async loadTodayAttendance() {
+    if (!this.data.attendanceEnabled) {
+      return;
+    }
+
     try {
       // 使用东八区获取今天的日期
       const today = this.getCSTDate();

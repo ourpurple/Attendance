@@ -74,8 +74,11 @@ def get_attendance_statistics(
             detail="权限不足"
         )
     
-    # 构建查询（排除admin账户）
-    query = db.query(User).filter(User.username != "admin")
+    # 构建查询（排除admin账户、禁用考勤的员工）
+    query = db.query(User).filter(
+        User.username != "admin",
+        User.enable_attendance == True
+    )
     
     # 如果是部门主任，只能查看本部门
     if current_user.role == UserRole.DEPARTMENT_HEAD:
@@ -189,20 +192,27 @@ def get_period_statistics(
     # 方法：查询所有用户，在Python中过滤
     all_users = db.query(User).all()
     
-    # 统计激活用户（排除admin）
-    total_users = 0
-    admin_found = False
-    for user in all_users:
-        if user.is_active:
-            if user.username == "admin":
-                admin_found = True
-            else:
-                total_users += 1
+    # 统计激活且开启考勤的用户（排除admin）
+    enabled_users = [
+        user for user in all_users
+        if user.is_active
+        and user.username != "admin"
+        and (user.enable_attendance is None or user.enable_attendance is True)
+    ]
+    total_users = len(enabled_users)
+    enabled_user_ids = [user.id for user in enabled_users]
+    admin_found = any(user.username == "admin" for user in all_users)
     
     # 调试信息（生产环境可删除）
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"总用户数统计: 总用户数={len(all_users)}, 激活用户数={sum(1 for u in all_users if u.is_active)}, admin存在={admin_found}, 总员工数={total_users}")
+    logger.info(
+        "总用户数统计: 总用户数=%s, 激活用户数=%s, admin存在=%s, 启用考勤用户数=%s",
+        len(all_users),
+        sum(1 for u in all_users if u.is_active),
+        admin_found,
+        total_users
+    )
     
     # 计算实际工作日天数（排除周末和法定节假日）
     total_days = calculate_workdays(start_date, end_date, db)
@@ -211,46 +221,46 @@ def get_period_statistics(
     expected_attendance = total_users * total_days
     
     # 实际出勤次数（排除admin账户的考勤记录）
-    admin_user = db.query(User).filter(User.username == "admin").first()
-    admin_user_id = admin_user.id if admin_user else None
-    
-    actual_attendance_query = db.query(Attendance).filter(
-        and_(
-            func.date(Attendance.date) >= start_date,
-            func.date(Attendance.date) <= end_date
-        )
-    )
-    if admin_user_id:
-        actual_attendance_query = actual_attendance_query.filter(Attendance.user_id != admin_user_id)
-    actual_attendance = actual_attendance_query.count()
+    if enabled_user_ids:
+        actual_attendance = db.query(Attendance).filter(
+            and_(
+                func.date(Attendance.date) >= start_date,
+                func.date(Attendance.date) <= end_date,
+                Attendance.user_id.in_(enabled_user_ids)
+            )
+        ).count()
+    else:
+        actual_attendance = 0
     
     # 出勤率
     attendance_rate = (actual_attendance / expected_attendance * 100) if expected_attendance > 0 else 0
     
     # 总请假天数（排除admin账户）
-    leaves_query = db.query(LeaveApplication).options(joinedload(LeaveApplication.leave_type)).filter(
-        and_(
-            LeaveApplication.status == LeaveStatus.APPROVED,
-            LeaveApplication.start_date <= datetime.combine(end_date, datetime.max.time()),
-            LeaveApplication.end_date >= datetime.combine(start_date, datetime.min.time())
-        )
-    )
-    if admin_user_id:
-        leaves_query = leaves_query.filter(LeaveApplication.user_id != admin_user_id)
-    leaves = leaves_query.all()
+    if enabled_user_ids:
+        leaves = db.query(LeaveApplication).options(joinedload(LeaveApplication.leave_type)).filter(
+            and_(
+                LeaveApplication.status == LeaveStatus.APPROVED,
+                LeaveApplication.start_date <= datetime.combine(end_date, datetime.max.time()),
+                LeaveApplication.end_date >= datetime.combine(start_date, datetime.min.time()),
+                LeaveApplication.user_id.in_(enabled_user_ids)
+            )
+        ).all()
+    else:
+        leaves = []
     total_leave_days = sum(l.days for l in leaves)
     
     # 总加班天数（排除admin账户，只要加班日期在统计范围内即可）
-    overtimes_query = db.query(OvertimeApplication).filter(
-        and_(
-            OvertimeApplication.status == OvertimeStatus.APPROVED,
-            func.date(OvertimeApplication.start_time) <= end_date,
-            func.date(OvertimeApplication.start_time) >= start_date
-        )
-    )
-    if admin_user_id:
-        overtimes_query = overtimes_query.filter(OvertimeApplication.user_id != admin_user_id)
-    overtimes = overtimes_query.all()
+    if enabled_user_ids:
+        overtimes = db.query(OvertimeApplication).filter(
+            and_(
+                OvertimeApplication.status == OvertimeStatus.APPROVED,
+                func.date(OvertimeApplication.start_time) <= end_date,
+                func.date(OvertimeApplication.start_time) >= start_date,
+                OvertimeApplication.user_id.in_(enabled_user_ids)
+            )
+        ).all()
+    else:
+        overtimes = []
     total_overtime_days = sum(o.days for o in overtimes if o.days is not None)
     
     leave_type_totals = {}
@@ -289,6 +299,27 @@ def get_my_statistics(
     current_user: User = Depends(get_current_user)
 ):
     """获取我的统计数据"""
+    if current_user.enable_attendance is False:
+        return AttendanceStatistics(
+            user_id=current_user.id,
+            user_name=current_user.real_name,
+            department=current_user.department.name if current_user.department else None,
+            total_days=0,
+            present_days=0,
+            late_days=0,
+            early_leave_days=0,
+            absence_days=0,
+            leave_days=0.0,
+            leave_count=0,
+            overtime_days=0.0,
+            overtime_count=0,
+            active_overtime_days=0.0,
+            active_overtime_count=0,
+            passive_overtime_days=0.0,
+            passive_overtime_count=0,
+            work_hours=0.0,
+            leave_type_breakdown=[]
+        )
     # 计算日期范围内的实际工作日天数（排除周末和法定节假日）
     total_days = calculate_workdays(start_date, end_date, db)
     
@@ -477,8 +508,12 @@ def get_daily_attendance_statistics(
             detail="权限不足"
         )
     
-    # 构建查询（排除admin账户）
-    query = db.query(User).filter(User.username != "admin", User.is_active == True)
+    # 构建查询（排除admin账户、排除关闭考勤管理的用户）
+    query = db.query(User).filter(
+        User.username != "admin",
+        User.is_active == True,
+        User.enable_attendance == True
+    )
     
     # 如果是部门主任，只能查看本部门
     if current_user.role == UserRole.DEPARTMENT_HEAD:

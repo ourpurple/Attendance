@@ -1108,24 +1108,36 @@ def get_attendance_overview(
     
     workday_status = get_workday_status(db, target_date)
     
-    # 获取所有激活的用户（排除admin）
+    # 获取所有激活的用户（排除admin、排除关闭考勤管理的用户）
     users = db.query(User).filter(
         User.is_active == True,
-        User.username != "admin"
+        User.username != "admin",
+        User.enable_attendance == True
     ).all()
     
-    # 获取目标日期的考勤记录
-    attendances = db.query(Attendance).filter(
-        func.date(Attendance.date) == target_date
-    ).all()
+    # 获取过滤后用户的ID列表
+    user_ids = [user.id for user in users]
+    
+    # 获取目标日期的考勤记录（只查询已过滤用户的记录）
+    if user_ids:
+        attendances = db.query(Attendance).filter(
+            func.date(Attendance.date) == target_date,
+            Attendance.user_id.in_(user_ids)
+        ).all()
+    else:
+        attendances = []
     attendance_dict = {att.user_id: att for att in attendances}
     
-    # 获取目标日期的请假记录（已批准的）
-    leaves = db.query(LeaveApplication).filter(
-        func.date(LeaveApplication.start_date) <= target_date,
-        func.date(LeaveApplication.end_date) >= target_date,
-        LeaveApplication.status == "approved"
-    ).all()
+    # 获取目标日期的请假记录（已批准的，只查询已过滤用户的记录）
+    if user_ids:
+        leaves = db.query(LeaveApplication).filter(
+            func.date(LeaveApplication.start_date) <= target_date,
+            func.date(LeaveApplication.end_date) >= target_date,
+            LeaveApplication.status == "approved",
+            LeaveApplication.user_id.in_(user_ids)
+        ).all()
+    else:
+        leaves = []
     # 格式化日期时间为前端使用的格式（不带时区信息）
     def format_datetime_for_frontend(dt):
         if isinstance(dt, datetime):
@@ -1169,12 +1181,16 @@ def get_attendance_overview(
         elif start_date < target_date < end_date:
             leave_dict[leave.user_id] += 1.0
     
-    # 获取目标日期的加班记录（已批准的）
-    overtimes = db.query(OvertimeApplication).filter(
-        func.date(OvertimeApplication.start_time) <= target_date,
-        func.date(OvertimeApplication.end_time) >= target_date,
-        OvertimeApplication.status == "approved"
-    ).all()
+    # 获取目标日期的加班记录（已批准的，只查询已过滤用户的记录）
+    if user_ids:
+        overtimes = db.query(OvertimeApplication).filter(
+            func.date(OvertimeApplication.start_time) <= target_date,
+            func.date(OvertimeApplication.end_time) >= target_date,
+            OvertimeApplication.status == "approved",
+            OvertimeApplication.user_id.in_(user_ids)
+        ).all()
+    else:
+        overtimes = []
     overtime_dict = {}
     overtime_details = {}
     for overtime in overtimes:

@@ -184,7 +184,8 @@ def create_user(
         phone=user_create.phone,
         role=user_create.role,
         department_id=user_create.department_id,
-        annual_leave_days=user_create.annual_leave_days if user_create.annual_leave_days is not None else 10.0
+        annual_leave_days=user_create.annual_leave_days if user_create.annual_leave_days is not None else 10.0,
+        enable_attendance=user_create.enable_attendance
     )
     
     db.add(user)

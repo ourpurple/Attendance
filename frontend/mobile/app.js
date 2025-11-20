@@ -414,7 +414,7 @@ function loadSectionData(section) {
 function setDefaultOverviewDate() {
     const overviewDateInput = document.getElementById('overview-date');
     if (overviewDateInput) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getCSTDate(); // 使用东八区日期
         if (!overviewDateInput.value) {
             overviewDateInput.value = today;
         }
@@ -544,7 +544,7 @@ async function checkAttendanceOverviewPermission() {
 async function loadAttendanceOverview() {
     try {
         const dateInput = document.getElementById('overview-date');
-        const targetDate = dateInput.value || new Date().toISOString().split('T')[0];
+        const targetDate = dateInput.value || getCSTDate(); // 使用东八区日期
         
         const overview = await apiRequest(`/attendance/overview?target_date=${targetDate}`);
         const infoBar = document.getElementById('overview-info');
@@ -1199,6 +1199,11 @@ async function getCurrentLocation(retryCount = 0) {
 async function checkin() {
     const btn = document.getElementById('checkin-btn');
     
+    if (currentUser?.enable_attendance === false) {
+        await showToast('您不用打卡!', 'info');
+        return;
+    }
+    
     // 如果按钮已禁用（已打卡），直接返回
     if (btn.disabled) {
         await showToast('今天已经打过上班卡', 'warning');
@@ -1319,6 +1324,17 @@ async function checkin() {
 async function checkout() {
     const btn = document.getElementById('checkout-btn');
     
+    if (currentUser?.enable_attendance === false) {
+        await showToast('您不用打卡!', 'info');
+        return;
+    }
+    
+    // 如果按钮已禁用（已打卡），直接返回
+    if (btn.disabled) {
+        await showToast('今天已经打过下班卡', 'warning');
+        return;
+    }
+    
     // 检查请假状态
     try {
         const leaveStatus = await apiRequest('/attendance/leave-status');
@@ -1329,12 +1345,6 @@ async function checkout() {
     } catch (error) {
         console.warn('检查请假状态失败:', error);
         // 如果检查失败，继续执行打卡（不影响正常流程）
-    }
-    
-    // 如果按钮已禁用（已打卡），直接返回
-    if (btn.disabled) {
-        await showToast('今天已经打过下班卡', 'warning');
-        return;
     }
     
     // 检查是否为工作日
@@ -1834,14 +1844,83 @@ async function checkAndSetAttendanceButtons() {
     }
 }
 
+function updateAttendanceAvailabilityState(isEnabled) {
+    const clockStatus = document.getElementById('clock-status');
+    const clockActions = document.getElementById('clock-actions');
+    const statusSelector = document.getElementById('checkin-status-selector');
+    const clockLocation = document.getElementById('clock-location');
+    const checkinStatusEl = document.getElementById('checkin-status');
+    const checkoutStatusEl = document.getElementById('checkout-status');
+    const checkinBtn = document.getElementById('checkin-btn');
+    const checkoutBtn = document.getElementById('checkout-btn');
+    
+    if (!isEnabled) {
+        if (clockStatus) clockStatus.style.display = 'none';
+        if (clockActions) clockActions.style.display = 'none';
+        if (statusSelector) statusSelector.style.display = 'none';
+        if (checkinStatusEl) checkinStatusEl.textContent = '未打卡';
+        if (checkoutStatusEl) checkoutStatusEl.textContent = '未打卡';
+        if (clockLocation) {
+            clockLocation.textContent = '您不用打卡!';
+            clockLocation.style.display = 'block';
+            clockLocation.style.color = '#34c759';
+            clockLocation.style.fontWeight = 'bold';
+        }
+        if (checkinBtn) {
+            checkinBtn.disabled = true;
+            checkinBtn.style.opacity = '0.6';
+            checkinBtn.style.cursor = 'not-allowed';
+            checkinBtn.title = '您无需打卡';
+        }
+        if (checkoutBtn) {
+            checkoutBtn.disabled = true;
+            checkoutBtn.style.opacity = '0.6';
+            checkoutBtn.style.cursor = 'not-allowed';
+            checkoutBtn.title = '您无需打卡';
+        }
+        return;
+    }
+    
+    if (clockStatus) clockStatus.style.display = '';
+    if (clockActions) clockActions.style.display = '';
+    if (statusSelector) statusSelector.style.display = 'none';
+    if (clockLocation) {
+        clockLocation.textContent = '';
+        clockLocation.style.display = '';
+        clockLocation.style.color = '';
+        clockLocation.style.fontWeight = '';
+    }
+    if (checkinBtn) {
+        checkinBtn.disabled = false;
+        checkinBtn.style.opacity = '';
+        checkinBtn.style.cursor = '';
+        checkinBtn.title = '';
+    }
+    if (checkoutBtn) {
+        checkoutBtn.disabled = true;
+        checkoutBtn.style.opacity = '0.6';
+        checkoutBtn.style.cursor = 'not-allowed';
+        checkoutBtn.title = '';
+    }
+}
+
 // 加载首页数据
 async function loadHomeData() {
-    await loadTodayAttendance();
+    const attendanceEnabled = currentUser?.enable_attendance !== false;
+    updateAttendanceAvailabilityState(attendanceEnabled);
+    
+    if (attendanceEnabled) {
+        await loadTodayAttendance();
+    }
+
     await loadRecentAttendance();
     await loadPendingCount();
     await loadMyPendingCounts();  // 加载我的未完成申请数量
-    // 检查工作日并设置按钮状态（会考虑打卡状态）
-    await checkAndSetAttendanceButtons();
+    
+    if (attendanceEnabled) {
+        // 检查工作日并设置按钮状态（会考虑打卡状态）
+        await checkAndSetAttendanceButtons();
+    }
 }
 
 // 加载今日打卡状态

@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     role: UserRole = UserRole.EMPLOYEE
     department_id: Optional[int] = None
     annual_leave_days: Optional[float] = 10.0
+    enable_attendance: bool = True
 
 
 class UserCreate(UserBase):
@@ -28,6 +29,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     password: Optional[str] = None
     annual_leave_days: Optional[float] = None
+    enable_attendance: Optional[bool] = None
 
 
 class UserResponse(UserBase):

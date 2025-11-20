@@ -5,7 +5,7 @@
     <view class="clock-time">{{currentTime}}</view>
     <view class="clock-date">{{currentDate}}</view>
     
-    <view class="clock-status" wx:if="{{showClockStatus}}">
+    <view class="clock-status" wx:if="{{showClockStatus && attendanceEnabled}}">
       <view class="status-item">
         <text class="status-label">上班</text>
         <text class="status-value">{{checkinStatus}}</text>
@@ -16,7 +16,7 @@
       </view>
     </view>
 
-    <view class="clock-actions">
+    <view class="clock-actions" wx:if="{{attendanceEnabled}}">
       <button class="btn btn-primary" bindtap="checkin" disabled="{{checkinDisabled}}">
         <text>📍</text>
         <text>上班打卡</text>
@@ -28,7 +28,7 @@
     </view>
 
     <!-- 打卡状态选择器 -->
-    <view class="checkin-status-selector" wx:if="{{showStatusSelector}}" style="margin-top: 10px; padding: 10px;">
+    <view class="checkin-status-selector" wx:if="{{showStatusSelector && attendanceEnabled}}" style="margin-top: 10px; padding: 10px;">
       <text class="status-label">打卡状态：</text>
       <picker mode="selector" range="{{checkinStatusList}}" range-key="name" value="{{checkinStatusIndex}}" bindchange="onStatusChange">
         <view class="picker">

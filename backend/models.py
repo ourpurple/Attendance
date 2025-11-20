@@ -69,6 +69,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, comment="是否激活")
     wechat_openid = Column(String(128), unique=True, nullable=True, index=True, comment="微信OpenID")
     annual_leave_days = Column(Float, default=10.0, comment="年假天数")
+    enable_attendance = Column(Boolean, default=True, comment="是否开启考勤管理")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     

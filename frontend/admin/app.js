@@ -321,6 +321,8 @@ async function loadUsers() {
                 <td>${getRoleName(user.role)}</td>
                 <td>${user.department_id ? deptMap[user.department_id] : '-'}</td>
                 <td>${user.annual_leave_days !== undefined ? user.annual_leave_days : 10} 天</td>
+                <td><span class="status-badge ${user.enable_attendance === false ? 'status-inactive' : 'status-active'}">
+                    ${user.enable_attendance === false ? '否' : '是'}</span></td>
                 <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">
                     ${user.is_active ? '激活' : '禁用'}</span></td>
                 <td>
@@ -2251,6 +2253,16 @@ async function showAddUserModal() {
                     </label>
                     <input type="number" id="modal-annual-leave-days" class="form-input" value="10" min="0" step="0.5" placeholder="默认10天">
                 </div>
+            <div class="form-group form-group-half">
+                <label class="form-label">
+                    <span class="label-icon">⏱️</span>
+                    是否开启考勤管理
+                </label>
+                <select id="modal-enable-attendance" class="form-input">
+                    <option value="true" selected>是（默认）</option>
+                    <option value="false">否</option>
+                </select>
+            </div>
             </div>
         </div>
     `;
@@ -2264,6 +2276,7 @@ async function showAddUserModal() {
         const role = document.getElementById('modal-role').value;
         const department = document.getElementById('modal-department').value;
         const annualLeaveDays = parseFloat(document.getElementById('modal-annual-leave-days').value) || 10.0;
+        const enableAttendance = document.getElementById('modal-enable-attendance').value === 'true';
         
         if (!username || !realname || !password) {
             showToast('请填写必填项', 'warning');
@@ -2281,7 +2294,8 @@ async function showAddUserModal() {
                     phone: phone || null,
                     role,
                     department_id: department ? parseInt(department) : null,
-                    annual_leave_days: annualLeaveDays
+                    annual_leave_days: annualLeaveDays,
+                    enable_attendance: enableAttendance
                 })
             });
             
@@ -2344,6 +2358,13 @@ async function editUser(id) {
             <input type="number" id="modal-annual-leave-days" class="form-input" value="${user.annual_leave_days !== undefined ? user.annual_leave_days : 10}" min="0" step="0.5" placeholder="年假天数">
         </div>
         <div class="form-group">
+            <label>是否开启考勤管理</label>
+            <select id="modal-enable-attendance" class="form-input">
+                <option value="true" ${user.enable_attendance === false ? '' : 'selected'}>是</option>
+                <option value="false" ${user.enable_attendance === false ? 'selected' : ''}>否</option>
+            </select>
+        </div>
+        <div class="form-group">
             <label>状态</label>
             <select id="modal-active" class="form-input">
                 <option value="true" ${user.is_active ? 'selected' : ''}>激活</option>
@@ -2361,6 +2382,7 @@ async function editUser(id) {
         const department = document.getElementById('modal-department').value;
         const annualLeaveDays = parseFloat(document.getElementById('modal-annual-leave-days').value);
         const isActive = document.getElementById('modal-active').value === 'true';
+        const enableAttendance = document.getElementById('modal-enable-attendance').value === 'true';
         
         if (!realname) {
             alert('请填写姓名');
@@ -2373,7 +2395,8 @@ async function editUser(id) {
             phone: phone || null,
             role,
             department_id: department ? parseInt(department) : null,
-            is_active: isActive
+            is_active: isActive,
+            enable_attendance: enableAttendance
         };
         
         if (!isNaN(annualLeaveDays)) {

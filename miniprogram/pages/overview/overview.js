@@ -25,10 +25,13 @@ Page({
   },
 
   getToday() {
+    // 使用东八区日期（UTC+8）
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+    const cst = new Date(utc + (8 * 3600000)); // 东八区 = UTC+8
+    const year = cst.getFullYear();
+    const month = String(cst.getMonth() + 1).padStart(2, '0');
+    const day = String(cst.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   },
 
