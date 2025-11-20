@@ -1126,6 +1126,13 @@ def get_attendance_overview(
         func.date(LeaveApplication.end_date) >= target_date,
         LeaveApplication.status == "approved"
     ).all()
+    # 格式化日期时间为前端使用的格式（不带时区信息）
+    def format_datetime_for_frontend(dt):
+        if isinstance(dt, datetime):
+            # 返回不带时区的 ISO 格式字符串：YYYY-MM-DDTHH:MM:SS
+            return dt.strftime('%Y-%m-%dT%H:%M:%S')
+        return str(dt)
+    
     leave_dict = {}
     leave_details = {}
     for leave in leaves:
@@ -1137,17 +1144,29 @@ def get_attendance_overview(
                 "end": None
             }
         # 计算该日期占用的请假天数（简化处理：跨天请假中间日算整天）
-        start = leave.start_date.date() if isinstance(leave.start_date, datetime) else leave.start_date
-        end = leave.end_date.date() if isinstance(leave.end_date, datetime) else leave.end_date
+        # 保留完整的 datetime 信息，以便前端显示时间
+        # LeaveApplication 的 start_date 和 end_date 都是 DateTime 类型，直接使用
+        start = leave.start_date
+        end = leave.end_date
+        # 确保是 datetime 类型，如果是 date 类型则添加时间
+        if not isinstance(start, datetime):
+            start = datetime.combine(start, datetime.min.time())
+        if not isinstance(end, datetime):
+            end = datetime.combine(end, datetime.max.time())
+        # 使用格式化函数返回不带时区的 ISO 格式字符串，确保包含时间信息
+        # 格式：YYYY-MM-DDTHH:MM:SS（不包含时区信息，当作本地时间）
         leave_details[leave.user_id] = {
-            "start": start.isoformat() if hasattr(start, "isoformat") else str(start),
-            "end": end.isoformat() if hasattr(end, "isoformat") else str(end)
+            "start": format_datetime_for_frontend(start),
+            "end": format_datetime_for_frontend(end)
         }
-        if start == end:
+        # 计算天数时仍使用日期部分
+        start_date = start.date() if isinstance(start, datetime) else start
+        end_date = end.date() if isinstance(end, datetime) else end
+        if start_date == end_date:
             leave_dict[leave.user_id] += leave.days
-        elif start == target_date or end == target_date:
+        elif start_date == target_date or end_date == target_date:
             leave_dict[leave.user_id] += 0.5
-        elif start < target_date < end:
+        elif start_date < target_date < end_date:
             leave_dict[leave.user_id] += 1.0
     
     # 获取目标日期的加班记录（已批准的）
@@ -1218,8 +1237,8 @@ def get_attendance_overview(
             leave_days=leave_dict.get(user.id, 0.0),
             has_overtime=has_overtime,
             overtime_days=overtime_dict.get(user.id, 0.0),
-            overtime_start_time=overtime_details.get(user.id, {}).get("start").isoformat() if has_overtime and overtime_details.get(user.id, {}).get("start") else None,
-            overtime_end_time=overtime_details.get(user.id, {}).get("end").isoformat() if has_overtime and overtime_details.get(user.id, {}).get("end") else None
+            overtime_start_time=format_datetime_for_frontend(overtime_details.get(user.id, {}).get("start")) if has_overtime and overtime_details.get(user.id, {}).get("start") else None,
+            overtime_end_time=format_datetime_for_frontend(overtime_details.get(user.id, {}).get("end")) if has_overtime and overtime_details.get(user.id, {}).get("end") else None
         )
         items.append(item)
     

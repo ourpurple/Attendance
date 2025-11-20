@@ -618,12 +618,20 @@ async function loadAttendanceOverview() {
             categoriesContainer.innerHTML = categoryData.map(category => {
                 const isCompact = category.key === 'notChecked' || category.key === 'checkedIn';
                 const peopleHtml = category.list.length
-                    ? category.list.map(item => `
+                    ? category.list.map(item => {
+                        const extraInfo = getOverviewExtraInfo(category.key, item);
+                        return `
                         <div class="overview-person-row ${isCompact ? 'compact' : ''}">
-                            <span class="overview-person-name">${item.real_name}</span>
-                            ${getOverviewExtraText(category.key, item) ? `<span class="overview-person-extra">${getOverviewExtraText(category.key, item)}</span>` : ''}
+                            <div class="overview-person-name-row">
+                                <span class="overview-person-name">${item.real_name}</span>
+                                ${extraInfo.days ? `<span class="overview-person-days-inline">${extraInfo.days}</span>` : ''}
+                            </div>
+                            ${extraInfo.date ? `<span class="overview-person-date">${extraInfo.date}</span>` : ''}
+                            ${extraInfo.time ? `<span class="overview-person-time">${extraInfo.time}</span>` : ''}
+                            ${extraInfo.extra && isCompact ? `<span class="overview-person-extra">${extraInfo.extra}</span>` : ''}
                         </div>
-                    `).join('')
+                    `;
+                    }).join('')
                     : `<div class="overview-empty">暂无人员</div>`;
                 
                 const countClass = category.tone === 'danger'
@@ -655,50 +663,168 @@ async function loadAttendanceOverview() {
     }
 }
 
-function getOverviewExtraText(categoryKey, item) {
+function getOverviewExtraInfo(categoryKey, item) {
     switch (categoryKey) {
         case 'checkedIn':
-            return '';
+            return { date: '', time: '', days: '', extra: '' };
         case 'notChecked':
-            return '';
+            return { date: '', time: '', days: '', extra: '' };
         case 'onLeave':
             if (item.leave_start_date) {
-                return formatLeaveRange(item.leave_start_date, item.leave_end_date, item.leave_days);
+                const dateTimeInfo = formatLeaveDateTime(item.leave_start_date, item.leave_end_date);
+                const days = item.leave_days !== undefined && item.leave_days !== null ? item.leave_days : 1;
+                return {
+                    date: dateTimeInfo.date,
+                    time: dateTimeInfo.time,
+                    days: `${days}天`,
+                    extra: `${dateTimeInfo.date} ${dateTimeInfo.time} 共${days}天` // 保留用于兼容
+                };
             }
-            return item.leave_days ? `${item.leave_days}天` : '请假';
+            const leaveDays = item.leave_days ? `${item.leave_days}天` : '';
+            return { date: '', time: '', days: leaveDays, extra: leaveDays || '请假' };
         case 'onOvertime':
             if (item.overtime_start_time) {
-                return formatOvertimeRange(item.overtime_start_time, item.overtime_end_time, item.overtime_days);
+                const dateTimeInfo = formatOvertimeDateTime(item.overtime_start_time, item.overtime_end_time);
+                const days = item.overtime_days !== undefined && item.overtime_days !== null ? item.overtime_days : 1;
+                return {
+                    date: dateTimeInfo.date,
+                    time: dateTimeInfo.time,
+                    days: `${days}天`,
+                    extra: `${dateTimeInfo.date} ${dateTimeInfo.time} 共${days}天` // 保留用于兼容
+                };
             }
-            return item.overtime_days ? `${item.overtime_days}天` : '加班';
+            const overtimeDays = item.overtime_days ? `${item.overtime_days}天` : '';
+            return { date: '', time: '', days: overtimeDays, extra: overtimeDays || '加班' };
         default:
-            return '';
+            return { date: '', time: '', days: '', extra: '' };
     }
 }
 
-function formatLeaveRange(start, end, leaveDays) {
-    if (!start) return '请假';
-    const startDate = new Date(start);
-    const endDate = end ? new Date(end) : new Date(start);
-    if (isNaN(startDate) || isNaN(endDate)) {
-        if (!end || end === start) {
-            return `${start}`;
+function getOverviewExtraText(categoryKey, item) {
+    // 保留此方法用于向后兼容
+    const info = getOverviewExtraInfo(categoryKey, item);
+    return info.extra;
+}
+
+function formatLeaveDateTime(start, end) {
+    if (!start) return { date: '', time: '' };
+    // 处理时区问题：确保日期字符串格式正确
+    const normalizeDateStr = (dateStr) => {
+        if (!dateStr) return '';
+        // 如果包含 'T'，直接使用；否则添加 'T00:00:00'
+        if (dateStr.includes('T')) {
+            // 移除毫秒部分和时区信息，当作本地时间处理
+            let normalized = dateStr.split('.')[0];
+            // 如果包含时区信息（+08:00 或 Z），移除它
+            if (normalized.includes('+') || normalized.includes('Z')) {
+                normalized = normalized.split('+')[0].split('Z')[0];
+            }
+            return normalized;
         }
-        return `${start} - ${end}`;
+        // 如果不包含 'T'，可能是纯日期格式，添加默认时间
+        return dateStr + 'T00:00:00';
+    };
+    
+    const normalizedStartStr = normalizeDateStr(start);
+    const normalizedEndStr = normalizeDateStr(end || start);
+    
+    // 手动解析日期时间，避免时区转换问题
+    const parseDateTime = (dateStr) => {
+        if (!dateStr) return null;
+        
+        // 格式：YYYY-MM-DDTHH:mm:ss 或 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DD
+        let datePart = '';
+        let timePart = '';
+        
+        if (dateStr.includes('T')) {
+            const parts = dateStr.split('T');
+            datePart = parts[0];
+            timePart = parts[1] || '00:00:00';
+        } else if (dateStr.includes(' ')) {
+            const parts = dateStr.split(' ');
+            datePart = parts[0];
+            timePart = parts[1] || '00:00:00';
+        } else {
+            // 只有日期，没有时间
+            datePart = dateStr;
+            timePart = '00:00:00';
+        }
+        
+        // 移除时区信息
+        if (timePart.includes('+') || timePart.includes('Z')) {
+            timePart = timePart.split('+')[0].split('Z')[0];
+        }
+        // 移除毫秒
+        if (timePart.includes('.')) {
+            timePart = timePart.split('.')[0];
+        }
+        
+        const dateParts = datePart.split('-');
+        const timeParts = timePart.split(':');
+        
+        if (dateParts.length !== 3) return null;
+        if (timeParts.length < 2) return null;
+        
+        return {
+            year: parseInt(dateParts[0]),
+            month: parseInt(dateParts[1]),
+            day: parseInt(dateParts[2]),
+            hours: parseInt(timeParts[0] || '0'),
+            minutes: parseInt(timeParts[1] || '0')
+        };
+    };
+    
+    const startParts = parseDateTime(normalizedStartStr);
+    const endParts = parseDateTime(normalizedEndStr);
+    
+    if (!startParts || !endParts) {
+        return { date: '', time: '' };
     }
     
-    // 使用后端返回的请假天数，而不是计算日期差
-    // 这样可以正确处理0.5天的情况
+    // 使用解析的日期时间部分
+    const startMonth = String(startParts.month).padStart(2, '0');
+    const startDay = String(startParts.day).padStart(2, '0');
+    const startHours = String(startParts.hours).padStart(2, '0');
+    const startMinutes = String(startParts.minutes).padStart(2, '0');
+    
+    const endMonth = String(endParts.month).padStart(2, '0');
+    const endDay = String(endParts.day).padStart(2, '0');
+    const endHours = String(endParts.hours).padStart(2, '0');
+    const endMinutes = String(endParts.minutes).padStart(2, '0');
+    
+    // 判断是否同一天
+    const isSameDay = startParts.year === endParts.year && 
+                      startParts.month === endParts.month && 
+                      startParts.day === endParts.day;
+    
+    let dateText = '';
+    let timeText = '';
+    
+    if (isSameDay) {
+        // 一天以内：第一排显示日期，第二排显示时间
+        dateText = `${startMonth}月${startDay}日`;
+        timeText = `${startHours}:${startMinutes}-${endHours}:${endMinutes}`;
+    } else {
+        // 一天以上：第一排显示起始时间，第二排显示结束时间
+        dateText = `${startMonth}月${startDay}日 ${startHours}:${startMinutes}`;
+        timeText = `${endMonth}月${endDay}日 ${endHours}:${endMinutes}`;
+    }
+    
+    return { date: dateText, time: timeText };
+}
+
+function formatLeaveDate(start, end) {
+    // 保留此方法用于向后兼容
+    const dateTimeInfo = formatLeaveDateTime(start, end);
+    return dateTimeInfo.date ? `${dateTimeInfo.date} ${dateTimeInfo.time}` : '';
+}
+
+function formatLeaveRange(start, end, leaveDays) {
+    // 保留此方法用于向后兼容
+    if (!start) return '请假';
+    const dateInfo = formatLeaveDate(start, end);
     const days = leaveDays !== undefined && leaveDays !== null ? leaveDays : 1;
-    const startText = formatFullDate(startDate);
-    
-    // 如果开始日期和结束日期是同一天，只显示开始日期
-    if (formatFullDate(startDate) === formatFullDate(endDate)) {
-        return `${startText} 共${days}天`;
-    }
-    
-    const endText = formatFullDate(endDate);
-    return `${startText} - ${endText} 共${days}天`;
+    return dateInfo ? `${dateInfo} 共${days}天` : `共${days}天`;
 }
 
 function formatFullDate(date) {
@@ -707,19 +833,125 @@ function formatFullDate(date) {
     return `${month}月${day}日`;
 }
 
+function formatOvertimeDateTime(start, end) {
+    if (!start) return { date: '', time: '' };
+    // 处理时区问题：确保日期字符串格式正确
+    const normalizeDateStr = (dateStr) => {
+        if (!dateStr) return '';
+        // 如果包含 'T'，直接使用；否则添加 'T00:00:00'
+        if (dateStr.includes('T')) {
+            // 移除毫秒部分和时区信息，当作本地时间处理
+            let normalized = dateStr.split('.')[0];
+            // 如果包含时区信息（+08:00 或 Z），移除它
+            if (normalized.includes('+') || normalized.includes('Z')) {
+                normalized = normalized.split('+')[0].split('Z')[0];
+            }
+            return normalized;
+        }
+        // 如果不包含 'T'，可能是纯日期格式，添加默认时间
+        return dateStr + 'T00:00:00';
+    };
+    
+    const normalizedStartStr = normalizeDateStr(start);
+    const normalizedEndStr = normalizeDateStr(end || start);
+    
+    // 手动解析日期时间，避免时区转换问题
+    const parseDateTime = (dateStr) => {
+        if (!dateStr) return null;
+        
+        // 格式：YYYY-MM-DDTHH:mm:ss 或 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DD
+        let datePart = '';
+        let timePart = '';
+        
+        if (dateStr.includes('T')) {
+            const parts = dateStr.split('T');
+            datePart = parts[0];
+            timePart = parts[1] || '00:00:00';
+        } else if (dateStr.includes(' ')) {
+            const parts = dateStr.split(' ');
+            datePart = parts[0];
+            timePart = parts[1] || '00:00:00';
+        } else {
+            // 只有日期，没有时间
+            datePart = dateStr;
+            timePart = '00:00:00';
+        }
+        
+        // 移除时区信息
+        if (timePart.includes('+') || timePart.includes('Z')) {
+            timePart = timePart.split('+')[0].split('Z')[0];
+        }
+        // 移除毫秒
+        if (timePart.includes('.')) {
+            timePart = timePart.split('.')[0];
+        }
+        
+        const dateParts = datePart.split('-');
+        const timeParts = timePart.split(':');
+        
+        if (dateParts.length !== 3) return null;
+        if (timeParts.length < 2) return null;
+        
+        return {
+            year: parseInt(dateParts[0]),
+            month: parseInt(dateParts[1]),
+            day: parseInt(dateParts[2]),
+            hours: parseInt(timeParts[0] || '0'),
+            minutes: parseInt(timeParts[1] || '0')
+        };
+    };
+    
+    const startParts = parseDateTime(normalizedStartStr);
+    const endParts = parseDateTime(normalizedEndStr);
+    
+    if (!startParts || !endParts) {
+        return { date: '', time: '' };
+    }
+    
+    // 使用解析的日期时间部分
+    const startMonth = String(startParts.month).padStart(2, '0');
+    const startDay = String(startParts.day).padStart(2, '0');
+    const startHours = String(startParts.hours).padStart(2, '0');
+    const startMinutes = String(startParts.minutes).padStart(2, '0');
+    
+    const endMonth = String(endParts.month).padStart(2, '0');
+    const endDay = String(endParts.day).padStart(2, '0');
+    const endHours = String(endParts.hours).padStart(2, '0');
+    const endMinutes = String(endParts.minutes).padStart(2, '0');
+    
+    // 判断是否同一天
+    const isSameDay = startParts.year === endParts.year && 
+                      startParts.month === endParts.month && 
+                      startParts.day === endParts.day;
+    
+    let dateText = '';
+    let timeText = '';
+    
+    if (isSameDay) {
+        // 一天以内：第一排显示日期，第二排显示时间
+        dateText = `${startMonth}月${startDay}日`;
+        timeText = `${startHours}:${startMinutes}-${endHours}:${endMinutes}`;
+    } else {
+        // 一天以上：第一排显示起始时间，第二排显示结束时间
+        dateText = `${startMonth}月${startDay}日 ${startHours}:${startMinutes}`;
+        timeText = `${endMonth}月${endDay}日 ${endHours}:${endMinutes}`;
+    }
+    
+    return { date: dateText, time: timeText };
+}
+
+function formatOvertimeDate(start, end) {
+    // 保留此方法用于向后兼容
+    const dateTimeInfo = formatOvertimeDateTime(start, end);
+    return dateTimeInfo.date ? `${dateTimeInfo.date} ${dateTimeInfo.time}` : '';
+}
+
 function formatOvertimeRange(start, end, days) {
-    const startDate = new Date(start);
-    if (isNaN(startDate)) {
-        return days ? `${days}天` : '加班';
-    }
-    if (!end) {
-        return `${formatFullDate(startDate)} 共${days || 1}天`;
-    }
-    const endDate = new Date(end);
-    if (isNaN(endDate) || formatFullDate(startDate) === formatFullDate(endDate)) {
-        return `${formatFullDate(startDate)} 共${days || 1}天`;
-    }
-    return `${formatFullDate(startDate)} - ${formatFullDate(endDate)} 共${days || 1}天`;
+    // 保留此方法用于向后兼容
+    if (!start) return days ? `${days}天` : '加班';
+    const dateInfo = formatOvertimeDate(start, end);
+    const totalDays = days !== undefined && days !== null ? days : 1;
+    return dateInfo ? `${dateInfo} 共${totalDays}天` : `共${totalDays}天`;
 }
 
 // 用户菜单
@@ -3982,5 +4214,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
+
 
 

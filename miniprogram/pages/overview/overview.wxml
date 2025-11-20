@@ -27,8 +27,13 @@
       <view wx:if="{{item.list.length}}" class="person-grid">
         <block wx:for="{{item.list}}" wx:for-item="person" wx:key="user_id">
           <view class="person-card {{person.compact ? 'compact' : ''}}">
-            <text class="name">{{person.name}}</text>
-            <text wx:if="{{person.extra}}" class="status">{{person.extra}}</text>
+            <view class="name-row">
+              <text class="name">{{person.name}}</text>
+              <text wx:if="{{person.days}}" class="days-inline">{{person.days}}</text>
+            </view>
+            <text wx:if="{{person.date}}" class="date">{{person.date}}</text>
+            <text wx:if="{{person.time}}" class="time">{{person.time}}</text>
+            <text wx:if="{{person.extra && person.compact}}" class="status">{{person.extra}}</text>
           </view>
         </block>
       </view>
