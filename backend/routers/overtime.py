@@ -333,7 +333,7 @@ def update_overtime_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """更新加班申请（仅申请人可修改未审批的申请）"""
+    """更新加班申请（申请人可修改未审批的申请，管理员可修改任何状态的申请）"""
     overtime = db.query(OvertimeApplication).filter(OvertimeApplication.id == overtime_id).first()
     if not overtime:
         raise HTTPException(
@@ -341,15 +341,16 @@ def update_overtime_application(
             detail="加班申请不存在"
         )
     
-    # 权限检查：只有申请人可以修改
-    if overtime.user_id != current_user.id:
+    # 权限检查：只有申请人或管理员可以修改
+    is_admin = current_user.role == UserRole.ADMIN
+    if overtime.user_id != current_user.id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只能修改自己的加班申请"
         )
     
-    # 状态检查：只有待审批的申请可以修改
-    if overtime.status != OvertimeStatus.PENDING:
+    # 状态检查：普通用户只能修改待审批的申请，管理员可以修改任何状态的申请
+    if not is_admin and overtime.status != OvertimeStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="只能修改待审批的申请"
@@ -466,7 +467,7 @@ def delete_overtime_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """删除加班申请（仅申请人可删除已取消的申请）"""
+    """删除加班申请（申请人可删除已取消的申请，管理员可删除任何状态的申请）"""
     overtime = db.query(OvertimeApplication).filter(OvertimeApplication.id == overtime_id).first()
     if not overtime:
         raise HTTPException(
@@ -475,14 +476,15 @@ def delete_overtime_application(
         )
     
     # 权限检查：只有申请人或管理员可以删除
-    if overtime.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+    is_admin = current_user.role == UserRole.ADMIN
+    if overtime.user_id != current_user.id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只能删除自己的加班申请"
         )
     
-    # 只能删除已取消的申请
-    if overtime.status != OvertimeStatus.CANCELLED:
+    # 状态检查：普通用户只能删除已取消的申请，管理员可以删除任何状态的申请
+    if not is_admin and overtime.status != OvertimeStatus.CANCELLED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="只能删除已取消的申请"

@@ -842,9 +842,8 @@ async function loadLeaveApplications() {
                     <td>${approvedTime}</td>
                     <td>
                         <button class="btn btn-small btn-primary" onclick="viewLeaveDetail(${leave.id})">详情</button>
-                        ${leave.status === 'cancelled' ? `
-                            <button class="btn btn-small btn-danger" onclick="deleteLeaveApplication(${leave.id})" style="margin-left: 5px;">删除</button>
-                        ` : ''}
+                        <button class="btn btn-small btn-secondary" onclick="editLeaveApplication(${leave.id})" style="margin-left: 5px;">编辑</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteLeaveApplication(${leave.id})" style="margin-left: 5px;">删除</button>
                     </td>
                 </tr>
             `;
@@ -1024,9 +1023,8 @@ async function loadOvertimeApplications() {
                     <td>${approvedTime}</td>
                     <td>
                         <button class="btn btn-small btn-primary" onclick="viewOvertimeDetail(${ot.id})">详情</button>
-                        ${ot.status === 'cancelled' ? `
-                            <button class="btn btn-small btn-danger" onclick="deleteOvertimeApplication(${ot.id})" style="margin-left: 5px;">删除</button>
-                        ` : ''}
+                        <button class="btn btn-small btn-secondary" onclick="editOvertimeApplication(${ot.id})" style="margin-left: 5px;">编辑</button>
+                        <button class="btn btn-small btn-danger" onclick="deleteOvertimeApplication(${ot.id})" style="margin-left: 5px;">删除</button>
                     </td>
                 </tr>
             `;
@@ -3407,6 +3405,138 @@ window.viewLeaveDetail = async function(id) {
     modalContainer.style.display = 'flex';
 }
 
+// 编辑请假申请
+window.editLeaveApplication = async function(id) {
+    try {
+        const leave = await apiRequest(`/leave/${id}`);
+        const leaveTypes = await apiRequest('/leave-types/?include_inactive=true');
+        
+        // 格式化日期时间为datetime-local格式
+        const formatDateTimeLocal = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        };
+        
+        const leaveTypeOptions = leaveTypes.map(type => 
+            `<option value="${type.id}" ${type.id === leave.leave_type_id ? 'selected' : ''}>${type.name}</option>`
+        ).join('');
+        
+        const content = `
+            <form id="edit-leave-form" onsubmit="submitEditLeaveForm(event, ${id})">
+                <div class="form-group">
+                    <label>请假类型 <span style="color: red;">*</span></label>
+                    <select id="edit-leave-type" class="form-input" required>
+                        <option value="">请选择请假类型</option>
+                        ${leaveTypeOptions}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>开始时间 <span style="color: red;">*</span></label>
+                    <input type="datetime-local" id="edit-start-date" class="form-input" value="${formatDateTimeLocal(leave.start_date)}" required>
+                </div>
+                <div class="form-group">
+                    <label>结束时间 <span style="color: red;">*</span></label>
+                    <input type="datetime-local" id="edit-end-date" class="form-input" value="${formatDateTimeLocal(leave.end_date)}" required>
+                </div>
+                <div class="form-group">
+                    <label>请假天数 <span style="color: red;">*</span></label>
+                    <input type="number" id="edit-days" class="form-input" value="${leave.days}" step="0.5" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>请假原因 <span style="color: red;">*</span></label>
+                    <textarea id="edit-reason" class="form-input" rows="4" required>${leave.reason || ''}</textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        `;
+        
+        const modalContainer = document.getElementById('modal-container');
+        modalContainer.innerHTML = `
+            <div class="modal-overlay" onclick="closeModal(event)">
+                <div class="modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3>编辑请假申请</h3>
+                        <button class="modal-close" onclick="closeModal()">×</button>
+                    </div>
+                    <div class="modal-content">
+                        ${content}
+                    </div>
+                </div>
+            </div>
+        `;
+        modalContainer.style.display = 'flex';
+        
+        // 添加日期时间变化监听，自动计算天数
+        const startDateInput = document.getElementById('edit-start-date');
+        const endDateInput = document.getElementById('edit-end-date');
+        const daysInput = document.getElementById('edit-days');
+        
+        function calculateDays() {
+            const start = new Date(startDateInput.value);
+            const end = new Date(endDateInput.value);
+            if (start && end && end >= start) {
+                const diffMs = end - start;
+                const diffDays = diffMs / (1000 * 60 * 60 * 24);
+                daysInput.value = diffDays.toFixed(1);
+            }
+        }
+        
+        startDateInput.addEventListener('change', calculateDays);
+        endDateInput.addEventListener('change', calculateDays);
+    } catch (error) {
+        alert('加载请假申请失败: ' + error.message);
+    }
+}
+
+// 提交编辑请假申请
+window.submitEditLeaveForm = async function(event, leaveId) {
+    event.preventDefault();
+    
+    const leaveTypeId = document.getElementById('edit-leave-type').value;
+    const startDate = document.getElementById('edit-start-date').value;
+    const endDate = document.getElementById('edit-end-date').value;
+    const days = parseFloat(document.getElementById('edit-days').value);
+    const reason = document.getElementById('edit-reason').value.trim();
+    
+    if (!leaveTypeId || !startDate || !endDate || !days || !reason) {
+        alert('请填写所有必填项');
+        return;
+    }
+    
+    if (new Date(endDate) < new Date(startDate)) {
+        alert('结束时间不能早于开始时间');
+        return;
+    }
+    
+    try {
+        await apiRequest(`/leave/${leaveId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                leave_type_id: parseInt(leaveTypeId),
+                start_date: startDate,
+                end_date: endDate,
+                days: days,
+                reason: reason
+            })
+        });
+        
+        alert('编辑成功！');
+        closeModal();
+        loadLeaveApplications();
+    } catch (error) {
+        alert('编辑失败: ' + error.message);
+    }
+}
+
 window.viewOvertimeDetail = async function(id) {
     const overtime = await apiRequest(`/overtime/${id}`);
     const users = await apiRequest('/users/');
@@ -3448,6 +3578,152 @@ window.viewOvertimeDetail = async function(id) {
         </div>
     `;
     modalContainer.style.display = 'flex';
+}
+
+// 编辑加班申请
+window.editOvertimeApplication = async function(id) {
+    try {
+        const overtime = await apiRequest(`/overtime/${id}`);
+        
+        // 格式化日期时间为datetime-local格式
+        const formatDateTimeLocal = (dateStr) => {
+            if (!dateStr) return '';
+            const date = new Date(dateStr);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        };
+        
+        const content = `
+            <form id="edit-overtime-form" onsubmit="submitEditOvertimeForm(event, ${id})">
+                <div class="form-group">
+                    <label>加班类型 <span style="color: red;">*</span></label>
+                    <select id="edit-overtime-type" class="form-input" required>
+                        <option value="active" ${overtime.overtime_type === 'active' ? 'selected' : ''}>主动加班</option>
+                        <option value="passive" ${overtime.overtime_type === 'passive' ? 'selected' : ''}>被动加班</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>开始时间 <span style="color: red;">*</span></label>
+                    <input type="datetime-local" id="edit-start-time" class="form-input" value="${formatDateTimeLocal(overtime.start_time)}" required>
+                </div>
+                <div class="form-group">
+                    <label>结束时间 <span style="color: red;">*</span></label>
+                    <input type="datetime-local" id="edit-end-time" class="form-input" value="${formatDateTimeLocal(overtime.end_time)}" required>
+                </div>
+                <div class="form-group">
+                    <label>加班小时数 <span style="color: red;">*</span></label>
+                    <input type="number" id="edit-hours" class="form-input" value="${overtime.hours}" step="0.5" min="0" required>
+                </div>
+                <div class="form-group">
+                    <label>加班天数 <span style="color: red;">*</span></label>
+                    <input type="number" id="edit-days" class="form-input" value="${overtime.days}" step="0.5" min="0" required>
+                    <small class="form-hint">天数只能是整数或 x.5（如1, 1.5, 2, 2.5）</small>
+                </div>
+                <div class="form-group">
+                    <label>加班原因 <span style="color: red;">*</span></label>
+                    <textarea id="edit-reason" class="form-input" rows="4" required>${overtime.reason || ''}</textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal()">取消</button>
+                    <button type="submit" class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        `;
+        
+        const modalContainer = document.getElementById('modal-container');
+        modalContainer.innerHTML = `
+            <div class="modal-overlay" onclick="closeModal(event)">
+                <div class="modal" onclick="event.stopPropagation()" style="max-width: 600px;">
+                    <div class="modal-header">
+                        <h3>编辑加班申请</h3>
+                        <button class="modal-close" onclick="closeModal()">×</button>
+                    </div>
+                    <div class="modal-content">
+                        ${content}
+                    </div>
+                </div>
+            </div>
+        `;
+        modalContainer.style.display = 'flex';
+        
+        // 添加日期时间变化监听，自动计算小时数和天数
+        const startTimeInput = document.getElementById('edit-start-time');
+        const endTimeInput = document.getElementById('edit-end-time');
+               const hoursInput = document.getElementById('edit-hours');
+        const daysInput = document.getElementById('edit-days');
+        
+        function calculateTime() {
+            const start = new Date(startTimeInput.value);
+            const end = new Date(endTimeInput.value);
+            if (start && end && end >= start) {
+                const diffMs = end - start;
+                const diffHours = diffMs / (1000 * 60 * 60);
+                const diffDays = diffHours / 8; // 按8小时一天计算
+                
+                hoursInput.value = diffHours.toFixed(1);
+                // 天数需要是整数或 x.5
+                const roundedDays = Math.round(diffDays * 2) / 2;
+                daysInput.value = roundedDays.toFixed(1);
+            }
+        }
+        
+        startTimeInput.addEventListener('change', calculateTime);
+        endTimeInput.addEventListener('change', calculateTime);
+    } catch (error) {
+        alert('加载加班申请失败: ' + error.message);
+    }
+}
+
+// 提交编辑加班申请
+window.submitEditOvertimeForm = async function(event, overtimeId) {
+    event.preventDefault();
+    
+    const overtimeType = document.getElementById('edit-overtime-type').value;
+    const startTime = document.getElementById('edit-start-time').value;
+    const endTime = document.getElementById('edit-end-time').value;
+    const hours = parseFloat(document.getElementById('edit-hours').value);
+    const days = parseFloat(document.getElementById('edit-days').value);
+    const reason = document.getElementById('edit-reason').value.trim();
+    
+    if (!overtimeType || !startTime || !endTime || !hours || !days || !reason) {
+        alert('请填写所有必填项');
+        return;
+    }
+    
+    if (new Date(endTime) < new Date(startTime)) {
+        alert('结束时间不能早于开始时间');
+        return;
+    }
+    
+    // 验证天数格式（必须是整数或 x.5）
+    if (days % 0.5 !== 0) {
+        alert('加班天数只能是整数或整数.5（如1, 1.5, 2, 2.5）');
+        return;
+    }
+    
+    try {
+        await apiRequest(`/overtime/${overtimeId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                overtime_type: overtimeType,
+                start_time: startTime,
+                end_time: endTime,
+                hours: hours,
+                days: days,
+                reason: reason
+            })
+        });
+        
+        alert('编辑成功！');
+        closeModal();
+        loadOvertimeApplications();
+    } catch (error) {
+        alert('编辑失败: ' + error.message);
+    }
 }
 
 // ==================== 确认对话框 ====================
@@ -3927,7 +4203,7 @@ async function deleteHoliday(holidayId) {
 
 // 删除请假申请
 async function deleteLeaveApplication(leaveId) {
-    if (!confirm('确定要删除这个已取消的请假申请吗？删除后无法恢复！')) {
+    if (!confirm('确定要删除这个请假申请吗？删除后无法恢复！')) {
         return;
     }
 
@@ -3944,7 +4220,7 @@ async function deleteLeaveApplication(leaveId) {
 
 // 删除加班申请
 async function deleteOvertimeApplication(overtimeId) {
-    if (!confirm('确定要删除这个已取消的加班申请吗？删除后无法恢复！')) {
+    if (!confirm('确定要删除这个加班申请吗？删除后无法恢复！')) {
         return;
     }
 

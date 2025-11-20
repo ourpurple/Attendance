@@ -569,7 +569,7 @@ def update_leave_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """更新请假申请（仅申请人可修改未审批的申请）"""
+    """更新请假申请（申请人可修改未审批的申请，管理员可修改任何状态的申请）"""
     leave = db.query(LeaveApplication).filter(LeaveApplication.id == leave_id).first()
     if not leave:
         raise HTTPException(
@@ -577,15 +577,16 @@ def update_leave_application(
             detail="请假申请不存在"
         )
     
-    # 权限检查：只有申请人可以修改
-    if leave.user_id != current_user.id:
+    # 权限检查：只有申请人或管理员可以修改
+    is_admin = current_user.role == UserRole.ADMIN
+    if leave.user_id != current_user.id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只能修改自己的请假申请"
         )
     
-    # 状态检查：只有待审批的申请可以修改
-    if leave.status != LeaveStatus.PENDING:
+    # 状态检查：普通用户只能修改待审批的申请，管理员可以修改任何状态的申请
+    if not is_admin and leave.status != LeaveStatus.PENDING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="只能修改待审批的申请"
@@ -836,7 +837,7 @@ def delete_leave_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """删除请假申请（仅申请人可删除已取消的申请）"""
+    """删除请假申请（申请人可删除已取消的申请，管理员可删除任何状态的申请）"""
     leave = db.query(LeaveApplication).filter(LeaveApplication.id == leave_id).first()
     if not leave:
         raise HTTPException(
@@ -845,14 +846,15 @@ def delete_leave_application(
         )
     
     # 权限检查：只有申请人或管理员可以删除
-    if leave.user_id != current_user.id and current_user.role != UserRole.ADMIN:
+    is_admin = current_user.role == UserRole.ADMIN
+    if leave.user_id != current_user.id and not is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="只能删除自己的请假申请"
         )
     
-    # 只能删除已取消的申请
-    if leave.status != LeaveStatus.CANCELLED:
+    # 状态检查：普通用户只能删除已取消的申请，管理员可以删除任何状态的申请
+    if not is_admin and leave.status != LeaveStatus.CANCELLED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="只能删除已取消的申请"
