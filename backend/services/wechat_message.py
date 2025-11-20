@@ -241,6 +241,8 @@ def send_approval_result_notification(
     if formatted_date:
         # 转换为字符串
         formatted_date = str(formatted_date).strip()
+        original_date = formatted_date
+        
         # 移除横线
         if "-" in formatted_date:
             formatted_date = formatted_date.replace("-", "")
@@ -249,7 +251,7 @@ def send_approval_result_notification(
         
         # 验证日期格式：必须是8位数字（YYYYMMDD）
         if not formatted_date.isdigit() or len(formatted_date) != 8:
-            logger.error(f"日期格式错误: {approval_date} -> {formatted_date}，应为YYYYMMDD格式（8位数字）")
+            logger.error(f"日期格式错误: 原始值={approval_date}, 处理后={formatted_date}，应为YYYYMMDD格式（8位数字）")
             # 如果格式错误，使用当前日期
             formatted_date = datetime.now().strftime("%Y%m%d")
             logger.warning(f"使用当前日期替代: {formatted_date}")
@@ -258,14 +260,21 @@ def send_approval_result_notification(
         formatted_date = datetime.now().strftime("%Y%m%d")
         logger.warning(f"审批日期为空，使用当前日期: {formatted_date}")
     
-    logger.info(f"发送审批结果通知 - 申请人: {applicant_name}, 审批事项: {application_item}, 结果: {status_text}, 审批人: {approver_name}, 日期: {formatted_date}")
+    # 最终验证日期格式：确保是8位数字（YYYYMMDD）
+    # date类型字段必须严格符合YYYYMMDD格式，不能使用_clip函数
+    final_date = str(formatted_date).strip()
+    if not final_date.isdigit() or len(final_date) != 8:
+        logger.error(f"日期格式验证失败: 原始值={approval_date}, 处理后={final_date}，使用当前日期")
+        final_date = datetime.now().strftime("%Y%m%d")
+    
+    logger.info(f"发送审批结果通知 - 申请人: {applicant_name}, 审批事项: {application_item}, 结果: {status_text}, 审批人: {approver_name}, 日期: {final_date}")
     
     data = {
         "thing14": {"value": _clip(applicant_name)},         # 申请人
         "thing28": {"value": _clip(application_item)},       # 审批事项
         "phrase1": {"value": _clip(status_text)},            # 审批结果
         "name2": {"value": _clip(approver_name)},            # 审批人
-        "date3": {"value": formatted_date}                   # 审批日期（YYYYMMDD格式，8位数字）
+        "date3": {"value": final_date}                       # 审批日期（YYYYMMDD格式，8位数字，不使用_clip）
     }
     
     return send_subscribe_message(
