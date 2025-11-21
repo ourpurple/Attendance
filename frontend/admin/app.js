@@ -2316,60 +2316,120 @@ async function editUser(id) {
     ).join('');
     
     const content = `
-        <div class="form-group">
-            <label>用户名</label>
-            <input type="text" value="${user.username}" class="form-input" disabled>
+        <div class="form-section">
+            <div class="form-section-title">
+                <span class="form-icon">👤</span>
+                <span>基本信息</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">
+                    <span class="label-icon">👤</span>
+                    用户名
+                </label>
+                <input type="text" value="${user.username}" class="form-input" disabled>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">✏️</span>
+                        姓名 <span class="required">*</span>
+                    </label>
+                    <input type="text" id="modal-realname" class="form-input" value="${user.real_name}" required>
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">🔒</span>
+                        新密码（留空则不修改）
+                    </label>
+                    <input type="password" id="modal-password" class="form-input" placeholder="留空则不修改">
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>姓名 *</label>
-            <input type="text" id="modal-realname" class="form-input" value="${user.real_name}" required>
+        
+        <div class="form-section">
+            <div class="form-section-title">
+                <span class="form-icon">📧</span>
+                <span>联系信息</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">📮</span>
+                        邮箱
+                    </label>
+                    <input type="email" id="modal-email" class="form-input" value="${user.email || ''}" placeholder="example@email.com">
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">📱</span>
+                        手机号
+                    </label>
+                    <input type="text" id="modal-phone" class="form-input" value="${user.phone || ''}" placeholder="请输入手机号">
+                </div>
+            </div>
         </div>
-        <div class="form-group">
-            <label>新密码（留空则不修改）</label>
-            <input type="password" id="modal-password" class="form-input">
-        </div>
-        <div class="form-group">
-            <label>邮箱</label>
-            <input type="email" id="modal-email" class="form-input" value="${user.email || ''}">
-        </div>
-        <div class="form-group">
-            <label>手机号</label>
-            <input type="text" id="modal-phone" class="form-input" value="${user.phone || ''}">
-        </div>
-        <div class="form-group">
-            <label>角色 *</label>
-            <select id="modal-role" class="form-input">
-                <option value="employee" ${user.role === 'employee' ? 'selected' : ''}>员工</option>
-                <option value="department_head" ${user.role === 'department_head' ? 'selected' : ''}>部门主任</option>
-                <option value="vice_president" ${user.role === 'vice_president' ? 'selected' : ''}>副总</option>
-                <option value="general_manager" ${user.role === 'general_manager' ? 'selected' : ''}>总经理</option>
-                <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>管理员</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>部门</label>
-            <select id="modal-department" class="form-input">
-                <option value="">无</option>
-                ${deptOptions}
-            </select>
-        </div>
-        <div class="form-group">
-            <label>年假天数</label>
-            <input type="number" id="modal-annual-leave-days" class="form-input" value="${user.annual_leave_days !== undefined ? user.annual_leave_days : 10}" min="0" step="0.5" placeholder="年假天数">
-        </div>
-        <div class="form-group">
-            <label>是否开启考勤管理</label>
-            <select id="modal-enable-attendance" class="form-input">
-                <option value="true" ${user.enable_attendance === false ? '' : 'selected'}>是</option>
-                <option value="false" ${user.enable_attendance === false ? 'selected' : ''}>否</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label>状态</label>
-            <select id="modal-active" class="form-input">
-                <option value="true" ${user.is_active ? 'selected' : ''}>激活</option>
-                <option value="false" ${!user.is_active ? 'selected' : ''}>禁用</option>
-            </select>
+        
+        <div class="form-section">
+            <div class="form-section-title">
+                <span class="form-icon">⚙️</span>
+                <span>权限设置</span>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">🎭</span>
+                        角色 <span class="required">*</span>
+                    </label>
+                    <select id="modal-role" class="form-input">
+                        <option value="employee" ${user.role === 'employee' ? 'selected' : ''}>👨‍💼 员工</option>
+                        <option value="department_head" ${user.role === 'department_head' ? 'selected' : ''}>👔 部门主任</option>
+                        <option value="vice_president" ${user.role === 'vice_president' ? 'selected' : ''}>👨‍💼 副总</option>
+                        <option value="general_manager" ${user.role === 'general_manager' ? 'selected' : ''}>👑 总经理</option>
+                        <option value="admin" ${user.role === 'admin' ? 'selected' : ''}>🔧 管理员</option>
+                    </select>
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">🏢</span>
+                        部门
+                    </label>
+                    <select id="modal-department" class="form-input">
+                        <option value="">无部门</option>
+                        ${deptOptions}
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">📅</span>
+                        年假天数
+                    </label>
+                    <input type="number" id="modal-annual-leave-days" class="form-input" value="${user.annual_leave_days !== undefined ? user.annual_leave_days : 10}" min="0" step="0.5" placeholder="默认10天">
+                </div>
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">⏱️</span>
+                        是否开启考勤管理
+                    </label>
+                    <select id="modal-enable-attendance" class="form-input">
+                        <option value="true" ${user.enable_attendance === false ? '' : 'selected'}>是</option>
+                        <option value="false" ${user.enable_attendance === false ? 'selected' : ''}>否</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group form-group-half">
+                    <label class="form-label">
+                        <span class="label-icon">🔘</span>
+                        状态
+                    </label>
+                    <select id="modal-active" class="form-input">
+                        <option value="true" ${user.is_active ? 'selected' : ''}>激活</option>
+                        <option value="false" ${!user.is_active ? 'selected' : ''}>禁用</option>
+                    </select>
+                </div>
+            </div>
         </div>
     `;
     
@@ -2385,7 +2445,7 @@ async function editUser(id) {
         const enableAttendance = document.getElementById('modal-enable-attendance').value === 'true';
         
         if (!realname) {
-            alert('请填写姓名');
+            showToast('请填写姓名', 'warning');
             return;
         }
         
@@ -2414,23 +2474,31 @@ async function editUser(id) {
             });
             
             closeModal();
-            alert('更新成功');
+            showToast('更新成功', 'success');
             loadUsers();
         } catch (error) {
-            alert('更新失败: ' + error.message);
+            showToast('更新失败: ' + error.message, 'error');
         }
     });
 }
 
 function deleteUser(id) {
-    if (confirm('确定要删除该用户吗？')) {
-        apiRequest(`/users/${id}`, { method: 'DELETE' })
-            .then(() => {
-                alert('删除成功');
-                loadUsers();
-            })
-            .catch(error => alert('删除失败: ' + error.message));
-    }
+    showConfirmDialog(
+        '确定要删除该用户吗？删除后无法恢复！',
+        () => {
+            apiRequest(`/users/${id}`, { method: 'DELETE' })
+                .then(() => {
+                    showToast('删除成功', 'success');
+                    loadUsers();
+                })
+                .catch(error => showToast('删除失败: ' + error.message, 'error'));
+        },
+        null,
+        '确认删除',
+        '确定删除',
+        '取消',
+        'danger'
+    );
 }
 
 // ==================== 部门管理 ====================
@@ -4129,6 +4197,11 @@ async function loadHolidays() {
             });
         }
         
+        // 按ID数字排序（而不是字符串排序）
+        filteredHolidays.sort((a, b) => {
+            return parseInt(a.id) - parseInt(b.id);
+        });
+        
         const tbody = document.getElementById('holidays-table-body');
         
         if (filteredHolidays.length === 0) {
@@ -4148,7 +4221,7 @@ async function loadHolidays() {
                 <td>${holiday.date}</td>
                 <td>${holiday.name}</td>
                 <td>
-                    <span class="badge badge-${holiday.type === 'holiday' || holiday.type === 'company_holiday' ? 'danger' : 'success'}">
+                    <span class="badge badge-${holiday.type === 'holiday' || holiday.type === 'company_holiday' ? 'success' : 'danger'}">
                         ${holiday.type === 'holiday' ? '休息日（法定节假日）' : holiday.type === 'company_holiday' ? '休息日（公司节假日）' : '调休工作日'}
                     </span>
                 </td>
@@ -4384,7 +4457,6 @@ async function submitEditHolidayForm(event, holidayId) {
 // 删除节假日
 async function deleteHoliday(holidayId) {
     showConfirmDialog(
-        '删除节假日',
         '确定要删除这个节假日配置吗？删除后无法恢复。',
         async () => {
             try {
@@ -4396,7 +4468,12 @@ async function deleteHoliday(holidayId) {
             } catch (error) {
                 showToast('删除失败: ' + error.message, 'error');
             }
-        }
+        },
+        null,
+        '确认删除',
+        '确定删除',
+        '取消',
+        'danger'
     );
 }
 

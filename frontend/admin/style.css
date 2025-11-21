@@ -1308,4 +1308,76 @@ tr:hover {
     color: white;
 }
 
+/* 节假日配置页面样式优化 */
+.section-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+/* 美化的年份选择下拉框 */
+.holiday-year-select {
+    padding: 10px 40px 10px 16px;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    min-width: 140px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.holiday-year-select:hover {
+    border-color: var(--primary-color);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.holiday-year-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.holiday-year-select option {
+    padding: 10px;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+/* 减小节假日表格行高 */
+#holidays-table tbody tr {
+    height: auto;
+}
+
+#holidays-table th,
+#holidays-table td {
+    padding: 8px 12px;
+}
+
+#holidays-table tbody tr:hover {
+    background: var(--bg-secondary);
+}
+
+/* 更小的按钮样式 */
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    border-radius: 6px;
+    min-width: auto;
+}
+
+.btn-sm:hover {
+    transform: translateY(-1px);
+}
+
 

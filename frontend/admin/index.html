@@ -491,13 +491,13 @@
                 <div id="holidays-content" class="content-section">
                     <div class="section-header">
                         <h2>节假日配置</h2>
-                        <button class="btn btn-primary" onclick="showAddHolidayModal()">添加节假日</button>
-                    </div>
-                    <div class="filters" style="margin-bottom: 20px;">
-                        <select id="holiday-year-filter" onchange="loadHolidays()">
-                            <option value="">全部年份</option>
-                            <!-- 年份选项将通过JavaScript动态生成 -->
-                        </select>
+                        <div class="section-header-actions">
+                            <select id="holiday-year-filter" class="holiday-year-select" onchange="loadHolidays()">
+                                <option value="">全部年份</option>
+                                <!-- 年份选项将通过JavaScript动态生成 -->
+                            </select>
+                            <button class="btn btn-primary" onclick="showAddHolidayModal()">添加节假日</button>
+                        </div>
                     </div>
                     <div class="table-container">
                         <table id="holidays-table">
