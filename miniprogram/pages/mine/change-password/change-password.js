@@ -23,6 +23,16 @@ Page({
     this.setData({ confirmPassword: e.detail.value });
   },
 
+  // 输入框获得焦点
+  onInputFocus(e) {
+    // 可以添加焦点时的处理逻辑
+  },
+
+  // 输入框失去焦点
+  onInputBlur(e) {
+    // 可以添加失焦时的处理逻辑
+  },
+
   // 提交修改
   async submitForm() {
     const { oldPassword, newPassword, confirmPassword } = this.data;
