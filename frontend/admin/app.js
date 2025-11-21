@@ -574,6 +574,112 @@ function getMonthDateRange(monthStr) {
     };
 }
 
+// 分页状态管理
+const paginationState = {
+    attendance: { currentPage: 1, pageSize: 30, totalItems: 0, allData: [], userMap: {} },
+    leave: { currentPage: 1, pageSize: 30, totalItems: 0, allData: [], userMap: {} },
+    overtime: { currentPage: 1, pageSize: 30, totalItems: 0, allData: [], userMap: {} }
+};
+
+// 渲染分页控件
+function renderPagination(type, containerId) {
+    const state = paginationState[type];
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    // 如果选择不分页，隐藏分页控件
+    if (state.pageSize === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    const totalPages = Math.ceil(state.totalItems / state.pageSize);
+    
+    if (totalPages <= 1) {
+        container.innerHTML = `<span style="color: #666; font-size: 14px;">共 ${state.totalItems} 条记录</span>`;
+        return;
+    }
+    
+    let html = `<span style="color: #666; font-size: 14px; margin-right: 12px;">共 ${state.totalItems} 条记录，第 ${state.currentPage}/${totalPages} 页</span>`;
+    
+    // 上一页按钮
+    html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
+    
+    // 页码按钮（显示当前页前后各2页）
+    const startPage = Math.max(1, state.currentPage - 2);
+    const endPage = Math.min(totalPages, state.currentPage + 2);
+    
+    if (startPage > 1) {
+        html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', 1)">1</button>`;
+        if (startPage > 2) {
+            html += `<span style="padding: 0 8px;">...</span>`;
+        }
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
+        html += `<button class="btn btn-small ${i === state.currentPage ? 'btn-primary' : 'btn-secondary'}" onclick="goToPage('${type}', ${i})">${i}</button>`;
+    }
+    
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<span style="padding: 0 8px;">...</span>`;
+        }
+        html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', ${totalPages})">${totalPages}</button>`;
+    }
+    
+    // 下一页按钮
+    html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', ${state.currentPage + 1})" ${state.currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
+    
+    container.innerHTML = html;
+}
+
+// 跳转到指定页
+function goToPage(type, page) {
+    const state = paginationState[type];
+    const totalPages = Math.ceil(state.totalItems / state.pageSize);
+    
+    if (page < 1 || page > totalPages) return;
+    
+    state.currentPage = page;
+    
+    // 根据类型调用对应的渲染函数
+    switch(type) {
+        case 'attendance':
+            renderAttendanceTable();
+            break;
+        case 'leave':
+            renderLeaveTable();
+            break;
+        case 'overtime':
+            renderOvertimeTable();
+            break;
+    }
+    
+    renderPagination(type, `${type}-pagination`);
+}
+
+// 重置分页
+function resetAttendancePagination() {
+    const pageSize = parseInt(document.getElementById('attendance-page-size').value) || 0;
+    paginationState.attendance.pageSize = pageSize;
+    paginationState.attendance.currentPage = 1;
+    loadAttendanceRecords();
+}
+
+function resetLeavePagination() {
+    const pageSize = parseInt(document.getElementById('leave-page-size').value) || 0;
+    paginationState.leave.pageSize = pageSize;
+    paginationState.leave.currentPage = 1;
+    loadLeaveApplications();
+}
+
+function resetOvertimePagination() {
+    const pageSize = parseInt(document.getElementById('overtime-page-size').value) || 0;
+    paginationState.overtime.pageSize = pageSize;
+    paginationState.overtime.currentPage = 1;
+    loadOvertimeApplications();
+}
+
 // 加载考勤记录
 async function loadAttendanceRecords() {
     const queryType = document.querySelector('input[name="attendance-query-type"]:checked').value;
@@ -609,8 +715,8 @@ async function loadAttendanceRecords() {
     }
 
     try {
-        // 构建API请求URL
-        let url = `/attendance/?start_date=${startDate}&end_date=${endDate}`;
+        // 构建API请求URL，获取所有数据（使用大limit）
+        let url = `/attendance/?start_date=${startDate}&end_date=${endDate}&limit=10000`;
         if (userId) {
             url += `&user_id=${userId}`;
         }
@@ -620,33 +726,17 @@ async function loadAttendanceRecords() {
         const userMap = {};
         users.forEach(u => userMap[u.id] = u.real_name);
 
-        const tbody = document.getElementById('attendance-tbody');
-        tbody.innerHTML = attendances.map(att => {
-            // 判断位置是否为坐标格式
-            const checkinLoc = att.checkin_location || '-';
-            const checkoutLoc = att.checkout_location || '-';
-            const isCheckinCoord = checkinLoc !== '-' && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(checkinLoc);
-            const isCheckoutCoord = checkoutLoc !== '-' && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(checkoutLoc);
-            
-            return `
-            <tr>
-                <td>${formatDate(att.date)}</td>
-                <td>${userMap[att.user_id]}</td>
-                <td>${att.checkin_time ? formatTime(att.checkin_time) : '-'}</td>
-                <td>${formatCheckinStatus(att.checkin_status)}</td>
-                <td style="max-width: 200px; word-break: break-all; font-size: 0.9em; color: ${isCheckinCoord ? '#999' : '#666'};" data-location="${checkinLoc}">
-                    ${checkinLoc}
-                </td>
-                <td>${att.checkout_time ? formatTime(att.checkout_time) : '-'}</td>
-                <td style="max-width: 200px; word-break: break-all; font-size: 0.9em; color: ${isCheckoutCoord ? '#999' : '#666'};" data-location="${checkoutLoc}">
-                    ${checkoutLoc}
-                </td>
-                <td>${att.work_hours ? att.work_hours.toFixed(1) + 'h' : '-'}</td>
-                <td>${att.is_late ? '<span style="color: #FF3B30; font-weight: 500;">是</span>' : '否'}</td>
-                <td>${att.is_early_leave ? '<span style="color: #FF3B30; font-weight: 500;">是</span>' : '否'}</td>
-            </tr>
-        `;
-        }).join('');
+        // 保存所有数据到分页状态
+        paginationState.attendance.allData = attendances;
+        paginationState.attendance.totalItems = attendances.length;
+        paginationState.attendance.currentPage = 1;
+        paginationState.attendance.userMap = userMap; // 保存用户映射
+        
+        // 渲染表格
+        renderAttendanceTable();
+        
+        // 渲染分页控件
+        renderPagination('attendance', 'attendance-pagination');
         
         // 异步加载地址信息（不阻塞主流程）
         loadAddressesAsync(attendances).catch(err => {
@@ -655,6 +745,48 @@ async function loadAttendanceRecords() {
     } catch (error) {
         console.error('加载考勤记录失败:', error);
     }
+}
+
+// 渲染考勤记录表格（分页）
+function renderAttendanceTable() {
+    const state = paginationState.attendance;
+    const userMap = state.userMap || {};
+    
+    // 获取当前页数据
+    let displayData = state.allData;
+    if (state.pageSize > 0) {
+        const start = (state.currentPage - 1) * state.pageSize;
+        const end = start + state.pageSize;
+        displayData = state.allData.slice(start, end);
+    }
+    
+    const tbody = document.getElementById('attendance-tbody');
+    tbody.innerHTML = displayData.map(att => {
+        // 判断位置是否为坐标格式
+        const checkinLoc = att.checkin_location || '-';
+        const checkoutLoc = att.checkout_location || '-';
+        const isCheckinCoord = checkinLoc !== '-' && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(checkinLoc);
+        const isCheckoutCoord = checkoutLoc !== '-' && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(checkoutLoc);
+        
+        return `
+        <tr>
+            <td>${formatDate(att.date)}</td>
+            <td>${userMap[att.user_id] || '-'}</td>
+            <td>${att.checkin_time ? formatTime(att.checkin_time) : '-'}</td>
+            <td>${formatCheckinStatus(att.checkin_status)}</td>
+            <td style="max-width: 200px; word-break: break-all; font-size: 0.75em; line-height: 1.3; color: ${isCheckinCoord ? '#999' : '#666'};" data-location="${checkinLoc}">
+                ${checkinLoc}
+            </td>
+            <td>${att.checkout_time ? formatTime(att.checkout_time) : '-'}</td>
+            <td style="max-width: 200px; word-break: break-all; font-size: 0.75em; line-height: 1.3; color: ${isCheckoutCoord ? '#999' : '#666'};" data-location="${checkoutLoc}">
+                ${checkoutLoc}
+            </td>
+            <td>${att.work_hours ? att.work_hours.toFixed(1) + 'h' : '-'}</td>
+            <td>${att.is_late ? '<span style="color: #FF3B30; font-weight: 500;">是</span>' : '否'}</td>
+            <td>${att.is_early_leave ? '<span style="color: #FF3B30; font-weight: 500;">是</span>' : '否'}</td>
+        </tr>
+    `;
+    }).join('');
 }
 
 // 切换请假管理查询类型
@@ -772,8 +904,8 @@ async function loadLeaveApplications() {
     }
     
     try {
-        // 构建API请求URL
-        let url = `/leave/?start_date=${startDate}&end_date=${endDate}`;
+        // 构建API请求URL，获取所有数据（使用大limit）
+        let url = `/leave/?start_date=${startDate}&end_date=${endDate}&limit=10000`;
         if (userId) {
             url += `&user_id=${userId}`;
         }
@@ -783,8 +915,37 @@ async function loadLeaveApplications() {
         const userMap = {};
         users.forEach(u => userMap[u.id] = u.real_name);
 
-        const tbody = document.getElementById('leave-tbody');
-        tbody.innerHTML = leaves.map(leave => {
+        // 保存所有数据到分页状态
+        paginationState.leave.allData = leaves;
+        paginationState.leave.totalItems = leaves.length;
+        paginationState.leave.currentPage = 1;
+        paginationState.leave.userMap = userMap; // 保存用户映射
+        
+        // 渲染表格
+        renderLeaveTable();
+        
+        // 渲染分页控件
+        renderPagination('leave', 'leave-pagination');
+    } catch (error) {
+        console.error('加载请假申请失败:', error);
+    }
+}
+
+// 渲染请假记录表格（分页）
+function renderLeaveTable() {
+    const state = paginationState.leave;
+    const userMap = state.userMap || {};
+    
+    // 获取当前页数据
+    let displayData = state.allData;
+    if (state.pageSize > 0) {
+        const start = (state.currentPage - 1) * state.pageSize;
+        const end = start + state.pageSize;
+        displayData = state.allData.slice(start, end);
+    }
+    
+    const tbody = document.getElementById('leave-tbody');
+    tbody.innerHTML = displayData.map(leave => {
             // 获取最后审批人信息
             let approverName = '-';
             let approvedTime = '-';
@@ -869,9 +1030,6 @@ async function loadLeaveApplications() {
                 </tr>
             `;
         }).join('');
-    } catch (error) {
-        console.error('加载请假申请失败:', error);
-    }
 }
 
 // 切换加班管理查询类型
@@ -989,8 +1147,8 @@ async function loadOvertimeApplications() {
     }
     
     try {
-        // 构建API请求URL
-        let url = `/overtime/?start_date=${startDate}&end_date=${endDate}`;
+        // 构建API请求URL，获取所有数据（使用大limit）
+        let url = `/overtime/?start_date=${startDate}&end_date=${endDate}&limit=10000`;
         if (userId) {
             url += `&user_id=${userId}`;
         }
@@ -1000,8 +1158,37 @@ async function loadOvertimeApplications() {
         const userMap = {};
         users.forEach(u => userMap[u.id] = u.real_name);
 
-        const tbody = document.getElementById('overtime-tbody');
-        tbody.innerHTML = overtimes.map(ot => {
+        // 保存所有数据到分页状态
+        paginationState.overtime.allData = overtimes;
+        paginationState.overtime.totalItems = overtimes.length;
+        paginationState.overtime.currentPage = 1;
+        paginationState.overtime.userMap = userMap; // 保存用户映射
+        
+        // 渲染表格
+        renderOvertimeTable();
+        
+        // 渲染分页控件
+        renderPagination('overtime', 'overtime-pagination');
+    } catch (error) {
+        console.error('加载加班申请失败:', error);
+    }
+}
+
+// 渲染加班记录表格（分页）
+function renderOvertimeTable() {
+    const state = paginationState.overtime;
+    const userMap = state.userMap || {};
+    
+    // 获取当前页数据
+    let displayData = state.allData;
+    if (state.pageSize > 0) {
+        const start = (state.currentPage - 1) * state.pageSize;
+        const end = start + state.pageSize;
+        displayData = state.allData.slice(start, end);
+    }
+    
+    const tbody = document.getElementById('overtime-tbody');
+    tbody.innerHTML = displayData.map(ot => {
             // 获取审批人信息
             let approverName = '-';
             let approvedTime = '-';
@@ -1050,9 +1237,6 @@ async function loadOvertimeApplications() {
                 </tr>
             `;
         }).join('');
-    } catch (error) {
-        console.error('加载加班申请失败:', error);
-    }
 }
 
 // 加载打卡策略

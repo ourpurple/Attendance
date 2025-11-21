@@ -32,6 +32,7 @@
 
         <!-- 主界面 -->
         <div id="main-page" class="page">
+            <div class="main-layout">
             <!-- 侧边栏 -->
             <aside class="sidebar">
                 <div class="sidebar-header">
@@ -105,10 +106,6 @@
                             <button id="change-password-btn" class="dropdown-item">修改密码</button>
                             <button id="logout-btn" class="dropdown-item">退出登录</button>
                         </div>
-                    </div>
-                    <div class="copyright">
-                        <p>&copy; 2025 河南新盟科教有限公司</p>
-                        <p>All Rights Reserved</p>
                     </div>
                 </div>
             </aside>
@@ -312,6 +309,20 @@
                             </div>
                         </div>
                     </div>
+                    <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; margin-bottom: 16px; padding: 0 4px;">
+                        <div id="attendance-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                                每页显示：
+                                <select id="attendance-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetAttendancePagination()">
+                                    <option value="30">30条</option>
+                                    <option value="50">50条</option>
+                                    <option value="100">100条</option>
+                                    <option value="0">不分页</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
                     <div class="table-container">
                         <table id="attendance-table">
                             <thead>
@@ -366,6 +377,20 @@
                             </div>
                         </div>
                     </div>
+                    <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; margin-bottom: 16px; padding: 0 4px;">
+                        <div id="leave-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                                每页显示：
+                                <select id="leave-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetLeavePagination()">
+                                    <option value="30">30条</option>
+                                    <option value="50">50条</option>
+                                    <option value="100">100条</option>
+                                    <option value="0">不分页</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
                     <div class="table-container">
                         <table id="leave-table">
                             <thead>
@@ -418,6 +443,20 @@
                                 </select>
                                 <button class="btn btn-primary" onclick="loadOvertimeApplications()">查询</button>
                             </div>
+                        </div>
+                    </div>
+                    <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; margin-bottom: 16px; padding: 0 4px;">
+                        <div id="overtime-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                                每页显示：
+                                <select id="overtime-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetOvertimePagination()">
+                                    <option value="30">30条</option>
+                                    <option value="50">50条</option>
+                                    <option value="100">100条</option>
+                                    <option value="0">不分页</option>
+                                </select>
+                            </label>
                         </div>
                     </div>
                     <div class="table-container">
@@ -646,6 +685,14 @@
                     </div>
                 </div>
             </main>
+            </div>
+            
+            <!-- 页面底部版权声明 -->
+            <footer class="page-footer">
+                <div class="copyright">
+                    <p>&copy; 2025 河南新盟科教有限公司 All Rights Reserved</p>
+                </div>
+            </footer>
         </div>
     </div>
 
