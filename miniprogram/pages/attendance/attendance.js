@@ -83,11 +83,24 @@ Page({
       // 确保 data 是数组
       const safeData = Array.isArray(data) ? data : [];
       
+      // 格式化打卡状态
+      const formatCheckinStatus = (status) => {
+        if (!status || status === 'normal') {
+          return { text: '正常打卡', class: 'checkin-status-normal' };
+        } else if (status === 'city_business') {
+          return { text: '市区办事', class: 'checkin-status-business' };
+        } else if (status === 'business_trip') {
+          return { text: '出差', class: 'checkin-status-business' };
+        }
+        return { text: '', class: '' };
+      };
+      
       const attendanceList = safeData.map(att => {
         // 确保 att 不是 null
         if (!att || typeof att !== 'object') {
           return null;
         }
+        const statusInfo = formatCheckinStatus(att.checkin_status);
         return {
           id: att.id,
           date: formatDate(att.date),
@@ -97,7 +110,9 @@ Page({
           isLate: att.is_late,
           isEarlyLeave: att.is_early_leave,
           checkinLocation: att.checkin_location || null,
-          checkoutLocation: att.checkout_location || null
+          checkoutLocation: att.checkout_location || null,
+          checkinStatusText: att.checkin_time ? statusInfo.text : '',
+          checkinStatusClass: att.checkin_time ? statusInfo.class : ''
         };
       }).filter(item => item !== null);
 

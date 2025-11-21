@@ -592,6 +592,32 @@ button:disabled {
     color: var(--text-secondary);
 }
 
+.attendance-time {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.checkin-status-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.checkin-status-normal {
+    background: #34C759;
+    color: #ffffff;
+}
+
+.checkin-status-business {
+    background: #007AFF;
+    color: #ffffff;
+}
+
 .attendance-info {
     display: flex;
     flex-direction: column;

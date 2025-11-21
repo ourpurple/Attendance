@@ -801,6 +801,26 @@ tr:hover {
     color: var(--danger-color);
 }
 
+/* 打卡状态徽章 */
+.checkin-status-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.checkin-status-normal {
+    background: #34C759;
+    color: #ffffff;
+}
+
+.checkin-status-business {
+    background: #007AFF;
+    color: #ffffff;
+}
+
 /* 操作按钮组 */
 .action-buttons {
     display: flex;

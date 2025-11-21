@@ -1932,13 +1932,13 @@ function formatTime(dateStr) {
 // 格式化打卡状态
 function formatCheckinStatus(status) {
     if (!status || status === 'normal') {
-        return '正常打卡';
+        return '<span class="checkin-status-badge checkin-status-normal">正常打卡</span>';
     } else if (status === 'city_business') {
-        return '<span style="color: #007AFF;">市区办事</span>';
+        return '<span class="checkin-status-badge checkin-status-business">市区办事</span>';
     } else if (status === 'business_trip') {
-        return '<span style="color: #007AFF;">出差</span>';
+        return '<span class="checkin-status-badge checkin-status-business">出差</span>';
     } else {
-        return status;
+        return `<span class="checkin-status-badge checkin-status-normal">${status}</span>`;
     }
 }
 

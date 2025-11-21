@@ -17,12 +17,39 @@
   font-size: 32rpx;
 }
 
+.list-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+
 .attendance-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16rpx;
   font-size: 28rpx;
+  gap: 16rpx;
+}
+
+.checkin-status-badge {
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  font-size: 20rpx;
+  font-weight: 600;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+.checkin-status-normal {
+  background: #34C759;
+  color: #ffffff;
+}
+
+.checkin-status-business {
+  background: #007AFF;
+  color: #ffffff;
 }
 
 .attendance-location {

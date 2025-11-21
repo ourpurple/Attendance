@@ -20,6 +20,7 @@
       <view class="list-item-content">
         <view class="attendance-row">
           <text>上班: {{item.checkinTime || '-'}}</text>
+          <view class="checkin-status-badge {{item.checkinStatusClass}}" wx:if="{{item.checkinStatusText}}">{{item.checkinStatusText}}</view>
           <text class="status-badge status-warning" wx:if="{{item.isLate}}">迟到</text>
         </view>
         <view class="attendance-location" wx:if="{{item.checkinLocation}}">

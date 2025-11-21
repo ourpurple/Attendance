@@ -1115,8 +1115,21 @@ Page({
         })
         .slice(0, 3); // 只取最新的3条
       
+      // 格式化打卡状态
+      const formatCheckinStatus = (status) => {
+        if (!status || status === 'normal') {
+          return { text: '正常打卡', class: 'checkin-status-normal' };
+        } else if (status === 'city_business') {
+          return { text: '市区办事', class: 'checkin-status-business' };
+        } else if (status === 'business_trip') {
+          return { text: '出差', class: 'checkin-status-business' };
+        }
+        return { text: '', class: '' };
+      };
+
       const recentAttendance = sortedData.map(att => {
         const date = new Date(att.date);
+        const statusInfo = formatCheckinStatus(att.checkin_status);
         return {
           id: att.id,
           day: date.getDate(),
@@ -1126,7 +1139,9 @@ Page({
           isLate: att.is_late,
           isEarlyLeave: att.is_early_leave,
           checkinLocation: att.checkin_location || null,
-          checkoutLocation: att.checkout_location || null
+          checkoutLocation: att.checkout_location || null,
+          checkinStatusText: att.checkin_time ? statusInfo.text : '',
+          checkinStatusClass: att.checkin_time ? statusInfo.class : ''
         };
       });
 

@@ -2124,8 +2124,24 @@ async function loadRecentAttendance() {
             return;
         }
 
+        // 格式化打卡状态
+        const formatCheckinStatus = (status) => {
+            if (!status || status === 'normal') {
+                return { text: '正常打卡', class: 'checkin-status-normal' };
+            } else if (status === 'city_business') {
+                return { text: '市区办事', class: 'checkin-status-business' };
+            } else if (status === 'business_trip') {
+                return { text: '出差', class: 'checkin-status-business' };
+            }
+            return { text: '', class: '' };
+        };
+
         container.innerHTML = attendances.map(att => {
             const date = new Date(att.date);
+            const statusInfo = formatCheckinStatus(att.checkin_status);
+            const statusBadge = att.checkin_time && statusInfo.text 
+                ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>` 
+                : '';
             return `
                 <div class="attendance-item">
                     <div class="attendance-date">
@@ -2136,6 +2152,7 @@ async function loadRecentAttendance() {
                         <div class="attendance-time">
                             <span>上班:</span>
                             <strong>${att.checkin_time ? formatTime(att.checkin_time) : '-'}</strong>
+                            ${statusBadge}
                             ${att.is_late ? '<span class="status-badge status-warning">迟到</span>' : ''}
                         </div>
                         ${att.checkin_location ? `<div class="attendance-location"><span>📍 ${att.checkin_location}</span></div>` : ''}
@@ -2254,16 +2271,36 @@ async function loadAttendanceByMonth() {
             return;
         }
 
-        container.innerHTML = attendances.map(att => `
+        // 格式化打卡状态
+        const formatCheckinStatus = (status) => {
+            if (!status || status === 'normal') {
+                return { text: '正常打卡', class: 'checkin-status-normal' };
+            } else if (status === 'city_business') {
+                return { text: '市区办事', class: 'checkin-status-business' };
+            } else if (status === 'business_trip') {
+                return { text: '出差', class: 'checkin-status-business' };
+            }
+            return { text: '', class: '' };
+        };
+
+        container.innerHTML = attendances.map(att => {
+            const statusInfo = formatCheckinStatus(att.checkin_status);
+            const statusBadge = att.checkin_time && statusInfo.text 
+                ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>` 
+                : '';
+            return `
             <div class="list-item">
                 <div class="list-item-header">
                     <span class="list-item-title">${formatDate(att.date)}</span>
                     ${att.work_hours ? `<span>${att.work_hours.toFixed(1)}小时</span>` : ''}
                 </div>
                 <div class="list-item-content">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px;">
                         <span>上班: ${att.checkin_time ? formatTime(att.checkin_time) : '-'}</span>
-                        ${att.is_late ? '<span class="status-badge status-warning">迟到</span>' : ''}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            ${statusBadge}
+                            ${att.is_late ? '<span class="status-badge status-warning">迟到</span>' : ''}
+                        </div>
                     </div>
                     ${att.checkin_location ? `<div class="attendance-location" style="margin-bottom: 8px; color: #666; font-size: 0.9em;"><span>📍 ${att.checkin_location}</span></div>` : ''}
                     <div style="display: flex; justify-content: space-between;">
@@ -2273,7 +2310,8 @@ async function loadAttendanceByMonth() {
                     ${att.checkout_location ? `<div class="attendance-location" style="margin-top: 8px; color: #666; font-size: 0.9em;"><span>📍 ${att.checkout_location}</span></div>` : ''}
                 </div>
             </div>
-        `).join('');
+        `;
+        }).join('');
     } catch (error) {
         console.error('加载考勤记录失败:', error);
     }
