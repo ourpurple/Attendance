@@ -60,6 +60,16 @@ Page({
         safeStats.overtime_days_display = '0';
       }
       
+      // 处理工作时长字段
+      if (safeStats.work_hours !== undefined && safeStats.work_hours !== null) {
+        safeStats.work_hours = parseFloat(safeStats.work_hours) || 0;
+        // 格式化：显示一位小数
+        safeStats.work_hours_display = safeStats.work_hours.toFixed(1);
+      } else {
+        safeStats.work_hours = 0;
+        safeStats.work_hours_display = '0.0';
+      }
+      
       this.setData({ stats: safeStats });
     } catch (error) {
       wx.showToast({

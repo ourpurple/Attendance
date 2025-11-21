@@ -17,7 +17,7 @@
       <view class="stat-label">出勤天数</view>
     </view>
     <view class="stat-card">
-      <view class="stat-value">{{stats.work_hours ? stats.work_hours.toFixed(1) : '0.0'}}</view>
+      <view class="stat-value">{{stats.work_hours_display || '0.0'}}</view>
       <view class="stat-label">工作时长(h)</view>
     </view>
     <view class="stat-card">

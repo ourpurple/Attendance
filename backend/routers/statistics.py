@@ -371,7 +371,7 @@ def get_my_statistics(
     overtime_days = active_overtime_days + passive_overtime_days
     overtime_count = active_overtime_count + passive_overtime_count
     
-    work_hours = sum(a.work_hours for a in attendances if a.work_hours is not None)
+    work_hours = sum(a.work_hours for a in attendances if a.work_hours is not None) or 0.0
     absence_days = total_days - present_days - int(leave_days)
     
     return AttendanceStatistics(
