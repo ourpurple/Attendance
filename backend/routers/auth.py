@@ -81,7 +81,7 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
             if existing_user and existing_user.id != user.id:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="该微信账号已被其他用户绑定"
+                    detail=f"该微信账号已被用户「{existing_user.real_name}({existing_user.username})」绑定，请联系管理员清理绑定关系"
                 )
             
             # 绑定openid到当前用户

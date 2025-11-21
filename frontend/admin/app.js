@@ -325,7 +325,13 @@ async function loadUsers() {
                     ${user.enable_attendance === false ? '否' : '是'}</span></td>
                 <td>
                     ${user.wechat_openid ? 
-                        `<span class="status-badge status-active">已绑定</span>` : 
+                        (() => {
+                            const openid = user.wechat_openid;
+                            const displayOpenid = openid.length > 12 ? 
+                                `${openid.substring(0, 8)}...${openid.substring(openid.length - 4)}` : 
+                                openid;
+                            return `<span class="status-badge status-active" title="OpenID: ${openid}">已绑定</span><br><small style="color: #666; font-size: 11px;">${displayOpenid}</small>`;
+                        })() : 
                         `<span class="status-badge status-inactive">未绑定</span>`
                     }
                 </td>
