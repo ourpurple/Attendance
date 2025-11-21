@@ -272,3 +272,26 @@ def delete_user(
     return None
 
 
+@router.post("/{user_id}/clear-wechat-binding", status_code=status.HTTP_204_NO_CONTENT)
+def clear_wechat_binding(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """清理用户的微信绑定（管理员）"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+    
+    # 清理微信绑定
+    user.wechat_openid = None
+    db.commit()
+    
+    print(f"✅ 管理员 {current_user.username} 清理了用户 {user.username} 的微信绑定")
+    
+    return None
+
+

@@ -323,6 +323,18 @@ async function loadUsers() {
                 <td>${user.annual_leave_days !== undefined ? user.annual_leave_days : 10} 天</td>
                 <td><span class="status-badge ${user.enable_attendance === false ? 'status-inactive' : 'status-active'}">
                     ${user.enable_attendance === false ? '否' : '是'}</span></td>
+                <td>
+                    ${user.wechat_openid ? 
+                        `<span class="status-badge status-active">已绑定</span>` : 
+                        `<span class="status-badge status-inactive">未绑定</span>`
+                    }
+                </td>
+                <td>
+                    ${user.wechat_openid ? 
+                        `<button class="btn btn-small btn-warning" onclick="clearWechatBinding(${user.id}, '${user.real_name}')" title="清理微信绑定">清理绑定</button>` : 
+                        '-'
+                    }
+                </td>
                 <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">
                     ${user.is_active ? '激活' : '禁用'}</span></td>
                 <td>
@@ -2498,6 +2510,25 @@ function deleteUser(id) {
         '确定删除',
         '取消',
         'danger'
+    );
+}
+
+function clearWechatBinding(userId, userName) {
+    showConfirmDialog(
+        `确定要清理用户 "${userName}" 的微信绑定吗？清理后该用户需要重新绑定微信账号。`,
+        () => {
+            apiRequest(`/users/${userId}/clear-wechat-binding`, { method: 'POST' })
+                .then(() => {
+                    showToast('清理微信绑定成功', 'success');
+                    loadUsers();
+                })
+                .catch(error => showToast('清理失败: ' + error.message, 'error'));
+        },
+        null,
+        '确认清理微信绑定',
+        '确定清理',
+        '取消',
+        'warning'
     );
 }
 

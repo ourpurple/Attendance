@@ -239,6 +239,17 @@ body {
     color: white;
 }
 
+.btn-warning {
+    background: var(--warning-color);
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #E68900;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+}
+
 .btn-small {
     padding: 6px 12px;
     font-size: 14px;

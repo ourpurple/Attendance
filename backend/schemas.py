@@ -35,6 +35,7 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: int
     is_active: bool
+    wechat_openid: Optional[str] = None
     created_at: datetime
     
     class Config:
