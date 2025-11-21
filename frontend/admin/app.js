@@ -633,6 +633,7 @@ async function loadAttendanceRecords() {
                 <td>${formatDate(att.date)}</td>
                 <td>${userMap[att.user_id]}</td>
                 <td>${att.checkin_time ? formatTime(att.checkin_time) : '-'}</td>
+                <td>${formatCheckinStatus(att.checkin_status)}</td>
                 <td style="max-width: 200px; word-break: break-all; font-size: 0.9em; color: ${isCheckinCoord ? '#999' : '#666'};" data-location="${checkinLoc}">
                     ${checkinLoc}
                 </td>
@@ -1926,6 +1927,19 @@ function formatTime(dateStr) {
         hour: '2-digit',
         minute: '2-digit'
     });
+}
+
+// 格式化打卡状态
+function formatCheckinStatus(status) {
+    if (!status || status === 'normal') {
+        return '正常打卡';
+    } else if (status === 'city_business') {
+        return '<span style="color: #007AFF;">市区办事</span>';
+    } else if (status === 'business_trip') {
+        return '<span style="color: #007AFF;">出差</span>';
+    } else {
+        return status;
+    }
 }
 
 // ==================== 模态框工具函数 ====================
