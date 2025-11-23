@@ -131,10 +131,10 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         });
 
         setToken(data.access_token);
-        
+
         // 获取当前用户信息
         currentUser = await apiRequest('/users/me');
-        
+
         // 检查用户角色，只有ADMIN才能登录admin后台
         // role可能是字符串 "admin" 或枚举对象，统一转换为字符串比较
         const userRole = String(currentUser.role || '').toLowerCase();
@@ -143,7 +143,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             errorEl.textContent = '权限不足：只有系统管理员可以登录管理后台';
             return;
         }
-        
+
         document.getElementById('current-user-name').textContent = currentUser.real_name;
 
         showPage('main');
@@ -285,7 +285,7 @@ function loadPageData(page) {
 async function loadDashboard() {
     try {
         const today = new Date().toISOString().split('T')[0];
-        
+
         // 加载统计数据
         const users = await apiRequest('/users/');
         document.getElementById('total-users').textContent = users.length;
@@ -324,22 +324,22 @@ async function loadUsers() {
                 <td><span class="status-badge ${user.enable_attendance === false ? 'status-inactive' : 'status-active'}">
                     ${user.enable_attendance === false ? '否' : '是'}</span></td>
                 <td>
-                    ${user.wechat_openid ? 
-                        (() => {
-                            const openid = user.wechat_openid;
-                            const displayOpenid = openid.length > 12 ? 
-                                `${openid.substring(0, 8)}...${openid.substring(openid.length - 4)}` : 
-                                openid;
-                            return `<span class="status-badge status-active" title="OpenID: ${openid}">已绑定</span><br><small style="color: #666; font-size: 11px;">${displayOpenid}</small>`;
-                        })() : 
-                        `<span class="status-badge status-inactive">未绑定</span>`
-                    }
+                    ${user.wechat_openid ?
+                (() => {
+                    const openid = user.wechat_openid;
+                    const displayOpenid = openid.length > 12 ?
+                        `${openid.substring(0, 8)}...${openid.substring(openid.length - 4)}` :
+                        openid;
+                    return `<span class="status-badge status-active" title="OpenID: ${openid}">已绑定</span><br><small style="color: #666; font-size: 11px;">${displayOpenid}</small>`;
+                })() :
+                `<span class="status-badge status-inactive">未绑定</span>`
+            }
                 </td>
                 <td>
-                    ${user.wechat_openid ? 
-                        `<button class="btn btn-small btn-warning" onclick="clearWechatBinding(${user.id}, '${user.real_name}')" title="清理微信绑定">清理绑定</button>` : 
-                        '-'
-                    }
+                    ${user.wechat_openid ?
+                `<button class="btn btn-small btn-warning" onclick="clearWechatBinding(${user.id}, '${user.real_name}')" title="清理微信绑定">清理绑定</button>` :
+                '-'
+            }
                 </td>
                 <td><span class="status-badge ${user.is_active ? 'status-active' : 'status-inactive'}">
                     ${user.is_active ? '激活' : '禁用'}</span></td>
@@ -387,7 +387,7 @@ async function loadDepartments() {
 // 解析坐标字符串为经纬度
 function parseLocation(locationStr) {
     if (!locationStr || locationStr === '-') return null;
-    
+
     // 尝试解析坐标格式 "lat, lon" 或 "lat,lon"
     const parts = locationStr.split(',');
     if (parts.length === 2) {
@@ -405,7 +405,7 @@ async function loadAddressesAsync(attendances) {
     // 收集所有需要转换的坐标
     const locationsToConvert = [];
     const locationMap = new Map(); // 用于快速查找
-    
+
     attendances.forEach((att, index) => {
         // 检查上班位置
         if (att.checkin_location && att.checkin_location !== '-') {
@@ -419,7 +419,7 @@ async function loadAddressesAsync(attendances) {
                 locationMap.get(key).push({ type: 'checkin', index });
             }
         }
-        
+
         // 检查下班位置
         if (att.checkout_location && att.checkout_location !== '-') {
             const coords = parseLocation(att.checkout_location);
@@ -433,11 +433,11 @@ async function loadAddressesAsync(attendances) {
             }
         }
     });
-    
+
     if (locationsToConvert.length === 0) {
         return; // 没有需要转换的坐标
     }
-    
+
     try {
         // 调用批量地址转换接口
         const response = await apiRequest('/attendance/geocode/batch', {
@@ -446,7 +446,7 @@ async function loadAddressesAsync(attendances) {
                 locations: locationsToConvert
             })
         });
-        
+
         if (response && response.results) {
             // 创建地址映射
             const addressMap = new Map();
@@ -456,11 +456,11 @@ async function loadAddressesAsync(attendances) {
                     addressMap.set(key, result.address);
                 }
             });
-            
+
             // 更新表格中的地址显示
             const tbody = document.getElementById('attendance-tbody');
             const rows = tbody.querySelectorAll('tr');
-            
+
             addressMap.forEach((address, key) => {
                 const positions = locationMap.get(key);
                 if (positions) {
@@ -490,7 +490,7 @@ function toggleAttendanceQueryType() {
     const queryType = document.querySelector('input[name="attendance-query-type"]:checked').value;
     const monthFilter = document.getElementById('attendance-month-filter');
     const dateFilter = document.getElementById('attendance-date-filter');
-    
+
     if (queryType === 'month') {
         monthFilter.style.display = 'flex';
         dateFilter.style.display = 'none';
@@ -524,30 +524,30 @@ async function loadAttendanceUserList() {
         const users = await apiRequest('/users/');
         const userFilter = document.getElementById('attendance-user-filter');
         const userFilterCustom = document.getElementById('attendance-user-filter-custom');
-        
+
         // 保存当前选中的值
         const currentValue = userFilter.value;
         const currentValueCustom = userFilterCustom ? userFilterCustom.value : '';
-        
+
         // 清空并添加"全部员工"选项
         userFilter.innerHTML = '<option value="">全部员工</option>';
         if (userFilterCustom) {
             userFilterCustom.innerHTML = '<option value="">全部员工</option>';
         }
-        
+
         // 添加所有员工
         users.forEach(user => {
             const option = document.createElement('option');
             option.value = user.id;
             option.textContent = user.real_name;
             userFilter.appendChild(option);
-            
+
             if (userFilterCustom) {
                 const optionCustom = option.cloneNode(true);
                 userFilterCustom.appendChild(optionCustom);
             }
         });
-        
+
         // 恢复之前选中的值
         if (currentValue) {
             userFilter.value = currentValue;
@@ -563,11 +563,11 @@ async function loadAttendanceUserList() {
 // 获取月份日期范围
 function getMonthDateRange(monthStr) {
     if (!monthStr) return { start: null, end: null };
-    
+
     const [year, month] = monthStr.split('-').map(Number);
     const startDate = new Date(year, month - 1, 1);
     const endDate = new Date(year, month, 0); // 获取该月最后一天
-    
+
     return {
         start: startDate.toISOString().split('T')[0],
         end: endDate.toISOString().split('T')[0]
@@ -586,50 +586,50 @@ function renderPagination(type, containerId) {
     const state = paginationState[type];
     const container = document.getElementById(containerId);
     if (!container) return;
-    
+
     // 如果选择不分页，隐藏分页控件
     if (state.pageSize === 0) {
         container.innerHTML = '';
         return;
     }
-    
+
     const totalPages = Math.ceil(state.totalItems / state.pageSize);
-    
+
     if (totalPages <= 1) {
         container.innerHTML = `<span style="color: #666; font-size: 14px;">共 ${state.totalItems} 条记录</span>`;
         return;
     }
-    
+
     let html = `<span style="color: #666; font-size: 14px; margin-right: 12px;">共 ${state.totalItems} 条记录，第 ${state.currentPage}/${totalPages} 页</span>`;
-    
+
     // 上一页按钮
     html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', ${state.currentPage - 1})" ${state.currentPage === 1 ? 'disabled' : ''}>上一页</button>`;
-    
+
     // 页码按钮（显示当前页前后各2页）
     const startPage = Math.max(1, state.currentPage - 2);
     const endPage = Math.min(totalPages, state.currentPage + 2);
-    
+
     if (startPage > 1) {
         html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', 1)">1</button>`;
         if (startPage > 2) {
             html += `<span style="padding: 0 8px;">...</span>`;
         }
     }
-    
+
     for (let i = startPage; i <= endPage; i++) {
         html += `<button class="btn btn-small ${i === state.currentPage ? 'btn-primary' : 'btn-secondary'}" onclick="goToPage('${type}', ${i})">${i}</button>`;
     }
-    
+
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
             html += `<span style="padding: 0 8px;">...</span>`;
         }
         html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', ${totalPages})">${totalPages}</button>`;
     }
-    
+
     // 下一页按钮
     html += `<button class="btn btn-small btn-secondary" onclick="goToPage('${type}', ${state.currentPage + 1})" ${state.currentPage === totalPages ? 'disabled' : ''}>下一页</button>`;
-    
+
     container.innerHTML = html;
 }
 
@@ -637,13 +637,13 @@ function renderPagination(type, containerId) {
 function goToPage(type, page) {
     const state = paginationState[type];
     const totalPages = Math.ceil(state.totalItems / state.pageSize);
-    
+
     if (page < 1 || page > totalPages) return;
-    
+
     state.currentPage = page;
-    
+
     // 根据类型调用对应的渲染函数
-    switch(type) {
+    switch (type) {
         case 'attendance':
             renderAttendanceTable();
             break;
@@ -654,7 +654,7 @@ function goToPage(type, page) {
             renderOvertimeTable();
             break;
     }
-    
+
     renderPagination(type, `${type}-pagination`);
 }
 
@@ -684,15 +684,15 @@ function resetOvertimePagination() {
 async function loadAttendanceRecords() {
     const queryType = document.querySelector('input[name="attendance-query-type"]:checked').value;
     let userId;
-    
+
     if (queryType === 'month') {
         userId = document.getElementById('attendance-user-filter').value;
     } else {
         userId = document.getElementById('attendance-user-filter-custom').value;
     }
-    
+
     let startDate, endDate;
-    
+
     if (queryType === 'month') {
         // 按月查询
         const monthStr = document.getElementById('attendance-month').value;
@@ -707,7 +707,7 @@ async function loadAttendanceRecords() {
         // 自定义日期查询
         startDate = document.getElementById('attendance-start-date').value;
         endDate = document.getElementById('attendance-end-date').value;
-        
+
         if (!startDate || !endDate) {
             alert('请选择开始日期和结束日期');
             return;
@@ -720,7 +720,7 @@ async function loadAttendanceRecords() {
         if (userId) {
             url += `&user_id=${userId}`;
         }
-        
+
         const attendances = await apiRequest(url);
         const users = await apiRequest('/users/');
         const userMap = {};
@@ -731,13 +731,13 @@ async function loadAttendanceRecords() {
         paginationState.attendance.totalItems = attendances.length;
         paginationState.attendance.currentPage = 1;
         paginationState.attendance.userMap = userMap; // 保存用户映射
-        
+
         // 渲染表格
         renderAttendanceTable();
-        
+
         // 渲染分页控件
         renderPagination('attendance', 'attendance-pagination');
-        
+
         // 异步加载地址信息（不阻塞主流程）
         loadAddressesAsync(attendances).catch(err => {
             console.error('异步加载地址失败:', err);
@@ -751,7 +751,7 @@ async function loadAttendanceRecords() {
 function renderAttendanceTable() {
     const state = paginationState.attendance;
     const userMap = state.userMap || {};
-    
+
     // 获取当前页数据
     let displayData = state.allData;
     if (state.pageSize > 0) {
@@ -759,7 +759,7 @@ function renderAttendanceTable() {
         const end = start + state.pageSize;
         displayData = state.allData.slice(start, end);
     }
-    
+
     const tbody = document.getElementById('attendance-tbody');
     tbody.innerHTML = displayData.map(att => {
         // 判断位置是否为坐标格式
@@ -767,7 +767,7 @@ function renderAttendanceTable() {
         const checkoutLoc = att.checkout_location || '-';
         const isCheckinCoord = checkinLoc !== '-' && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(checkinLoc);
         const isCheckoutCoord = checkoutLoc !== '-' && /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test(checkoutLoc);
-        
+
         return `
         <tr>
             <td>${formatDate(att.date)}</td>
@@ -794,7 +794,7 @@ function toggleLeaveQueryType() {
     const queryType = document.querySelector('input[name="leave-query-type"]:checked').value;
     const monthFilter = document.getElementById('leave-month-filter');
     const dateFilter = document.getElementById('leave-date-filter');
-    
+
     if (queryType === 'month') {
         monthFilter.style.display = 'flex';
         dateFilter.style.display = 'none';
@@ -830,11 +830,11 @@ async function loadLeaveUserList() {
         const users = await apiRequest('/users/');
         const userFilter = document.getElementById('leave-user-filter');
         const userFilterCustom = document.getElementById('leave-user-filter-custom');
-        
+
         // 保存当前选中的值
         const currentValue = userFilter ? userFilter.value : '';
         const currentValueCustom = userFilterCustom ? userFilterCustom.value : '';
-        
+
         // 清空并添加"全部员工"选项
         if (userFilter) {
             userFilter.innerHTML = '<option value="">全部员工</option>';
@@ -842,7 +842,7 @@ async function loadLeaveUserList() {
         if (userFilterCustom) {
             userFilterCustom.innerHTML = '<option value="">全部员工</option>';
         }
-        
+
         // 添加所有员工
         users.forEach(user => {
             const option = document.createElement('option');
@@ -856,7 +856,7 @@ async function loadLeaveUserList() {
                 userFilterCustom.appendChild(optionCustom);
             }
         });
-        
+
         // 恢复之前选中的值
         if (userFilter && currentValue) {
             userFilter.value = currentValue;
@@ -873,15 +873,15 @@ async function loadLeaveUserList() {
 async function loadLeaveApplications() {
     const queryType = document.querySelector('input[name="leave-query-type"]:checked').value;
     let userId;
-    
+
     if (queryType === 'month') {
         userId = document.getElementById('leave-user-filter').value;
     } else {
         userId = document.getElementById('leave-user-filter-custom').value;
     }
-    
+
     let startDate, endDate;
-    
+
     if (queryType === 'month') {
         // 按月查询
         const monthStr = document.getElementById('leave-month').value;
@@ -896,20 +896,20 @@ async function loadLeaveApplications() {
         // 自定义日期查询
         startDate = document.getElementById('leave-start-date').value;
         endDate = document.getElementById('leave-end-date').value;
-        
+
         if (!startDate || !endDate) {
             alert('请选择开始日期和结束日期');
             return;
         }
     }
-    
+
     try {
         // 构建API请求URL，获取所有数据（使用大limit）
         let url = `/leave/?start_date=${startDate}&end_date=${endDate}&limit=10000`;
         if (userId) {
             url += `&user_id=${userId}`;
         }
-        
+
         const leaves = await apiRequest(url);
         const users = await apiRequest('/users/');
         const userMap = {};
@@ -920,10 +920,10 @@ async function loadLeaveApplications() {
         paginationState.leave.totalItems = leaves.length;
         paginationState.leave.currentPage = 1;
         paginationState.leave.userMap = userMap; // 保存用户映射
-        
+
         // 渲染表格
         renderLeaveTable();
-        
+
         // 渲染分页控件
         renderPagination('leave', 'leave-pagination');
     } catch (error) {
@@ -935,7 +935,7 @@ async function loadLeaveApplications() {
 function renderLeaveTable() {
     const state = paginationState.leave;
     const userMap = state.userMap || {};
-    
+
     // 获取当前页数据
     let displayData = state.allData;
     if (state.pageSize > 0) {
@@ -943,70 +943,70 @@ function renderLeaveTable() {
         const end = start + state.pageSize;
         displayData = state.allData.slice(start, end);
     }
-    
+
     const tbody = document.getElementById('leave-tbody');
     tbody.innerHTML = displayData.map(leave => {
-            // 获取最后审批人信息
-            let approverName = '-';
-            let approvedTime = '-';
-            let currentApprover = ''; // 当前待审批人
-            
-            if (leave.status === 'approved' || leave.status === 'rejected') {
-                // 已完成审批，显示最终审批人
-                if (leave.gm_approver_id) {
-                    approverName = userMap[leave.gm_approver_id] || '-';
-                    approvedTime = leave.gm_approved_at ? formatDateTime(leave.gm_approved_at) : '-';
-                } else if (leave.vp_approver_id) {
-                    approverName = userMap[leave.vp_approver_id] || '-';
-                    approvedTime = leave.vp_approved_at ? formatDateTime(leave.vp_approved_at) : '-';
-                } else if (leave.dept_approver_id) {
-                    approverName = userMap[leave.dept_approver_id] || '-';
-                    approvedTime = leave.dept_approved_at ? formatDateTime(leave.dept_approved_at) : '-';
-                }
-            } else if (leave.status === 'vp_approved') {
-                // 等待总经理审批，显示副总审批信息和当前待审批人
+        // 获取最后审批人信息
+        let approverName = '-';
+        let approvedTime = '-';
+        let currentApprover = ''; // 当前待审批人
+
+        if (leave.status === 'approved' || leave.status === 'rejected') {
+            // 已完成审批，显示最终审批人
+            if (leave.gm_approver_id) {
+                approverName = userMap[leave.gm_approver_id] || '-';
+                approvedTime = leave.gm_approved_at ? formatDateTime(leave.gm_approved_at) : '-';
+            } else if (leave.vp_approver_id) {
                 approverName = userMap[leave.vp_approver_id] || '-';
                 approvedTime = leave.vp_approved_at ? formatDateTime(leave.vp_approved_at) : '-';
-                // 当前待审批人：总经理
-                if (leave.assigned_gm_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_gm_name}</span>`;
-                } else if (leave.assigned_gm_id) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_gm_id] || '总经理'}</span>`;
-                } else {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 总经理</span>`;
-                }
-            } else if (leave.status === 'dept_approved') {
-                // 等待副总审批，显示部门主任审批信息和当前待审批人
+            } else if (leave.dept_approver_id) {
                 approverName = userMap[leave.dept_approver_id] || '-';
                 approvedTime = leave.dept_approved_at ? formatDateTime(leave.dept_approved_at) : '-';
-                // 当前待审批人：副总
-                if (leave.assigned_vp_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_vp_name}</span>`;
-                } else if (leave.assigned_vp_id) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_vp_id] || '副总'}</span>`;
-                } else {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 副总</span>`;
-                }
-            } else if (leave.status === 'pending') {
-                // 待审批状态，显示当前待审批人
-                if (leave.pending_dept_head_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_dept_head_name}</span>`;
-                } else if (leave.pending_vp_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_vp_name}</span>`;
-                } else if (leave.pending_gm_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_gm_name}</span>`;
-                } else if (leave.assigned_vp_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_vp_name}</span>`;
-                } else if (leave.assigned_gm_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_gm_name}</span>`;
-                } else if (leave.assigned_vp_id) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_vp_id] || '副总'}</span>`;
-                } else if (leave.assigned_gm_id) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_gm_id] || '总经理'}</span>`;
-                }
             }
-            
-            return `
+        } else if (leave.status === 'vp_approved') {
+            // 等待总经理审批，显示副总审批信息和当前待审批人
+            approverName = userMap[leave.vp_approver_id] || '-';
+            approvedTime = leave.vp_approved_at ? formatDateTime(leave.vp_approved_at) : '-';
+            // 当前待审批人：总经理
+            if (leave.assigned_gm_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_gm_name}</span>`;
+            } else if (leave.assigned_gm_id) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_gm_id] || '总经理'}</span>`;
+            } else {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 总经理</span>`;
+            }
+        } else if (leave.status === 'dept_approved') {
+            // 等待副总审批，显示部门主任审批信息和当前待审批人
+            approverName = userMap[leave.dept_approver_id] || '-';
+            approvedTime = leave.dept_approved_at ? formatDateTime(leave.dept_approved_at) : '-';
+            // 当前待审批人：副总
+            if (leave.assigned_vp_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_vp_name}</span>`;
+            } else if (leave.assigned_vp_id) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_vp_id] || '副总'}</span>`;
+            } else {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 副总</span>`;
+            }
+        } else if (leave.status === 'pending') {
+            // 待审批状态，显示当前待审批人
+            if (leave.pending_dept_head_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_dept_head_name}</span>`;
+            } else if (leave.pending_vp_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_vp_name}</span>`;
+            } else if (leave.pending_gm_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.pending_gm_name}</span>`;
+            } else if (leave.assigned_vp_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_vp_name}</span>`;
+            } else if (leave.assigned_gm_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${leave.assigned_gm_name}</span>`;
+            } else if (leave.assigned_vp_id) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_vp_id] || '副总'}</span>`;
+            } else if (leave.assigned_gm_id) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[leave.assigned_gm_id] || '总经理'}</span>`;
+            }
+        }
+
+        return `
                 <tr>
                     <td>${userMap[leave.user_id] || '-'}</td>
                     <td>${formatTimeRange(leave.start_date, leave.end_date)}</td>
@@ -1029,7 +1029,7 @@ function renderLeaveTable() {
                     </td>
                 </tr>
             `;
-        }).join('');
+    }).join('');
 }
 
 // 切换加班管理查询类型
@@ -1037,7 +1037,7 @@ function toggleOvertimeQueryType() {
     const queryType = document.querySelector('input[name="overtime-query-type"]:checked').value;
     const monthFilter = document.getElementById('overtime-month-filter');
     const dateFilter = document.getElementById('overtime-date-filter');
-    
+
     if (queryType === 'month') {
         monthFilter.style.display = 'flex';
         dateFilter.style.display = 'none';
@@ -1073,11 +1073,11 @@ async function loadOvertimeUserList() {
         const users = await apiRequest('/users/');
         const userFilter = document.getElementById('overtime-user-filter');
         const userFilterCustom = document.getElementById('overtime-user-filter-custom');
-        
+
         // 保存当前选中的值
         const currentValue = userFilter ? userFilter.value : '';
         const currentValueCustom = userFilterCustom ? userFilterCustom.value : '';
-        
+
         // 清空并添加"全部员工"选项
         if (userFilter) {
             userFilter.innerHTML = '<option value="">全部员工</option>';
@@ -1085,7 +1085,7 @@ async function loadOvertimeUserList() {
         if (userFilterCustom) {
             userFilterCustom.innerHTML = '<option value="">全部员工</option>';
         }
-        
+
         // 添加所有员工
         users.forEach(user => {
             const option = document.createElement('option');
@@ -1099,7 +1099,7 @@ async function loadOvertimeUserList() {
                 userFilterCustom.appendChild(optionCustom);
             }
         });
-        
+
         // 恢复之前选中的值
         if (userFilter && currentValue) {
             userFilter.value = currentValue;
@@ -1116,15 +1116,15 @@ async function loadOvertimeUserList() {
 async function loadOvertimeApplications() {
     const queryType = document.querySelector('input[name="overtime-query-type"]:checked').value;
     let userId;
-    
+
     if (queryType === 'month') {
         userId = document.getElementById('overtime-user-filter').value;
     } else {
         userId = document.getElementById('overtime-user-filter-custom').value;
     }
-    
+
     let startDate, endDate;
-    
+
     if (queryType === 'month') {
         // 按月查询
         const monthStr = document.getElementById('overtime-month').value;
@@ -1139,20 +1139,20 @@ async function loadOvertimeApplications() {
         // 自定义日期查询
         startDate = document.getElementById('overtime-start-date').value;
         endDate = document.getElementById('overtime-end-date').value;
-        
+
         if (!startDate || !endDate) {
             alert('请选择开始日期和结束日期');
             return;
         }
     }
-    
+
     try {
         // 构建API请求URL，获取所有数据（使用大limit）
         let url = `/overtime/?start_date=${startDate}&end_date=${endDate}&limit=10000`;
         if (userId) {
             url += `&user_id=${userId}`;
         }
-        
+
         const overtimes = await apiRequest(url);
         const users = await apiRequest('/users/');
         const userMap = {};
@@ -1163,10 +1163,10 @@ async function loadOvertimeApplications() {
         paginationState.overtime.totalItems = overtimes.length;
         paginationState.overtime.currentPage = 1;
         paginationState.overtime.userMap = userMap; // 保存用户映射
-        
+
         // 渲染表格
         renderOvertimeTable();
-        
+
         // 渲染分页控件
         renderPagination('overtime', 'overtime-pagination');
     } catch (error) {
@@ -1178,7 +1178,7 @@ async function loadOvertimeApplications() {
 function renderOvertimeTable() {
     const state = paginationState.overtime;
     const userMap = state.userMap || {};
-    
+
     // 获取当前页数据
     let displayData = state.allData;
     if (state.pageSize > 0) {
@@ -1186,34 +1186,34 @@ function renderOvertimeTable() {
         const end = start + state.pageSize;
         displayData = state.allData.slice(start, end);
     }
-    
+
     const tbody = document.getElementById('overtime-tbody');
     tbody.innerHTML = displayData.map(ot => {
-            // 获取审批人信息
-            let approverName = '-';
-            let approvedTime = '-';
-            let currentApprover = ''; // 当前待审批人
-            
-            if (ot.status === 'pending') {
-                // 待审批状态，显示当前待审批人
-                if (ot.assigned_approver_name) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${ot.assigned_approver_name}</span>`;
-                } else if (ot.assigned_approver_id) {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[ot.assigned_approver_id] || '审批人'}</span>`;
-                } else {
-                    currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 审批人</span>`;
-                }
-            } else if (ot.approver_id) {
-                // 已完成审批
-                approverName = userMap[ot.approver_id] || '-';
-                approvedTime = ot.approved_at ? formatDateTime(ot.approved_at) : '-';
+        // 获取审批人信息
+        let approverName = '-';
+        let approvedTime = '-';
+        let currentApprover = ''; // 当前待审批人
+
+        if (ot.status === 'pending') {
+            // 待审批状态，显示当前待审批人
+            if (ot.assigned_approver_name) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${ot.assigned_approver_name}</span>`;
+            } else if (ot.assigned_approver_id) {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: ${userMap[ot.assigned_approver_id] || '审批人'}</span>`;
+            } else {
+                currentApprover = `<span style="color: #FF9500; font-size: 12px; margin-left: 8px;">待审批: 审批人</span>`;
             }
-            
-            // 加班类型显示
-            const overtimeTypeText = ot.overtime_type === 'active' ? '主动加班' : '被动加班';
-            const overtimeTypeClass = ot.overtime_type === 'active' ? 'type-active' : 'type-passive';
-            
-            return `
+        } else if (ot.approver_id) {
+            // 已完成审批
+            approverName = userMap[ot.approver_id] || '-';
+            approvedTime = ot.approved_at ? formatDateTime(ot.approved_at) : '-';
+        }
+
+        // 加班类型显示
+        const overtimeTypeText = ot.overtime_type === 'active' ? '主动加班' : '被动加班';
+        const overtimeTypeClass = ot.overtime_type === 'active' ? 'type-active' : 'type-passive';
+
+        return `
                 <tr>
                     <td>${userMap[ot.user_id]}</td>
                     <td>${formatTimeRange(ot.start_time, ot.end_time)}</td>
@@ -1236,7 +1236,7 @@ function renderOvertimeTable() {
                     </td>
                 </tr>
             `;
-        }).join('');
+    }).join('');
 }
 
 // 加载打卡策略
@@ -1273,25 +1273,25 @@ async function loadCheckinStatuses() {
         // 管理后台需要显示所有状态（包括非激活的）
         const statuses = await apiRequest('/attendance/checkin-statuses?include_inactive=true');
         const tbody = document.getElementById('checkin-status-tbody');
-        
+
         if (!tbody) {
             console.error('找不到 checkin-status-tbody 元素');
             return;
         }
-        
+
         if (!statuses || statuses.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">暂无数据</td></tr>';
             return;
         }
-        
+
         // 过滤掉id为0的默认虚拟数据（这些是前端显示的默认值，不是真实记录）
         const realStatuses = statuses.filter(s => s.id !== 0);
-        
+
         if (realStatuses.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">暂无数据，请添加打卡状态</td></tr>';
             return;
         }
-        
+
         tbody.innerHTML = realStatuses.map(status => `
             <tr>
                 <td>${status.name}</td>
@@ -1343,19 +1343,19 @@ function showAddCheckinStatusModal() {
             </label>
         </div>
     `;
-    
+
     showModal('添加打卡状态', content, async () => {
         const name = document.getElementById('modal-status-name').value;
         const code = document.getElementById('modal-status-code').value;
         const description = document.getElementById('modal-status-description').value;
         const sortOrder = parseInt(document.getElementById('modal-status-sort').value);
         const isActive = document.getElementById('modal-status-active').checked;
-        
+
         if (!name || !code) {
             alert('请填写必填项');
             return;
         }
-        
+
         try {
             await apiRequest('/attendance/checkin-statuses', {
                 method: 'POST',
@@ -1367,7 +1367,7 @@ function showAddCheckinStatusModal() {
                     is_active: isActive
                 })
             });
-            
+
             closeModal();
             // 延迟一下确保后端数据已保存
             setTimeout(async () => {
@@ -1386,12 +1386,12 @@ async function editCheckinStatus(id) {
         // 获取所有状态（包括非激活的）用于编辑
         const statuses = await apiRequest('/attendance/checkin-statuses?include_inactive=true');
         const currentStatus = statuses.find(s => s.id === id);
-        
+
         if (!currentStatus) {
             alert('状态配置不存在');
             return;
         }
-        
+
         const content = `
             <div class="form-group">
                 <label>状态名称 *</label>
@@ -1416,19 +1416,19 @@ async function editCheckinStatus(id) {
                 </label>
             </div>
         `;
-        
+
         showModal('编辑打卡状态', content, async () => {
             const name = document.getElementById('modal-status-name').value;
             const code = document.getElementById('modal-status-code').value;
             const description = document.getElementById('modal-status-description').value;
             const sortOrder = parseInt(document.getElementById('modal-status-sort').value);
             const isActive = document.getElementById('modal-status-active').checked;
-            
+
             if (!name || !code) {
                 alert('请填写必填项');
                 return;
             }
-            
+
             try {
                 await apiRequest(`/attendance/checkin-statuses/${id}`, {
                     method: 'PUT',
@@ -1440,7 +1440,7 @@ async function editCheckinStatus(id) {
                         is_active: isActive
                     })
                 });
-                
+
                 closeModal();
                 // 延迟一下确保后端数据已保存
                 setTimeout(async () => {
@@ -1461,12 +1461,12 @@ async function deleteCheckinStatus(id) {
     if (!confirm('确定要删除这个打卡状态吗？')) {
         return;
     }
-    
+
     try {
         await apiRequest(`/attendance/checkin-statuses/${id}`, {
             method: 'DELETE'
         });
-        
+
         // 延迟一下确保后端数据已删除
         setTimeout(async () => {
             await loadCheckinStatuses();
@@ -1502,7 +1502,7 @@ function switchStatsTab(tab) {
     // 切换标签按钮状态
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
-    
+
     // 切换内容显示
     document.querySelectorAll('.stats-tab-content').forEach(content => content.classList.remove('active'));
     document.getElementById(`${tab}-stats`).classList.add('active');
@@ -1513,11 +1513,11 @@ function toggleDateType() {
     const dateType = document.querySelector('input[name="date-type"]:checked').value;
     const monthSelector = document.getElementById('month-selector');
     const dateSelector = document.getElementById('date-selector');
-    
+
     if (dateType === 'month') {
         monthSelector.style.display = 'flex';
         dateSelector.style.display = 'none';
-        
+
         // 设置默认为当前月份
         const now = new Date();
         const currentMonth = now.toISOString().substr(0, 7);
@@ -1532,16 +1532,18 @@ function toggleDateType() {
 function getMonthDateRange(monthValue) {
     // monthValue 格式: "2025-11"
     const [year, month] = monthValue.split('-').map(Number);
-    
-    // 该月第一天
-    const startDate = new Date(year, month - 1, 1);
-    
+
+    // 该月第一天 - 修复时区问题，使用字符串拼接
+    const startDay = 1;
+    const startDate = `${year}-${String(month).padStart(2, '0')}-${String(startDay).padStart(2, '0')}`;
+
     // 该月最后一天
-    const endDate = new Date(year, month, 0);
-    
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
     return {
-        start: startDate.toISOString().split('T')[0],
-        end: endDate.toISOString().split('T')[0]
+        start: startDate,
+        end: endDate
     };
 }
 
@@ -1552,7 +1554,7 @@ let currentStatsDateRange = { startDate: '', endDate: '' };
 async function loadAllStatistics() {
     const dateType = document.querySelector('input[name="date-type"]:checked').value;
     let startDate, endDate;
-    
+
     if (dateType === 'month') {
         // 按月统计
         const monthValue = document.getElementById('stats-month').value;
@@ -1565,12 +1567,12 @@ async function loadAllStatistics() {
         endDate = dateRange.end;
     } else {
         // 自定义日期
-        startDate = document.getElementById('stats-start-date').value || 
+        startDate = document.getElementById('stats-start-date').value ||
             new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        endDate = document.getElementById('stats-end-date').value || 
+        endDate = document.getElementById('stats-end-date').value ||
             new Date().toISOString().split('T')[0];
     }
-    
+
     // 保存日期范围供详情查看使用
     currentStatsDateRange.startDate = startDate;
     currentStatsDateRange.endDate = endDate;
@@ -1578,10 +1580,10 @@ async function loadAllStatistics() {
     try {
         // 获取考勤统计数据
         statisticsData = await apiRequest(`/statistics/attendance?start_date=${startDate}&end_date=${endDate}`);
-        
+
         // 获取周期统计数据
         const periodStats = await apiRequest(`/statistics/period?start_date=${startDate}&end_date=${endDate}`);
-        
+
         // 加载各个统计视图
         loadOverallStats(periodStats);
         loadAttendanceStats();
@@ -1627,61 +1629,78 @@ function loadAttendanceStats() {
 async function loadDailyStats(startDate, endDate) {
     try {
         const dailyData = await apiRequest(`/statistics/attendance/daily?start_date=${startDate}&end_date=${endDate}`);
-        
+
         if (!dailyData || !dailyData.statistics || dailyData.statistics.length === 0) {
             document.getElementById('daily-stats-tbody').innerHTML = '<tr><td colspan="100">暂无数据</td></tr>';
             return;
         }
-        
-        // 获取所有日期（工作日）
+
+        // 获取所有日期（工作日）并按时间顺序排序
         const dates = [];
         if (dailyData.statistics.length > 0 && dailyData.statistics[0].items) {
             dates.push(...dailyData.statistics[0].items.map(item => item.date));
         }
-        
-        // 构建表头
+
+        // 按日期排序，确保按1号、2号...31号顺序显示
+        dates.sort((a, b) => new Date(a) - new Date(b));
+
+        // 检查是否跨月（用于决定是否显示月份）
+        const months = [...new Set(dates.map(d => new Date(d).getMonth()))];
+        const showMonth = months.length > 1;
+
+        // 构建表头 - 只有一行，不显示上午/下午
         const thead = document.getElementById('daily-stats-thead');
-        let headerHtml = '<tr><th rowspan="2">姓名</th>';
-        
-        // 第一行：日期和星期
+        let headerHtml = '<tr><th>姓名</th><th></th>';
+
+        // 日期和星期
         dates.forEach(date => {
             const dateObj = new Date(date);
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            // 获取星期（从第一个用户的items中获取）
+            const month = dateObj.getMonth() + 1;
+            const day = dateObj.getDate();
+
+            // 如果跨月，显示"月/日"格式；否则只显示日期
+            const dateDisplay = showMonth
+                ? `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`
+                : String(day).padStart(2, '0');
+
+            // 获取星期
             let weekday = '';
             if (dailyData.statistics.length > 0 && dailyData.statistics[0].items) {
                 const item = dailyData.statistics[0].items.find(i => i.date === date);
                 if (item) weekday = item.weekday;
             }
-            headerHtml += `<th colspan="2">${day}<br><small>${weekday}</small></th>`;
-        });
-        headerHtml += '</tr><tr>';
-        
-        // 第二行：上下午
-        dates.forEach(() => {
-            headerHtml += '<th>上午</th><th>下午</th>';
+            headerHtml += `<th colspan="2">${dateDisplay}<br><small>${weekday}</small></th>`;
         });
         headerHtml += '</tr>';
-        
+
         thead.innerHTML = headerHtml;
-        
-        // 构建表体
+
+        // 构建表体 - 每个员工占两行
         const tbody = document.getElementById('daily-stats-tbody');
-        tbody.innerHTML = dailyData.statistics.map(stat => {
-            let rowHtml = `<tr><td>${stat.real_name || stat.user_name}</td>`;
-            
-            // 添加每日上下午状态
+        let bodyHtml = '';
+
+        dailyData.statistics.forEach(stat => {
+            // 上午行
+            let morningRowHtml = `<tr><td rowspan="2" style="vertical-align: middle; border-right: 2px solid #ddd; font-weight: 500; text-align: center; padding: 10px;">${stat.real_name || stat.user_name}</td><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">上午</td>`;
             stat.items.forEach(item => {
-                const morningStatus = getStatusDisplay(item.morning_status);
-                const afternoonStatus = getStatusDisplay(item.afternoon_status);
-                rowHtml += `<td class="status-cell ${getStatusClass(item.morning_status)}">${morningStatus}</td>`;
-                rowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status)}">${afternoonStatus}</td>`;
+                const morningStatus = getStatusDisplay(item.morning_status, item.date);
+                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date)}" colspan="2">${morningStatus}</td>`;
             });
-            
-            rowHtml += '</tr>';
-            return rowHtml;
-        }).join('');
-        
+            morningRowHtml += '</tr>';
+
+            // 下午行
+            let afternoonRowHtml = '<tr><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">下午</td>';
+            stat.items.forEach(item => {
+                const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date);
+                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date)}" colspan="2">${afternoonStatus}</td>`;
+            });
+            afternoonRowHtml += '</tr>';
+
+            bodyHtml += morningRowHtml + afternoonRowHtml;
+        });
+
+        tbody.innerHTML = bodyHtml;
+
     } catch (error) {
         console.error('加载每日详细统计失败:', error);
         document.getElementById('daily-stats-tbody').innerHTML = '<tr><td colspan="100">加载失败</td></tr>';
@@ -1689,7 +1708,19 @@ async function loadDailyStats(startDate, endDate) {
 }
 
 // 获取状态显示文本
-function getStatusDisplay(status) {
+function getStatusDisplay(status, date) {
+    // 如果日期在今天之后且状态为缺勤，显示空值
+    if (date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const itemDate = new Date(date);
+        itemDate.setHours(0, 0, 0, 0);
+
+        if (itemDate > today && status === 'absent') {
+            return '';  // 未来日期显示空
+        }
+    }
+
     if (!status) return '/';
     const statusMap = {
         'normal': '正常',
@@ -1702,7 +1733,19 @@ function getStatusDisplay(status) {
 }
 
 // 获取状态样式类
-function getStatusClass(status) {
+function getStatusClass(status, date) {
+    // 如果日期在今天之后且状态为缺勤，不添加样式
+    if (date) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const itemDate = new Date(date);
+        itemDate.setHours(0, 0, 0, 0);
+
+        if (itemDate > today && status === 'absent') {
+            return '';  // 未来日期无样式
+        }
+    }
+
     if (!status) return '';
     const classMap = {
         'normal': 'status-normal',
@@ -1718,9 +1761,9 @@ function getStatusClass(status) {
 async function loadLeaveStats() {
     const tbody = document.getElementById('leave-stats-tbody');
     const thead = document.querySelector('#leave-stats-table thead');
-    
+
     await ensureStatsLeaveTypes();
-    
+
     if (thead) {
         const headerHtml = `
             <tr>
@@ -1734,7 +1777,7 @@ async function loadLeaveStats() {
         `;
         thead.innerHTML = headerHtml;
     }
-    
+
     // 过滤出有请假记录的员工（只统计已批准的）
     const leaveData = statisticsData
         .filter(stat => stat.leave_days > 0)
@@ -1743,20 +1786,20 @@ async function loadLeaveStats() {
             leave_count: stat.leave_count || 0 // 使用后端返回的真实次数
         }))
         .sort((a, b) => b.leave_days - a.leave_days);
-    
+
     if (leaveData.length === 0) {
         const colspan = 5 + statsLeaveTypes.length;
         tbody.innerHTML = `<tr><td colspan="${colspan}" style="text-align: center; padding: 40px; color: #999;">暂无请假记录</td></tr>`;
         return;
     }
-    
-        tbody.innerHTML = leaveData.map((stat) => {
-            const breakdownMap = {};
-            (stat.leave_type_breakdown || []).forEach(item => {
-                breakdownMap[item.leave_type_id] = item.total_days || 0;
-            });
-            const typeCells = statsLeaveTypes.map(type => `<td>${(breakdownMap[type.id] || 0).toFixed(1)}</td>`).join('');
-            return `
+
+    tbody.innerHTML = leaveData.map((stat) => {
+        const breakdownMap = {};
+        (stat.leave_type_breakdown || []).forEach(item => {
+            breakdownMap[item.leave_type_id] = item.total_days || 0;
+        });
+        const typeCells = statsLeaveTypes.map(type => `<td>${(breakdownMap[type.id] || 0).toFixed(1)}</td>`).join('');
+        return `
                 <tr>
                     <td>${stat.user_name}</td>
                     <td>${stat.department || '-'}</td>
@@ -1768,11 +1811,11 @@ async function loadLeaveStats() {
                     </td>
                 </tr>
             `;
-        }).join('');
-    
+    }).join('');
+
     // 绑定事件监听器
     tbody.querySelectorAll('button[data-action="leave-details"]').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const userId = parseInt(this.getAttribute('data-user-id'));
             const userName = this.getAttribute('data-user-name');
             showLeaveDetails(userId, userName);
@@ -1783,7 +1826,7 @@ async function loadLeaveStats() {
 // 加载加班统计
 function loadOvertimeStats() {
     const tbody = document.getElementById('overtime-stats-tbody');
-    
+
     // 过滤出有加班记录的员工（只统计已批准的）
     const overtimeData = statisticsData
         .filter(stat => stat.overtime_days > 0)
@@ -1796,12 +1839,12 @@ function loadOvertimeStats() {
             passive_overtime_count: stat.passive_overtime_count || 0
         }))
         .sort((a, b) => b.overtime_days - a.overtime_days);
-    
+
     if (overtimeData.length === 0) {
         tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">暂无加班记录</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = overtimeData.map((stat, index) => `
         <tr>
             <td>${stat.user_name}</td>
@@ -1815,10 +1858,10 @@ function loadOvertimeStats() {
             </td>
         </tr>
     `).join('');
-    
+
     // 绑定事件监听器
     tbody.querySelectorAll('button[data-action="overtime-details"]').forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const userId = parseInt(this.getAttribute('data-user-id'));
             const userName = this.getAttribute('data-user-name');
             showOvertimeDetails(userId, userName);
@@ -1827,33 +1870,33 @@ function loadOvertimeStats() {
 }
 
 // 显示请假明细（全局函数）
-window.showLeaveDetails = async function(userId, userName) {
+window.showLeaveDetails = async function (userId, userName) {
     console.log('showLeaveDetails called:', userId, userName);
     console.log('currentStatsDateRange:', currentStatsDateRange);
-    
+
     if (!currentStatsDateRange.startDate || !currentStatsDateRange.endDate) {
         alert('请先加载统计数据');
         return;
     }
-    
+
     try {
         const url = `/statistics/user/${userId}/leave-details?start_date=${currentStatsDateRange.startDate}&end_date=${currentStatsDateRange.endDate}`;
         console.log('Requesting URL:', url);
-        
+
         const leaves = await apiRequest(url);
         console.log('Received leaves:', leaves);
-        
+
         if (!leaves || !Array.isArray(leaves)) {
             console.error('Invalid response:', leaves);
             alert('获取数据格式错误');
             return;
         }
-        
+
         if (leaves.length === 0) {
             alert(`${userName} 在选定时间段内没有已批准的请假记录`);
             return;
         }
-        
+
         // 创建明细弹窗
         const modalHtml = `
             <div class="modal-overlay" onclick="closeDetailModal(event)">
@@ -1889,14 +1932,14 @@ window.showLeaveDetails = async function(userId, userName) {
                 </div>
             </div>
         `;
-        
+
         const modalContainer = document.getElementById('modal-container');
         if (!modalContainer) {
             console.error('modal-container not found');
             alert('页面元素未找到，请刷新页面重试');
             return;
         }
-        
+
         modalContainer.innerHTML = modalHtml;
         modalContainer.style.display = 'flex';  // 显示模态框
         console.log('Modal displayed');
@@ -1907,33 +1950,33 @@ window.showLeaveDetails = async function(userId, userName) {
 }
 
 // 显示加班明细（全局函数）
-window.showOvertimeDetails = async function(userId, userName) {
+window.showOvertimeDetails = async function (userId, userName) {
     console.log('showOvertimeDetails called:', userId, userName);
     console.log('currentStatsDateRange:', currentStatsDateRange);
-    
+
     if (!currentStatsDateRange.startDate || !currentStatsDateRange.endDate) {
         alert('请先加载统计数据');
         return;
     }
-    
+
     try {
         const url = `/statistics/user/${userId}/overtime-details?start_date=${currentStatsDateRange.startDate}&end_date=${currentStatsDateRange.endDate}`;
         console.log('Requesting URL:', url);
-        
+
         const overtimes = await apiRequest(url, { method: 'GET' });
         console.log('Received overtimes:', overtimes);
-        
+
         if (!overtimes || !Array.isArray(overtimes)) {
             console.error('Invalid response:', overtimes);
             alert('获取数据格式错误');
             return;
         }
-        
+
         if (overtimes.length === 0) {
             alert(`${userName} 在选定时间段内没有已批准的加班记录`);
             return;
         }
-        
+
         // 创建明细弹窗
         const modalHtml = `
             <div class="modal-overlay" onclick="closeDetailModal(event)">
@@ -1967,14 +2010,14 @@ window.showOvertimeDetails = async function(userId, userName) {
                 </div>
             </div>
         `;
-        
+
         const modalContainer = document.getElementById('modal-container');
         if (!modalContainer) {
             console.error('modal-container not found');
             alert('页面元素未找到，请刷新页面重试');
             return;
         }
-        
+
         modalContainer.innerHTML = modalHtml;
         modalContainer.style.display = 'flex';  // 显示模态框
         console.log('Modal displayed');
@@ -1985,7 +2028,7 @@ window.showOvertimeDetails = async function(userId, userName) {
 }
 
 // 关闭明细弹窗（全局函数）
-window.closeDetailModal = function(event) {
+window.closeDetailModal = function (event) {
     if (event && !event.target.classList.contains('modal-overlay')) return;
     const modalContainer = document.getElementById('modal-container');
     if (modalContainer) {
@@ -2062,28 +2105,28 @@ function formatTimeRange(startStr, endStr) {
             }
             return dateStr + 'T00:00:00';
         };
-        
+
         const normalizedStartStr = normalizeDateStr(startStr);
         const normalizedEndStr = normalizeDateStr(endStr);
-        
+
         const startDate = new Date(normalizedStartStr);
         const endDate = new Date(normalizedEndStr);
-        
+
         const startYear = startDate.getFullYear();
         const startMonth = startDate.getMonth() + 1;
         const startDay = startDate.getDate();
         const startHours = String(startDate.getHours()).padStart(2, '0');
         const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
-        
+
         const endYear = endDate.getFullYear();
         const endMonth = endDate.getMonth() + 1;
         const endDay = endDate.getDate();
         const endHours = String(endDate.getHours()).padStart(2, '0');
         const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-        
+
         let startPart = `${startYear}/${String(startMonth).padStart(2, '0')}/${String(startDay).padStart(2, '0')} ${startHours}:${startMinutes}`;
         let endPart = '';
-        
+
         // 如果年份相同
         if (startYear === endYear) {
             // 如果日期也相同
@@ -2098,7 +2141,7 @@ function formatTimeRange(startStr, endStr) {
             // 年份不同，显示完整日期时间
             endPart = `${endYear}/${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
         }
-        
+
         return `${startPart} ~ ${endPart}`;
     } catch (error) {
         console.error('格式化时间范围失败:', error, startStr, endStr);
@@ -2132,7 +2175,7 @@ function showModal(title, content, onConfirm) {
     // 先关闭之前的 modal，确保干净的状态
     modalContainer.innerHTML = '';
     modalContainer.style.display = 'none';
-    
+
     // 创建新的 modal，使用更美观的结构
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeModal(event)">
@@ -2151,10 +2194,10 @@ function showModal(title, content, onConfirm) {
             </div>
         </div>
     `;
-    
+
     // 显示 modal
     modalContainer.style.display = 'flex';
-    
+
     // 保存确认回调
     window.currentModalCallback = onConfirm;
 }
@@ -2181,7 +2224,7 @@ function showChangePasswordModal() {
     const modalContainer = document.getElementById('modal-container');
     modalContainer.innerHTML = '';
     modalContainer.style.display = 'none';
-    
+
     const content = `
         <form id="change-password-form" style="display: flex; flex-direction: column; gap: 16px;">
             <div class="form-group">
@@ -2199,7 +2242,7 @@ function showChangePasswordModal() {
             <div id="change-password-error" class="error-message" style="display: none;"></div>
         </form>
     `;
-    
+
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
@@ -2217,7 +2260,7 @@ function showChangePasswordModal() {
             </div>
         </div>
     `;
-    
+
     modalContainer.style.display = 'flex';
 }
 
@@ -2227,36 +2270,36 @@ async function handleChangePassword() {
     const confirmPassword = document.getElementById('confirm-password').value;
     const errorEl = document.getElementById('change-password-error');
     const submitBtn = document.getElementById('change-password-submit-btn');
-    
+
     // 验证输入
     if (!oldPassword || !newPassword || !confirmPassword) {
         errorEl.textContent = '请填写所有字段';
         errorEl.style.display = 'block';
         return;
     }
-    
+
     if (newPassword.length < 6) {
         errorEl.textContent = '新密码长度至少为6位';
         errorEl.style.display = 'block';
         return;
     }
-    
+
     if (newPassword !== confirmPassword) {
         errorEl.textContent = '两次输入的新密码不一致';
         errorEl.style.display = 'block';
         return;
     }
-    
+
     if (oldPassword === newPassword) {
         errorEl.textContent = '新密码不能与原密码相同';
         errorEl.style.display = 'block';
         return;
     }
-    
+
     // 禁用提交按钮，防止重复提交
     submitBtn.disabled = true;
     submitBtn.textContent = '提交中...';
-    
+
     try {
         errorEl.style.display = 'none';
         await apiRequest('/users/me/change-password', {
@@ -2266,7 +2309,7 @@ async function handleChangePassword() {
                 new_password: newPassword
             })
         });
-        
+
         alert('密码修改成功！');
         closeModal();
     } catch (error) {
@@ -2301,7 +2344,7 @@ function showConfirmDialog(title, message, onConfirm, onCancel) {
         </div>
     `;
     modalContainer.style.display = 'flex';
-    
+
     // 保存回调
     window.currentConfirmCallback = onConfirm;
     window.currentCancelCallback = onCancel;
@@ -2334,31 +2377,31 @@ function showToast(message, type = 'info') {
     if (existingToast) {
         existingToast.remove();
     }
-    
+
     const toast = document.createElement('div');
     toast.className = `custom-toast custom-toast-${type}`;
-    
+
     const icons = {
         success: '✅',
         error: '❌',
         warning: '⚠️',
         info: 'ℹ️'
     };
-    
+
     toast.innerHTML = `
         <div class="toast-content">
             <span class="toast-icon">${icons[type] || icons.info}</span>
             <span class="toast-message">${message}</span>
         </div>
     `;
-    
+
     document.body.appendChild(toast);
-    
+
     // 触发动画
     setTimeout(() => {
         toast.classList.add('show');
     }, 10);
-    
+
     // 自动关闭
     setTimeout(() => {
         toast.classList.remove('show');
@@ -2371,10 +2414,10 @@ function showToast(message, type = 'info') {
 // ==================== 用户管理 ====================
 async function showAddUserModal() {
     const departments = await apiRequest('/departments/');
-    const deptOptions = departments.map(d => 
+    const deptOptions = departments.map(d =>
         `<option value="${d.id}">${d.name}</option>`
     ).join('');
-    
+
     const content = `
         <div class="form-section">
             <div class="form-section-title">
@@ -2482,7 +2525,7 @@ async function showAddUserModal() {
             </div>
         </div>
     `;
-    
+
     showModal('添加用户', content, async () => {
         const username = document.getElementById('modal-username').value;
         const realname = document.getElementById('modal-realname').value;
@@ -2493,12 +2536,12 @@ async function showAddUserModal() {
         const department = document.getElementById('modal-department').value;
         const annualLeaveDays = parseFloat(document.getElementById('modal-annual-leave-days').value) || 10.0;
         const enableAttendance = document.getElementById('modal-enable-attendance').value === 'true';
-        
+
         if (!username || !realname || !password) {
             showToast('请填写必填项', 'warning');
             return;
         }
-        
+
         try {
             await apiRequest('/users/', {
                 method: 'POST',
@@ -2514,7 +2557,7 @@ async function showAddUserModal() {
                     enable_attendance: enableAttendance
                 })
             });
-            
+
             closeModal();
             showToast('添加成功', 'success');
             loadUsers();
@@ -2527,10 +2570,10 @@ async function showAddUserModal() {
 async function editUser(id) {
     const user = await apiRequest(`/users/${id}`);
     const departments = await apiRequest('/departments/');
-    const deptOptions = departments.map(d => 
+    const deptOptions = departments.map(d =>
         `<option value="${d.id}" ${d.id === user.department_id ? 'selected' : ''}>${d.name}</option>`
     ).join('');
-    
+
     const content = `
         <div class="form-section">
             <div class="form-section-title">
@@ -2648,7 +2691,7 @@ async function editUser(id) {
             </div>
         </div>
     `;
-    
+
     showModal('编辑用户', content, async () => {
         const realname = document.getElementById('modal-realname').value;
         const password = document.getElementById('modal-password').value;
@@ -2659,12 +2702,12 @@ async function editUser(id) {
         const annualLeaveDays = parseFloat(document.getElementById('modal-annual-leave-days').value);
         const isActive = document.getElementById('modal-active').value === 'true';
         const enableAttendance = document.getElementById('modal-enable-attendance').value === 'true';
-        
+
         if (!realname) {
             showToast('请填写姓名', 'warning');
             return;
         }
-        
+
         const updateData = {
             real_name: realname,
             email: email || null,
@@ -2674,21 +2717,21 @@ async function editUser(id) {
             is_active: isActive,
             enable_attendance: enableAttendance
         };
-        
+
         if (!isNaN(annualLeaveDays)) {
             updateData.annual_leave_days = annualLeaveDays;
         }
-        
+
         if (password) {
             updateData.password = password;
         }
-        
+
         try {
             await apiRequest(`/users/${id}`, {
                 method: 'PUT',
                 body: JSON.stringify(updateData)
             });
-            
+
             closeModal();
             showToast('更新成功', 'success');
             loadUsers();
@@ -2739,10 +2782,10 @@ function clearWechatBinding(userId, userName) {
 // ==================== 部门管理 ====================
 async function showAddDepartmentModal() {
     const users = await apiRequest('/users/');
-    const userOptions = users.map(u => 
+    const userOptions = users.map(u =>
         `<option value="${u.id}">${u.real_name}</option>`
     ).join('');
-    
+
     const content = `
         <div class="form-group">
             <label>部门名称 *</label>
@@ -2760,17 +2803,17 @@ async function showAddDepartmentModal() {
             </select>
         </div>
     `;
-    
+
     showModal('添加部门', content, async () => {
         const name = document.getElementById('modal-dept-name').value;
         const description = document.getElementById('modal-dept-desc').value;
         const headId = document.getElementById('modal-dept-head').value;
-        
+
         if (!name) {
             alert('请填写部门名称');
             return;
         }
-        
+
         try {
             await apiRequest('/departments/', {
                 method: 'POST',
@@ -2780,7 +2823,7 @@ async function showAddDepartmentModal() {
                     head_id: headId ? parseInt(headId) : null
                 })
             });
-            
+
             closeModal();
             alert('添加成功');
             loadDepartments();
@@ -2793,10 +2836,10 @@ async function showAddDepartmentModal() {
 async function editDepartment(id) {
     const dept = await apiRequest(`/departments/${id}`);
     const users = await apiRequest('/users/');
-    const userOptions = users.map(u => 
+    const userOptions = users.map(u =>
         `<option value="${u.id}" ${u.id === dept.head_id ? 'selected' : ''}>${u.real_name}</option>`
     ).join('');
-    
+
     const content = `
         <div class="form-group">
             <label>部门名称 *</label>
@@ -2814,17 +2857,17 @@ async function editDepartment(id) {
             </select>
         </div>
     `;
-    
+
     showModal('编辑部门', content, async () => {
         const name = document.getElementById('modal-dept-name').value;
         const description = document.getElementById('modal-dept-desc').value;
         const headId = document.getElementById('modal-dept-head').value;
-        
+
         if (!name) {
             alert('请填写部门名称');
             return;
         }
-        
+
         try {
             await apiRequest(`/departments/${id}`, {
                 method: 'PUT',
@@ -2834,7 +2877,7 @@ async function editDepartment(id) {
                     head_id: headId ? parseInt(headId) : null
                 })
             });
-            
+
             closeModal();
             alert('更新成功');
             loadDepartments();
@@ -2861,10 +2904,10 @@ async function loadVpDepartments() {
         const vpDepartments = await apiRequest('/vp-departments/');
         const users = await apiRequest('/users/');
         const departments = await apiRequest('/departments/');
-        
+
         const userMap = {};
         users.forEach(u => userMap[u.id] = u.real_name);
-        
+
         const deptMap = {};
         departments.forEach(d => deptMap[d.id] = d.name);
 
@@ -2879,7 +2922,7 @@ async function loadVpDepartments() {
             `;
             return;
         }
-        
+
         tbody.innerHTML = vpDepartments.map(vpd => `
             <tr>
                 <td>${vpd.id}</td>
@@ -2905,17 +2948,17 @@ async function loadVpDepartments() {
 async function showAddVpDepartmentModal() {
     const users = await apiRequest('/users/');
     const departments = await apiRequest('/departments/');
-    
+
     // 只显示副总角色的用户
     const vpUsers = users.filter(u => u.role === 'vice_president' && u.is_active);
-    const vpOptions = vpUsers.map(u => 
+    const vpOptions = vpUsers.map(u =>
         `<option value="${u.id}">${u.real_name}</option>`
     ).join('');
-    
-    const deptOptions = departments.map(d => 
+
+    const deptOptions = departments.map(d =>
         `<option value="${d.id}">${d.name}</option>`
     ).join('');
-    
+
     const content = `
         <div class="form-group">
             <label>副总 *</label>
@@ -2938,17 +2981,17 @@ async function showAddVpDepartmentModal() {
             </label>
         </div>
     `;
-    
+
     showModal('添加分管关系', content, async () => {
         const vpId = document.getElementById('modal-vp-id').value;
         const deptId = document.getElementById('modal-dept-id').value;
         const isDefault = document.getElementById('modal-is-default').checked;
-        
+
         if (!vpId || !deptId) {
             alert('请选择副总和部门');
             return;
         }
-        
+
         try {
             await apiRequest('/vp-departments/', {
                 method: 'POST',
@@ -2958,7 +3001,7 @@ async function showAddVpDepartmentModal() {
                     is_default: isDefault
                 })
             });
-            
+
             closeModal();
             alert('添加成功');
             loadVpDepartments();
@@ -2972,17 +3015,17 @@ async function editVpDepartment(id) {
     const vpd = await apiRequest(`/vp-departments/${id}`);
     const users = await apiRequest('/users/');
     const departments = await apiRequest('/departments/');
-    
+
     // 只显示副总角色的用户
     const vpUsers = users.filter(u => u.role === 'vice_president' && u.is_active);
-    const vpOptions = vpUsers.map(u => 
+    const vpOptions = vpUsers.map(u =>
         `<option value="${u.id}" ${u.id === vpd.vice_president_id ? 'selected' : ''}>${u.real_name}</option>`
     ).join('');
-    
-    const deptOptions = departments.map(d => 
+
+    const deptOptions = departments.map(d =>
         `<option value="${d.id}" ${d.id === vpd.department_id ? 'selected' : ''}>${d.name}</option>`
     ).join('');
-    
+
     const content = `
         <div class="form-group">
             <label>副总 *</label>
@@ -3005,17 +3048,17 @@ async function editVpDepartment(id) {
             </label>
         </div>
     `;
-    
+
     showModal('编辑分管关系', content, async () => {
         const vpId = document.getElementById('modal-vp-id').value;
         const deptId = document.getElementById('modal-dept-id').value;
         const isDefault = document.getElementById('modal-is-default').checked;
-        
+
         if (!vpId || !deptId) {
             alert('请选择副总和部门');
             return;
         }
-        
+
         try {
             await apiRequest(`/vp-departments/${id}`, {
                 method: 'PUT',
@@ -3025,7 +3068,7 @@ async function editVpDepartment(id) {
                     is_default: isDefault
                 })
             });
-            
+
             closeModal();
             alert('更新成功');
             loadVpDepartments();
@@ -3052,23 +3095,23 @@ async function loadAttendanceViewers() {
         const viewers = await apiRequest('/attendance-viewers/');
         const users = await apiRequest('/users/');
         const departments = await apiRequest('/departments/');
-        
+
         const userMap = {};
         users.forEach(u => {
             userMap[u.id] = u;
         });
-        
+
         const deptMap = {};
         departments.forEach(d => {
             deptMap[d.id] = d.name;
         });
-        
+
         const tbody = document.getElementById('attendance-viewers-tbody');
         if (viewers.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">暂无授权人员</td></tr>';
             return;
         }
-        
+
         tbody.innerHTML = viewers.map(viewer => {
             const user = userMap[viewer.user_id] || {};
             const roleNames = {
@@ -3078,7 +3121,7 @@ async function loadAttendanceViewers() {
                 'general_manager': '总经理',
                 'admin': '管理员'
             };
-            
+
             return `
                 <tr>
                     <td>${viewer.id}</td>
@@ -3103,24 +3146,24 @@ async function showAddAttendanceViewerModal() {
     try {
         const users = await apiRequest('/users/');
         const viewers = await apiRequest('/attendance-viewers/');
-        
+
         // 获取已授权的用户ID列表
         const authorizedUserIds = new Set(viewers.map(v => v.user_id));
-        
+
         // 过滤出未授权的激活用户（排除admin、总经理、副总，因为他们默认有权限）
-        const availableUsers = users.filter(u => 
-            u.is_active && 
+        const availableUsers = users.filter(u =>
+            u.is_active &&
             u.username !== 'admin' &&
             u.role !== 'general_manager' &&
             u.role !== 'vice_president' &&
             !authorizedUserIds.has(u.id)
         );
-        
+
         if (availableUsers.length === 0) {
             showToast('没有可授权的用户', 'warning');
             return;
         }
-        
+
         const content = `
             <form id="add-attendance-viewer-form">
                 <div class="form-group">
@@ -3132,14 +3175,14 @@ async function showAddAttendanceViewerModal() {
                 </div>
             </form>
         `;
-        
+
         showModal('添加授权人员', content, async () => {
             const userId = parseInt(document.getElementById('viewer-user-id').value);
             if (!userId) {
                 showToast('请选择用户', 'warning');
                 return;
             }
-            
+
             try {
                 await apiRequest('/attendance-viewers/', {
                     method: 'POST',
@@ -3180,12 +3223,12 @@ async function loadLeaveTypes() {
         const types = await apiRequest('/leave-types/?include_inactive=true');
         adminLeaveTypes = types;
         const tbody = document.getElementById('leave-types-tbody');
-        
+
         if (!types.length) {
             tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 40px; color: #999;">暂未配置请假类型</td></tr>';
             return;
         }
-        
+
         tbody.innerHTML = types.map(type => `
             <tr>
                 <td>${type.name}</td>
@@ -3205,7 +3248,7 @@ async function loadLeaveTypes() {
                 </td>
             </tr>
         `).join('');
-        
+
         tbody.querySelectorAll('button[data-action="edit"]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id = parseInt(btn.dataset.id);
@@ -3215,7 +3258,7 @@ async function loadLeaveTypes() {
                 }
             });
         });
-        
+
         tbody.querySelectorAll('button[data-action="toggle"]').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const id = parseInt(btn.dataset.id);
@@ -3233,7 +3276,7 @@ async function loadLeaveTypes() {
                 }
             });
         });
-        
+
         tbody.querySelectorAll('button[data-action="delete"]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id = parseInt(btn.dataset.id);
@@ -3290,20 +3333,20 @@ function openLeaveTypeModal(title, type = null) {
             ` : ''}
         </form>
     `;
-    
+
     showModal(title, content, async () => {
         const nameInput = document.getElementById('leave-type-name');
         const descInput = document.getElementById('leave-type-description');
         const activeInput = document.getElementById('leave-type-active');
-        
+
         const name = nameInput.value.trim();
         const description = descInput.value.trim();
-        
+
         if (!name) {
             alert('类型名称不能为空');
             return;
         }
-        
+
         try {
             if (type) {
                 await apiRequest(`/leave-types/${type.id}`, {
@@ -3396,7 +3439,7 @@ function showAddPolicyModal() {
             </label>
         </div>
     `;
-    
+
     showModal('添加打卡策略', content, async () => {
         const name = document.getElementById('modal-policy-name').value;
         const workStart = document.getElementById('modal-work-start').value;
@@ -3412,12 +3455,12 @@ function showAddPolicyModal() {
         const afternoonStart = document.getElementById('modal-afternoon-start').value;
         const afternoonEnd = document.getElementById('modal-afternoon-end').value;
         const isActive = document.getElementById('modal-policy-active').checked;
-        
+
         if (!name || !workStart || !workEnd) {
             alert('请填写必填项');
             return;
         }
-        
+
         try {
             await apiRequest('/attendance/policies', {
                 method: 'POST',
@@ -3438,7 +3481,7 @@ function showAddPolicyModal() {
                     is_active: isActive
                 })
             });
-            
+
             closeModal();
             alert('添加成功');
             loadPolicies();
@@ -3451,12 +3494,12 @@ function showAddPolicyModal() {
 async function editPolicy(id) {
     const policy = await apiRequest(`/attendance/policies`);
     const currentPolicy = policy.find(p => p.id === id);
-    
+
     if (!currentPolicy) {
         alert('策略不存在');
         return;
     }
-    
+
     // 解析每周规则
     let weeklyRules = {};
     if (currentPolicy.weekly_rules) {
@@ -3466,7 +3509,7 @@ async function editPolicy(id) {
             console.error('解析每周规则失败:', e);
         }
     }
-    
+
     const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     const weekdayRows = weekdays.map((day, index) => {
         const dayRule = weeklyRules[index] || {};
@@ -3497,7 +3540,7 @@ async function editPolicy(id) {
             </tr>
         `;
     }).join('');
-    
+
     const content = `
         <div class="form-group">
             <label>策略名称 *</label>
@@ -3579,7 +3622,7 @@ async function editPolicy(id) {
             </label>
         </div>
     `;
-    
+
     showModal('编辑打卡策略', content, async () => {
         const name = document.getElementById('modal-policy-name').value;
         const workStart = document.getElementById('modal-work-start').value;
@@ -3595,12 +3638,12 @@ async function editPolicy(id) {
         const afternoonStart = document.getElementById('modal-afternoon-start').value;
         const afternoonEnd = document.getElementById('modal-afternoon-end').value;
         const isActive = document.getElementById('modal-policy-active').checked;
-        
+
         if (!name || !workStart || !workEnd) {
             alert('请填写必填项');
             return;
         }
-        
+
         // 收集每周规则
         const weeklyRulesData = {};
         document.querySelectorAll('.weekly-enable:checked').forEach(checkbox => {
@@ -3608,7 +3651,7 @@ async function editPolicy(id) {
             const workEnd = document.querySelector(`.weekly-work-end[data-day="${day}"]`).value;
             const checkoutStart = document.querySelector(`.weekly-checkout-start[data-day="${day}"]`).value;
             const checkoutEnd = document.querySelector(`.weekly-checkout-end[data-day="${day}"]`).value;
-            
+
             if (workEnd || checkoutStart || checkoutEnd) {
                 weeklyRulesData[day] = {};
                 if (workEnd) weeklyRulesData[day].work_end_time = workEnd;
@@ -3616,7 +3659,7 @@ async function editPolicy(id) {
                 if (checkoutEnd) weeklyRulesData[day].checkout_end_time = checkoutEnd;
             }
         });
-        
+
         try {
             await apiRequest(`/attendance/policies/${id}`, {
                 method: 'PUT',
@@ -3638,7 +3681,7 @@ async function editPolicy(id) {
                     is_active: isActive
                 })
             });
-            
+
             closeModal();
             alert('更新成功');
             loadPolicies();
@@ -3646,11 +3689,11 @@ async function editPolicy(id) {
             alert('更新失败: ' + error.message);
         }
     });
-    
+
     // 添加事件监听器：勾选/取消勾选时启用/禁用输入框
     setTimeout(() => {
         document.querySelectorAll('.weekly-enable').forEach(checkbox => {
-            checkbox.addEventListener('change', function() {
+            checkbox.addEventListener('change', function () {
                 const day = this.getAttribute('data-day');
                 const isEnabled = this.checked;
                 document.querySelector(`.weekly-work-end[data-day="${day}"]`).disabled = !isEnabled;
@@ -3673,12 +3716,12 @@ function deletePolicy(id) {
 }
 
 // ==================== 请假/加班详情 ====================
-window.viewLeaveDetail = async function(id) {
+window.viewLeaveDetail = async function (id) {
     const leave = await apiRequest(`/leave/${id}`);
     const users = await apiRequest('/users/');
     const userMap = {};
     users.forEach(u => userMap[u.id] = u.real_name);
-    
+
     const content = `
         <div style="line-height: 1.8;">
             <p><strong>申请人：</strong>${userMap[leave.user_id]}</p>
@@ -3710,7 +3753,7 @@ window.viewLeaveDetail = async function(id) {
             ` : ''}
         </div>
     `;
-    
+
     const modalContainer = document.getElementById('modal-container');
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeModal(event)">
@@ -3732,11 +3775,11 @@ window.viewLeaveDetail = async function(id) {
 }
 
 // 编辑请假申请
-window.editLeaveApplication = async function(id) {
+window.editLeaveApplication = async function (id) {
     try {
         const leave = await apiRequest(`/leave/${id}`);
         const leaveTypes = await apiRequest('/leave-types/?include_inactive=true');
-        
+
         // 格式化日期时间为datetime-local格式
         const formatDateTimeLocal = (dateStr) => {
             if (!dateStr) return '';
@@ -3748,11 +3791,11 @@ window.editLeaveApplication = async function(id) {
             const minutes = String(date.getMinutes()).padStart(2, '0');
             return `${year}-${month}-${day}T${hours}:${minutes}`;
         };
-        
-        const leaveTypeOptions = leaveTypes.map(type => 
+
+        const leaveTypeOptions = leaveTypes.map(type =>
             `<option value="${type.id}" ${type.id === leave.leave_type_id ? 'selected' : ''}>${type.name}</option>`
         ).join('');
-        
+
         const content = `
             <form id="edit-leave-form" onsubmit="submitEditLeaveForm(event, ${id})">
                 <div class="form-group">
@@ -3784,7 +3827,7 @@ window.editLeaveApplication = async function(id) {
                 </div>
             </form>
         `;
-        
+
         const modalContainer = document.getElementById('modal-container');
         modalContainer.innerHTML = `
             <div class="modal-overlay" onclick="closeModal(event)">
@@ -3800,12 +3843,12 @@ window.editLeaveApplication = async function(id) {
             </div>
         `;
         modalContainer.style.display = 'flex';
-        
+
         // 添加日期时间变化监听，自动计算天数
         const startDateInput = document.getElementById('edit-start-date');
         const endDateInput = document.getElementById('edit-end-date');
         const daysInput = document.getElementById('edit-days');
-        
+
         function calculateDays() {
             const start = new Date(startDateInput.value);
             const end = new Date(endDateInput.value);
@@ -3815,7 +3858,7 @@ window.editLeaveApplication = async function(id) {
                 daysInput.value = diffDays.toFixed(1);
             }
         }
-        
+
         startDateInput.addEventListener('change', calculateDays);
         endDateInput.addEventListener('change', calculateDays);
     } catch (error) {
@@ -3824,25 +3867,25 @@ window.editLeaveApplication = async function(id) {
 }
 
 // 提交编辑请假申请
-window.submitEditLeaveForm = async function(event, leaveId) {
+window.submitEditLeaveForm = async function (event, leaveId) {
     event.preventDefault();
-    
+
     const leaveTypeId = document.getElementById('edit-leave-type').value;
     const startDate = document.getElementById('edit-start-date').value;
     const endDate = document.getElementById('edit-end-date').value;
     const days = parseFloat(document.getElementById('edit-days').value);
     const reason = document.getElementById('edit-reason').value.trim();
-    
+
     if (!leaveTypeId || !startDate || !endDate || !days || !reason) {
         showAlert('请填写所有必填项', 'warning', '表单验证');
         return;
     }
-    
+
     if (new Date(endDate) < new Date(startDate)) {
         showAlert('结束时间不能早于开始时间', 'warning', '表单验证');
         return;
     }
-    
+
     try {
         await apiRequest(`/leave/${leaveId}`, {
             method: 'PUT',
@@ -3854,7 +3897,7 @@ window.submitEditLeaveForm = async function(event, leaveId) {
                 reason: reason
             })
         });
-        
+
         showAlert('编辑成功！', 'success', '操作成功');
         closeModal();
         loadLeaveApplications();
@@ -3863,12 +3906,12 @@ window.submitEditLeaveForm = async function(event, leaveId) {
     }
 }
 
-window.viewOvertimeDetail = async function(id) {
+window.viewOvertimeDetail = async function (id) {
     const overtime = await apiRequest(`/overtime/${id}`);
     const users = await apiRequest('/users/');
     const userMap = {};
     users.forEach(u => userMap[u.id] = u.real_name);
-    
+
     const content = `
         <div style="line-height: 1.8;">
             <p><strong>申请人：</strong>${userMap[overtime.user_id]}</p>
@@ -3885,7 +3928,7 @@ window.viewOvertimeDetail = async function(id) {
             ` : ''}
         </div>
     `;
-    
+
     const modalContainer = document.getElementById('modal-container');
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeModal(event)">
@@ -3907,10 +3950,10 @@ window.viewOvertimeDetail = async function(id) {
 }
 
 // 编辑加班申请
-window.editOvertimeApplication = async function(id) {
+window.editOvertimeApplication = async function (id) {
     try {
         const overtime = await apiRequest(`/overtime/${id}`);
-        
+
         // 格式化日期时间为datetime-local格式
         const formatDateTimeLocal = (dateStr) => {
             if (!dateStr) return '';
@@ -3922,7 +3965,7 @@ window.editOvertimeApplication = async function(id) {
             const minutes = String(date.getMinutes()).padStart(2, '0');
             return `${year}-${month}-${day}T${hours}:${minutes}`;
         };
-        
+
         const content = `
             <form id="edit-overtime-form" onsubmit="submitEditOvertimeForm(event, ${id})">
                 <div class="form-group">
@@ -3959,7 +4002,7 @@ window.editOvertimeApplication = async function(id) {
                 </div>
             </form>
         `;
-        
+
         const modalContainer = document.getElementById('modal-container');
         modalContainer.innerHTML = `
             <div class="modal-overlay" onclick="closeModal(event)">
@@ -3975,13 +4018,13 @@ window.editOvertimeApplication = async function(id) {
             </div>
         `;
         modalContainer.style.display = 'flex';
-        
+
         // 添加日期时间变化监听，自动计算小时数和天数
         const startTimeInput = document.getElementById('edit-start-time');
         const endTimeInput = document.getElementById('edit-end-time');
-               const hoursInput = document.getElementById('edit-hours');
+        const hoursInput = document.getElementById('edit-hours');
         const daysInput = document.getElementById('edit-days');
-        
+
         function calculateTime() {
             const start = new Date(startTimeInput.value);
             const end = new Date(endTimeInput.value);
@@ -3989,14 +4032,14 @@ window.editOvertimeApplication = async function(id) {
                 const diffMs = end - start;
                 const diffHours = diffMs / (1000 * 60 * 60);
                 const diffDays = diffHours / 8; // 按8小时一天计算
-                
+
                 hoursInput.value = diffHours.toFixed(1);
                 // 天数需要是整数或 x.5
                 const roundedDays = Math.round(diffDays * 2) / 2;
                 daysInput.value = roundedDays.toFixed(1);
             }
         }
-        
+
         startTimeInput.addEventListener('change', calculateTime);
         endTimeInput.addEventListener('change', calculateTime);
     } catch (error) {
@@ -4005,32 +4048,32 @@ window.editOvertimeApplication = async function(id) {
 }
 
 // 提交编辑加班申请
-window.submitEditOvertimeForm = async function(event, overtimeId) {
+window.submitEditOvertimeForm = async function (event, overtimeId) {
     event.preventDefault();
-    
+
     const overtimeType = document.getElementById('edit-overtime-type').value;
     const startTime = document.getElementById('edit-start-time').value;
     const endTime = document.getElementById('edit-end-time').value;
     const hours = parseFloat(document.getElementById('edit-hours').value);
     const days = parseFloat(document.getElementById('edit-days').value);
     const reason = document.getElementById('edit-reason').value.trim();
-    
+
     if (!overtimeType || !startTime || !endTime || !hours || !days || !reason) {
         showAlert('请填写所有必填项', 'warning', '表单验证');
         return;
     }
-    
+
     if (new Date(endTime) < new Date(startTime)) {
         showAlert('结束时间不能早于开始时间', 'warning', '表单验证');
         return;
     }
-    
+
     // 验证天数格式（必须是整数或 x.5）
     if (days % 0.5 !== 0) {
         showAlert('加班天数只能是整数或整数.5（如1, 1.5, 2, 2.5）', 'warning', '表单验证');
         return;
     }
-    
+
     try {
         await apiRequest(`/overtime/${overtimeId}`, {
             method: 'PUT',
@@ -4043,7 +4086,7 @@ window.submitEditOvertimeForm = async function(event, overtimeId) {
                 reason: reason
             })
         });
-        
+
         showAlert('编辑成功！', 'success', '操作成功');
         closeModal();
         loadOvertimeApplications();
@@ -4058,7 +4101,7 @@ function showConfirm(title, message, onConfirm, onCancel = null) {
     // 先关闭之前的 modal
     modalContainer.innerHTML = '';
     modalContainer.style.display = 'none';
-    
+
     // 创建确认对话框
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeConfirmModal()">
@@ -4080,10 +4123,10 @@ function showConfirm(title, message, onConfirm, onCancel = null) {
             </div>
         </div>
     `;
-    
+
     // 显示对话框
     modalContainer.style.display = 'flex';
-    
+
     // 保存回调函数
     window.currentConfirmCallback = onConfirm;
     window.currentCancelCallback = onCancel;
@@ -4110,21 +4153,21 @@ function handleConfirm() {
 // 美化的提示框（替换alert）
 function showAlert(message, type = 'info', title = '提示') {
     const modalContainer = document.getElementById('modal-container');
-    
+
     const icons = {
         success: '✅',
         error: '❌',
         warning: '⚠️',
         info: 'ℹ️'
     };
-    
+
     const colors = {
         success: 'linear-gradient(135deg, var(--success-color) 0%, #2ECC71 100%)',
         error: 'linear-gradient(135deg, var(--danger-color) 0%, #E74C3C 100%)',
         warning: 'linear-gradient(135deg, var(--warning-color) 0%, #F39C12 100%)',
         info: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)'
     };
-    
+
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeAlert()">
             <div class="modal alert-modal" onclick="event.stopPropagation()" style="max-width: 420px;">
@@ -4144,7 +4187,7 @@ function showAlert(message, type = 'info', title = '提示') {
             </div>
         </div>
     `;
-    
+
     modalContainer.style.display = 'flex';
 }
 
@@ -4159,21 +4202,21 @@ function closeAlert() {
 // 美化的确认框（替换confirm）
 function showConfirmDialog(message, onConfirm, onCancel = null, title = '确认操作', confirmText = '确定', cancelText = '取消', type = 'warning') {
     const modalContainer = document.getElementById('modal-container');
-    
+
     const icons = {
         warning: '⚠️',
         danger: '🗑️',
         info: 'ℹ️',
         question: '❓'
     };
-    
+
     const headerColors = {
         warning: 'linear-gradient(135deg, var(--warning-color) 0%, #FF6B35 100%)',
         danger: 'linear-gradient(135deg, var(--danger-color) 0%, #E74C3C 100%)',
         info: 'linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%)',
         question: 'linear-gradient(135deg, #5856D6 0%, #7B68EE 100%)'
     };
-    
+
     modalContainer.innerHTML = `
         <div class="modal-overlay" onclick="closeConfirmDialog()">
             <div class="modal confirm-dialog-modal" onclick="event.stopPropagation()" style="max-width: 420px;">
@@ -4194,9 +4237,9 @@ function showConfirmDialog(message, onConfirm, onCancel = null, title = '确认�
             </div>
         </div>
     `;
-    
+
     modalContainer.style.display = 'flex';
-    
+
     // 保存回调函数
     window.currentConfirmCallback = onConfirm;
     window.currentCancelCallback = onCancel;
@@ -4289,11 +4332,11 @@ function showToast(message, type = 'info', duration = 3000) {
     if (existingToast) {
         existingToast.remove();
     }
-    
+
     // 创建toast元素
     const toast = document.createElement('div');
     toast.className = `admin-toast admin-toast-${type}`;
-    
+
     // 图标映射
     const icons = {
         success: '✅',
@@ -4301,22 +4344,22 @@ function showToast(message, type = 'info', duration = 3000) {
         warning: '⚠️',
         info: 'ℹ️'
     };
-    
+
     toast.innerHTML = `
         <div class="admin-toast-content">
             <span class="admin-toast-icon">${icons[type] || icons.info}</span>
             <span class="admin-toast-message">${message}</span>
         </div>
     `;
-    
+
     // 添加到页面
     document.body.appendChild(toast);
-    
+
     // 显示动画
     setTimeout(() => {
         toast.classList.add('show');
     }, 10);
-    
+
     // 自动隐藏
     setTimeout(() => {
         toast.classList.remove('show');
@@ -4368,7 +4411,7 @@ window.addEventListener('DOMContentLoaded', () => {
         attendanceStartDate.value = lastWeek;
         attendanceEndDate.value = today;
     }
-    
+
     // 设置默认月份为当前月
     const attendanceMonth = document.getElementById('attendance-month');
     if (attendanceMonth) {
@@ -4387,7 +4430,7 @@ async function loadHolidays() {
     try {
         // 先获取所有节假日记录，用于提取年份
         const allHolidays = await apiRequest('/holidays/');
-        
+
         // 从所有记录中提取年份
         const years = new Set();
         allHolidays.forEach(holiday => {
@@ -4398,14 +4441,14 @@ async function loadHolidays() {
                 }
             }
         });
-        
+
         // 将年份排序（从大到小）
         const sortedYears = Array.from(years).sort((a, b) => parseInt(b) - parseInt(a));
-        
+
         // 更新年份下拉菜单
         const yearFilter = document.getElementById('holiday-year-filter');
         const currentValue = yearFilter.value;
-        
+
         yearFilter.innerHTML = '<option value="">全部年份</option>';
         sortedYears.forEach(year => {
             const option = document.createElement('option');
@@ -4413,7 +4456,7 @@ async function loadHolidays() {
             option.textContent = `${year}年`;
             yearFilter.appendChild(option);
         });
-        
+
         // 恢复之前选中的年份
         if (currentValue && sortedYears.includes(currentValue)) {
             yearFilter.value = currentValue;
@@ -4421,7 +4464,7 @@ async function loadHolidays() {
             // 如果没有选中或选中的年份不存在，默认选择第一个年份
             yearFilter.value = sortedYears[0];
         }
-        
+
         // 按选中的年份筛选显示
         const selectedYear = yearFilter.value;
         let filteredHolidays = allHolidays;
@@ -4431,14 +4474,14 @@ async function loadHolidays() {
                 return year === selectedYear;
             });
         }
-        
+
         // 按ID数字排序（而不是字符串排序）
         filteredHolidays.sort((a, b) => {
             return parseInt(a.id) - parseInt(b.id);
         });
-        
+
         const tbody = document.getElementById('holidays-table-body');
-        
+
         if (filteredHolidays.length === 0) {
             tbody.innerHTML = `
                 <tr>
@@ -4449,7 +4492,7 @@ async function loadHolidays() {
             `;
             return;
         }
-        
+
         tbody.innerHTML = filteredHolidays.map(holiday => `
             <tr>
                 <td>${holiday.id}</td>
@@ -4536,7 +4579,7 @@ function showAddHolidayModal() {
 }
 
 // 切换节假日添加模式（单个日期/日期范围）
-window.toggleHolidayAddMode = function() {
+window.toggleHolidayAddMode = function () {
     const mode = document.querySelector('input[name="holiday-add-mode"]:checked').value;
     const singleDateGroup = document.getElementById('single-date-group');
     const rangeDateGroup = document.getElementById('range-date-group');
@@ -4544,7 +4587,7 @@ window.toggleHolidayAddMode = function() {
     const singleDateInput = document.getElementById('holiday-date');
     const startDateInput = document.getElementById('holiday-start-date');
     const endDateInput = document.getElementById('holiday-end-date');
-    
+
     if (mode === 'single') {
         singleDateGroup.style.display = 'block';
         rangeDateGroup.style.display = 'none';
@@ -4610,7 +4653,7 @@ async function submitHolidayForm(event) {
     event.preventDefault();
     const formData = new FormData(event.target);
     const mode = document.querySelector('input[name="holiday-add-mode"]:checked').value;
-    
+
     try {
         if (mode === 'single') {
             // 单个日期模式
@@ -4620,12 +4663,12 @@ async function submitHolidayForm(event) {
                 type: formData.get('type'),
                 description: formData.get('description') || null
             };
-            
+
             if (!data.date) {
                 showToast('请选择日期', 'warning');
                 return;
             }
-            
+
             await apiRequest('/holidays/', {
                 method: 'POST',
                 body: JSON.stringify(data)
@@ -4640,25 +4683,25 @@ async function submitHolidayForm(event) {
                 type: formData.get('type'),
                 description: formData.get('description') || null
             };
-            
+
             if (!batch.start_date || !batch.end_date) {
                 showToast('请选择开始日期和结束日期', 'warning');
                 return;
             }
-            
+
             if (batch.start_date > batch.end_date) {
                 showToast('开始日期不能晚于结束日期', 'warning');
                 return;
             }
-            
+
             const result = await apiRequest('/holidays/batch', {
                 method: 'POST',
                 body: JSON.stringify(batch)
             });
-            
+
             showToast(`成功添加 ${result.length} 个节假日！`, 'success');
         }
-        
+
         closeModal();
         loadHolidays();
     } catch (error) {

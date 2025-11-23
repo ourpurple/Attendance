@@ -368,7 +368,7 @@ body {
     background: var(--bg-secondary);
     border-radius: 14px;
     border: 1px solid rgba(0, 0, 0, 0.05);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4);
     padding: 0;
     overflow: hidden;
     max-height: 0;
@@ -549,7 +549,8 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 32px;
-    padding-bottom: 60px; /* 为底部版权声明留出空间 */
+    padding-bottom: 60px;
+    /* 为底部版权声明留出空间 */
 }
 
 /* 页面底部版权声明 */
@@ -620,7 +621,7 @@ body {
 }
 
 /* 确保所有子元素水平排列 */
-.attendance-filters > div {
+.attendance-filters>div {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -677,8 +678,8 @@ body {
     flex-wrap: nowrap;
 }
 
-.leave-filters > div,
-.overtime-filters > div {
+.leave-filters>div,
+.overtime-filters>div {
     display: flex;
     gap: 10px;
     align-items: center;
@@ -888,6 +889,7 @@ tr:hover {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
@@ -987,6 +989,7 @@ tr:hover {
         opacity: 0;
         transform: translateY(-30px) scale(0.9);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
@@ -1015,9 +1018,11 @@ tr:hover {
         transform: scale(0.5);
         opacity: 0;
     }
+
     50% {
         transform: scale(1.15);
     }
+
     100% {
         transform: scale(1);
         opacity: 1;
@@ -1307,6 +1312,7 @@ tr:hover {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -1452,4 +1458,48 @@ tr:hover {
     transform: translateY(-1px);
 }
 
+/* ==================== 每日详细统计状态单元格样式 ==================== */
+.status-cell {
+    text-align: center;
+    padding: 10px;
+    font-size: 13px;
+    transition: all 0.2s;
+}
 
+/* 正常状态 - 绿色背景 */
+.status-cell.status-normal {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+/* 市区办事 - 浅蓝色背景 */
+.status-cell.status-city {
+    background-color: #d1ecf1;
+    color: #0c5460;
+}
+
+/* 出差 - 紫色背景 */
+.status-cell.status-trip {
+    background-color: #e2d9f3;
+    color: #5a3d8a;
+}
+
+/* 请假 - 蓝色背景（用户要求） */
+.status-cell.status-leave {
+    background-color: #cce5ff;
+    color: #004085;
+    font-weight: 500;
+}
+
+/* 缺勤 - 红色背景（用户要求） */
+.status-cell.status-absent {
+    background-color: #f8d7da;
+    color: #721c24;
+    font-weight: 500;
+}
+
+/* 每日详细统计表头居中对齐 */
+#daily-stats-table th {
+    text-align: center;
+    vertical-align: middle;
+}
