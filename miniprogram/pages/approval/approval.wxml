@@ -79,12 +79,22 @@
       <view class="empty-state-text">暂无待审批加班</view>
     </view>
   </view>
+
+  <!-- 版权说明 -->
+  <view class="copyright-footer">
+    <text class="copyright-text">© 2025 河南新盟科教有限公司 All Rights Reserved</text>
+  </view>
 </view>
 
 <view class="container" wx:else>
   <view class="empty-state">
     <view class="empty-state-icon">🚫</view>
     <view class="empty-state-text">您没有审批权限</view>
+  </view>
+
+  <!-- 版权说明 -->
+  <view class="copyright-footer">
+    <text class="copyright-text">© 2025 河南新盟科教有限公司 All Rights Reserved</text>
   </view>
 </view>
 

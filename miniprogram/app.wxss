@@ -239,5 +239,18 @@ button[disabled],
   color: #8E8E93;
 }
 
+/* 版权说明 */
+.copyright-footer {
+  text-align: center;
+  padding: 40rpx 32rpx;
+  margin-top: 40rpx;
+  color: #8E8E93;
+}
+
+.copyright-text {
+  font-size: 24rpx;
+  color: #8E8E93;
+}
+
 
 

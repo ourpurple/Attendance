@@ -41,5 +41,10 @@
     <view class="empty-state-icon">📝</view>
     <view class="empty-state-text">本月暂无考勤记录</view>
   </view>
+
+  <!-- 版权说明 -->
+  <view class="copyright-footer">
+    <text class="copyright-text">© 2025 河南新盟科教有限公司 All Rights Reserved</text>
+  </view>
 </view>
 

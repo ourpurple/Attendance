@@ -1388,6 +1388,12 @@ button:disabled {
     border-radius: 4px;
 }
 
+/* 考勤和审批页面底部padding，确保版权信息可见 */
+#attendance-content,
+#approval-content {
+    padding-bottom: 60px;
+}
+
 /* 安全区域适配 (iPhone X+) */
 @supports (padding: max(0px)) {
     .app-header {
