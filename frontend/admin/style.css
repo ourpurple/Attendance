@@ -1502,4 +1502,18 @@ tr:hover {
 #daily-stats-table th {
     text-align: center;
     vertical-align: middle;
+    border-right: 1px solid #e0e0e0;
+}
+
+/* 每日详细统计表格列边框 */
+#daily-stats-table td {
+    border-right: 1px solid #e0e0e0;
+}
+
+/* 缩小姓名栏宽度为原来的80% */
+#daily-stats-table th:first-child,
+#daily-stats-table td:first-child {
+    width: 80px;
+    max-width: 80px;
+    min-width: 80px;
 }

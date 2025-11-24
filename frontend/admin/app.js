@@ -1683,16 +1683,16 @@ async function loadDailyStats(startDate, endDate) {
             // 上午行
             let morningRowHtml = `<tr><td rowspan="2" style="vertical-align: middle; border-right: 2px solid #ddd; font-weight: 500; text-align: center; padding: 10px;">${stat.real_name || stat.user_name}</td><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">上午</td>`;
             stat.items.forEach(item => {
-                const morningStatus = getStatusDisplay(item.morning_status, item.date);
-                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date)}" colspan="2">${morningStatus}</td>`;
+                const morningStatus = getStatusDisplay(item.morning_status, item.date, 'morning');
+                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning')}" colspan="2">${morningStatus}</td>`;
             });
             morningRowHtml += '</tr>';
 
             // 下午行
             let afternoonRowHtml = '<tr><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">下午</td>';
             stat.items.forEach(item => {
-                const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date);
-                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date)}" colspan="2">${afternoonStatus}</td>`;
+                const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date, 'afternoon');
+                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon')}" colspan="2">${afternoonStatus}</td>`;
             });
             afternoonRowHtml += '</tr>';
 
@@ -1708,14 +1708,38 @@ async function loadDailyStats(startDate, endDate) {
 }
 
 // 获取状态显示文本
-function getStatusDisplay(status, date) {
-    // 如果日期在今天之后且状态为缺勤，显示空值
+// period: 'morning' 或 'afternoon'
+function getStatusDisplay(status, date, period) {
     if (date) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const itemDate = new Date(date);
         itemDate.setHours(0, 0, 0, 0);
 
+        // 如果是今天
+        if (itemDate.getTime() === today.getTime()) {
+            // 当天的未签到先显示为空，包括上下午
+            if (status === 'absent') {
+                // 如果是下午，且当前时间超过17:00，显示为缺勤；否则显示为空
+                if (period === 'afternoon') {
+                    const now = new Date();
+                    const hour17 = new Date();
+                    hour17.setHours(17, 0, 0, 0);
+                    if (now >= hour17) {
+                        // 超过17:00未签到未签退，显示缺勤
+                        return '缺勤';
+                    } else {
+                        // 未到17:00，显示为空
+                        return '';
+                    }
+                } else {
+                    // 上午，显示为空
+                    return '';
+                }
+            }
+        }
+        
+        // 如果日期在今天之后且状态为缺勤，显示空值
         if (itemDate > today && status === 'absent') {
             return '';  // 未来日期显示空
         }
@@ -1733,14 +1757,38 @@ function getStatusDisplay(status, date) {
 }
 
 // 获取状态样式类
-function getStatusClass(status, date) {
-    // 如果日期在今天之后且状态为缺勤，不添加样式
+// period: 'morning' 或 'afternoon'
+function getStatusClass(status, date, period) {
     if (date) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const itemDate = new Date(date);
         itemDate.setHours(0, 0, 0, 0);
 
+        // 如果是今天
+        if (itemDate.getTime() === today.getTime()) {
+            // 当天的未签到先显示为空，不添加样式
+            if (status === 'absent') {
+                // 如果是下午，且当前时间超过17:00，添加缺勤样式；否则不添加样式
+                if (period === 'afternoon') {
+                    const now = new Date();
+                    const hour17 = new Date();
+                    hour17.setHours(17, 0, 0, 0);
+                    if (now >= hour17) {
+                        // 超过17:00未签到未签退，添加缺勤样式
+                        return 'status-absent';
+                    } else {
+                        // 未到17:00，不添加样式
+                        return '';
+                    }
+                } else {
+                    // 上午，不添加样式
+                    return '';
+                }
+            }
+        }
+        
+        // 如果日期在今天之后且状态为缺勤，不添加样式
         if (itemDate > today && status === 'absent') {
             return '';  // 未来日期无样式
         }
