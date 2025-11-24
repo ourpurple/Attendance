@@ -568,6 +568,8 @@ class DailyAttendanceItem(BaseModel):
     weekday: str  # 星期几（一、二、三...）
     morning_status: Optional[str] = None  # 上午状态: normal/city_business/business_trip/leave/absent
     afternoon_status: Optional[str] = None  # 下午状态: normal/city_business/business_trip/leave/absent
+    is_late: Optional[bool] = False  # 是否迟到
+    is_early_leave: Optional[bool] = False  # 是否早退
 
 
 class DailyAttendanceStatistics(BaseModel):

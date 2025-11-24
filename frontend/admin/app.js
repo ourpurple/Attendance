@@ -1683,16 +1683,16 @@ async function loadDailyStats(startDate, endDate) {
             // 上午行
             let morningRowHtml = `<tr><td rowspan="2" style="vertical-align: middle; border-right: 2px solid #ddd; font-weight: 500; text-align: center; padding: 10px;">${stat.real_name || stat.user_name}</td><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">上午</td>`;
             stat.items.forEach(item => {
-                const morningStatus = getStatusDisplay(item.morning_status, item.date, 'morning');
-                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning')}" colspan="2">${morningStatus}</td>`;
+                const morningStatus = getStatusDisplay(item.morning_status, item.date, 'morning', item.is_late);
+                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning', item.is_late)}" colspan="2">${morningStatus}</td>`;
             });
             morningRowHtml += '</tr>';
 
             // 下午行
             let afternoonRowHtml = '<tr><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">下午</td>';
             stat.items.forEach(item => {
-                const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date, 'afternoon');
-                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon')}" colspan="2">${afternoonStatus}</td>`;
+                const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave);
+                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}" colspan="2">${afternoonStatus}</td>`;
             });
             afternoonRowHtml += '</tr>';
 
@@ -1709,7 +1709,9 @@ async function loadDailyStats(startDate, endDate) {
 
 // 获取状态显示文本
 // period: 'morning' 或 'afternoon'
-function getStatusDisplay(status, date, period) {
+// isLate: 是否迟到（仅用于上午）
+// isEarlyLeave: 是否早退（仅用于下午）
+function getStatusDisplay(status, date, period, isLate = false, isEarlyLeave = false) {
     if (date) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1746,6 +1748,17 @@ function getStatusDisplay(status, date, period) {
     }
 
     if (!status) return '/';
+    
+    // 如果状态是正常，但是迟到了，显示为迟到
+    if (status === 'normal' && period === 'morning' && isLate) {
+        return '迟到';
+    }
+    
+    // 如果状态是正常，但是早退了，显示为早退
+    if (status === 'normal' && period === 'afternoon' && isEarlyLeave) {
+        return '早退';
+    }
+    
     const statusMap = {
         'normal': '正常',
         'city_business': '市区办事',
@@ -1758,7 +1771,9 @@ function getStatusDisplay(status, date, period) {
 
 // 获取状态样式类
 // period: 'morning' 或 'afternoon'
-function getStatusClass(status, date, period) {
+// isLate: 是否迟到（仅用于上午）
+// isEarlyLeave: 是否早退（仅用于下午）
+function getStatusClass(status, date, period, isLate = false, isEarlyLeave = false) {
     if (date) {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
@@ -1795,6 +1810,17 @@ function getStatusClass(status, date, period) {
     }
 
     if (!status) return '';
+    
+    // 如果状态是正常，但是迟到了，使用缺勤样式（红色）
+    if (status === 'normal' && period === 'morning' && isLate) {
+        return 'status-absent';
+    }
+    
+    // 如果状态是正常，但是早退了，使用缺勤样式（红色）
+    if (status === 'normal' && period === 'afternoon' && isEarlyLeave) {
+        return 'status-absent';
+    }
+    
     const classMap = {
         'normal': 'status-normal',
         'city_business': 'status-city',

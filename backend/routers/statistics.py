@@ -591,7 +591,9 @@ def get_daily_attendance_statistics(
                 date=workday.isoformat(),
                 weekday=get_weekday_name(workday),
                 morning_status=morning_status,
-                afternoon_status=afternoon_status
+                afternoon_status=afternoon_status,
+                is_late=att.is_late if att else False,
+                is_early_leave=att.is_early_leave if att else False
             ))
         
         statistics_list.append(DailyAttendanceStatistics(
