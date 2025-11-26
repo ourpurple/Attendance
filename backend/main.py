@@ -6,6 +6,7 @@ import sys
 from .config import settings
 from .database import init_db
 from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types
+from .middleware import setup_exception_handlers
 
 # 配置日志，确保输出到标准输出（systemd journal）
 logging.basicConfig(
@@ -31,6 +32,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 设置全局异常处理器
+setup_exception_handlers(app)
 
 # 注册路由
 app.include_router(auth.router, prefix="/api")
@@ -74,8 +78,22 @@ except Exception as e:
 
 @app.on_event("startup")
 async def startup_event():
-    """应用启动时初始化数据库"""
+    """应用启动时初始化数据库和验证配置"""
+    from .config import validate_settings
+    
+    # 验证配置
+    try:
+        validate_settings()
+        print("✓ 配置验证通过")
+    except ValueError as e:
+        print(f"⚠️  配置验证警告: {e}")
+        # 非生产环境允许继续运行
+        if settings.ENVIRONMENT == "production":
+            raise
+    
+    # 初始化数据库
     init_db()
+    print("✓ 数据库初始化完成")
 
 
 @app.get("/")

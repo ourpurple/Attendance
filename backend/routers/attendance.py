@@ -17,6 +17,7 @@ from ..schemas import (
 from ..security import get_current_user, get_current_active_admin
 from ..config import settings
 from ..geocode_cache import get_cached_address, set_cached_address
+from ..services import AttendanceService
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
 
@@ -340,78 +341,24 @@ def checkout(
     """下班打卡"""
     from ..models import AttendanceStatus
     
-    # 获取当前日期和时间
-    today = datetime.now().date()
-    checkout_time = datetime.now()
-    
-    # 查找今天的考勤记录
-    attendance = db.query(Attendance).filter(
-        and_(
-            Attendance.user_id == current_user.id,
-            func.date(Attendance.date) == today
-        )
-    ).first()
-    
-    if not attendance:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="请先打上班卡"
-        )
-    
-    if attendance.checkout_time:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="今天已经打过下班卡"
-        )
-    
-    # 检查请假情况
-    leave_info = get_leave_period_for_date(current_user.id, today, db)
-    
-    # 如果下午请假，不允许签退
-    if leave_info['afternoon_leave']:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="下午请假，无需签退"
-        )
-    
-    # 获取活跃的打卡策略
-    policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
-    
-    checkout_time_only = checkout_time.time()
-    
-    # 验证打卡时间是否在策略允许的范围内
-    if policy:
-        rules = get_policy_for_date(policy, checkout_time)
-        checkout_start = datetime.strptime(rules['checkout_start_time'], "%H:%M").time()
-        checkout_end = datetime.strptime(rules['checkout_end_time'], "%H:%M").time()
-        
-        if checkout_time_only < checkout_start or checkout_time_only > checkout_end:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"当前时间不在下班打卡时间范围内（{rules['checkout_start_time']} - {rules['checkout_end_time']}）"
-            )
-    
-    early = is_early_leave(checkout_time, policy) if policy else False
-    
-    # 更新记录
-    attendance.checkout_time = checkout_time
-    attendance.checkout_location = checkout_data.address or checkout_data.location
-    attendance.checkout_latitude = checkout_data.latitude
-    attendance.checkout_longitude = checkout_data.longitude
-    attendance.is_early_leave = early
+    # 使用Service层处理业务逻辑
+    service = AttendanceService(db)
+    attendance = service.checkout(
+        user=current_user,
+        latitude=checkout_data.latitude,
+        longitude=checkout_data.longitude,
+        location=checkout_data.location,
+        address=checkout_data.address
+    )
     
     # 更新下午状态（如果还没有设置）
     if not attendance.afternoon_status:
-        # 使用签到时的状态，如果没有则使用normal
         checkin_status = attendance.checkin_status or AttendanceStatus.NORMAL.value
         attendance.afternoon_status = checkin_status
     
     # 更新请假标记
+    leave_info = service.get_leave_period_for_date(current_user.id, datetime.now().date())
     attendance.afternoon_leave = leave_info['afternoon_leave']
-    
-    # 计算工作时长
-    if attendance.checkin_time:
-        attendance.work_hours = calculate_work_hours(attendance.checkin_time, checkout_time)
     
     db.commit()
     db.refresh(attendance)

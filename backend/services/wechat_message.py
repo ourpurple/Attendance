@@ -11,7 +11,11 @@ from ..config import settings
 logger = logging.getLogger(__name__)
 
 # 全局缓存access_token
-_access_token_cache: Optional[Dict[str, Any]] = None
+from ..utils.cache import get_cache
+
+# 使用统一缓存接口
+_cache = get_cache()
+ACCESS_TOKEN_CACHE_KEY = "wechat:access_token"
 
 
 def _clip(value: Optional[str], max_len: int = 20) -> str:
@@ -29,11 +33,10 @@ def get_access_token() -> Optional[str]:
     Returns:
         access_token字符串，如果获取失败返回None
     """
-    global _access_token_cache
-    
-    # 检查缓存是否有效（提前5分钟刷新）
-    if _access_token_cache and _access_token_cache.get("expires_at", 0) > time.time() + 300:
-        return _access_token_cache.get("access_token")
+    # 检查缓存是否有效（提前5分钟刷新，即缓存时间减少5分钟）
+    cached_token = _cache.get(ACCESS_TOKEN_CACHE_KEY)
+    if cached_token:
+        return cached_token
     
     if not settings.WECHAT_APPID or not settings.WECHAT_SECRET:
         logger.warning("微信配置未设置，无法获取access_token")
@@ -56,11 +59,9 @@ def get_access_token() -> Optional[str]:
                 access_token = data["access_token"]
                 expires_in = data.get("expires_in", 7200)
                 
-                # 缓存token
-                _access_token_cache = {
-                    "access_token": access_token,
-                    "expires_at": time.time() + expires_in
-                }
+                # 缓存token（提前5分钟过期，确保及时刷新）
+                expire_seconds = max(expires_in - 300, 60)  # 至少保留60秒
+                _cache.set(ACCESS_TOKEN_CACHE_KEY, access_token, expire_seconds=expire_seconds)
                 
                 logger.info("成功获取微信access_token")
                 return access_token

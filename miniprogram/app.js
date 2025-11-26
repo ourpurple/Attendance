@@ -3,7 +3,8 @@ App({
   globalData: {
     userInfo: null,
     token: null,
-    apiBaseUrl: 'https://oa.ruoshui-edu.cn/api',  // 生产环境需要替换为实际域名
+    apiBaseUrl: 'http://localhost:8000/api',  // 本地开发使用 http://localhost
+    // apiBaseUrl: 'https://your-domain.com/api',  // 生产环境使用 https://your-domain.com
     subscribeTemplateIds: [
       'JzcNdxTsNr-OTqMjqzF4xx1GRZab-lMXXq6ux-vIdxM',  // 待审批通知模板ID（审批提醒）
       '58inG1DfC2U_9Za0Csn4zxilWJP_kqAP5SejR6rAF4A'     // 审批结果通知模板ID（需要替换为实际ID）

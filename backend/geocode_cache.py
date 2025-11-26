@@ -1,16 +1,16 @@
 """
 地理编码缓存模块
-使用内存缓存来减少高德地图API调用
+使用统一缓存接口来减少高德地图API调用
 """
 from typing import Optional, Dict
-from datetime import datetime, timedelta
 import hashlib
-
-# 内存缓存字典
-_cache: Dict[str, Dict] = {}
+from .utils.cache import get_cache, generate_cache_key
 
 # 缓存过期时间（天）
 CACHE_EXPIRE_DAYS = 30
+
+# 获取缓存实例
+_cache = get_cache()
 
 
 def _get_cache_key(latitude: float, longitude: float) -> str:
@@ -18,7 +18,7 @@ def _get_cache_key(latitude: float, longitude: float) -> str:
     # 四舍五入到小数点后4位，减少缓存键数量
     lat_rounded = round(latitude, 4)
     lon_rounded = round(longitude, 4)
-    key_str = f"{lat_rounded},{lon_rounded}"
+    key_str = f"geocode:{lat_rounded},{lon_rounded}"
     return hashlib.md5(key_str.encode()).hexdigest()
 
 
@@ -34,22 +34,7 @@ def get_cached_address(latitude: float, longitude: float) -> Optional[str]:
         地址文本，如果缓存不存在或已过期则返回None
     """
     cache_key = _get_cache_key(latitude, longitude)
-    
-    if cache_key not in _cache:
-        return None
-    
-    cache_entry = _cache[cache_key]
-    
-    # 检查是否过期
-    cached_time = cache_entry.get("cached_at")
-    if cached_time:
-        expire_time = cached_time + timedelta(days=CACHE_EXPIRE_DAYS)
-        if datetime.now() > expire_time:
-            # 缓存已过期，删除
-            del _cache[cache_key]
-            return None
-    
-    return cache_entry.get("address")
+    return _cache.get(cache_key)
 
 
 def set_cached_address(latitude: float, longitude: float, address: str):
@@ -62,33 +47,18 @@ def set_cached_address(latitude: float, longitude: float, address: str):
         address: 地址文本
     """
     cache_key = _get_cache_key(latitude, longitude)
-    _cache[cache_key] = {
-        "address": address,
-        "cached_at": datetime.now()
-    }
+    _cache.set(cache_key, address, expire_days=CACHE_EXPIRE_DAYS)
 
 
 def clear_expired_cache():
     """清理过期的缓存"""
-    now = datetime.now()
-    expired_keys = []
-    
-    for key, entry in _cache.items():
-        cached_time = entry.get("cached_at")
-        if cached_time:
-            expire_time = cached_time + timedelta(days=CACHE_EXPIRE_DAYS)
-            if now > expire_time:
-                expired_keys.append(key)
-    
-    for key in expired_keys:
-        del _cache[key]
+    # 统一缓存接口会自动处理过期清理
+    if hasattr(_cache._backend, 'clear_expired'):
+        _cache._backend.clear_expired()
 
 
 def get_cache_stats() -> Dict:
     """获取缓存统计信息"""
-    return {
-        "total_entries": len(_cache),
-        "cache_size_mb": sum(len(str(v).encode()) for v in _cache.values()) / (1024 * 1024)
-    }
+    return _cache.get_stats()
 
 

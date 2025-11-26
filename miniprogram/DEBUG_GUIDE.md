@@ -18,12 +18,16 @@
 修改 `app.js` 中的 `apiBaseUrl`：
 ```javascript
 globalData: {
-  apiBaseUrl: 'http://localhost:8000/api'  // 本地开发
-  // apiBaseUrl: 'https://your-domain.com/api'  // 生产环境
+  apiBaseUrl: 'http://localhost:8000/api'  // 本地开发使用 http://localhost
+  // apiBaseUrl: 'https://your-domain.com/api'  // 生产环境使用 https://your-domain.com
 }
 ```
 
-**注意**：小程序正式版要求使用 HTTPS，且需要在微信公众平台配置合法域名。
+**重要提示**：
+- ✅ **本地开发**：使用 `http://localhost:8000/api`（不能使用 `https://127.0.0.1`）
+- ✅ **生产环境**：使用 `https://your-domain.com/api`（必须是 HTTPS）
+- ⚠️ 在微信开发者工具中，需要开启"不校验合法域名"才能访问本地服务器
+- ⚠️ 小程序正式版要求使用 HTTPS，且需要在微信公众平台配置合法域名
 
 ## 二、调试工具使用
 
