@@ -29,6 +29,14 @@ def enrich_overtime_response(overtime, db: Session) -> OvertimeApplicationRespon
     
     data = OvertimeApplicationResponse.from_orm(overtime).model_dump()
     
+    # 添加申请人姓名
+    if overtime.user:
+        data["applicant_name"] = overtime.user.real_name
+    else:
+        # 如果user关系未加载，查询一次
+        applicant = db.query(User).filter(User.id == overtime.user_id).first()
+        data["applicant_name"] = applicant.real_name if applicant else f"用户{overtime.user_id}"
+    
     # 添加审批人姓名
     approver_ids = []
     if overtime.assigned_approver_id:
@@ -42,10 +50,6 @@ def enrich_overtime_response(overtime, db: Session) -> OvertimeApplicationRespon
         
         data["assigned_approver_name"] = approver_map.get(overtime.assigned_approver_id)
         data["approver_name"] = approver_map.get(overtime.approver_id)
-    
-    # 添加申请人姓名
-    if overtime.user:
-        data["applicant_name"] = overtime.user.real_name
     
     return OvertimeApplicationResponse(**data)
 
@@ -92,7 +96,7 @@ def create_overtime_application(
         
         return enrich_overtime_response(overtime, db)
     except (BusinessException, ValidationException, NotFoundException, PermissionDeniedException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -219,7 +223,40 @@ def get_overtime_application(
         
         return enrich_overtime_response(overtime, db)
     except (BusinessException, NotFoundException, PermissionDeniedException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.put("/{overtime_id}", response_model=OvertimeApplicationResponse)
+def update_overtime_application(
+    overtime_id: int,
+    overtime_update: OvertimeApplicationUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新加班申请"""
+    try:
+        service = OvertimeService(db)
+        overtime = service.update_overtime_application(
+            overtime_id=overtime_id,
+            user=current_user,
+            start_time=overtime_update.start_time,
+            end_time=overtime_update.end_time,
+            hours=overtime_update.hours,
+            days=overtime_update.days,
+            reason=overtime_update.reason,
+            overtime_type=overtime_update.overtime_type
+        )
+        
+        # 加载关联数据
+        overtime = db.query(OvertimeApplication).options(
+            joinedload(OvertimeApplication.user)
+        ).filter(OvertimeApplication.id == overtime_id).first()
+        
+        return enrich_overtime_response(overtime, db)
+    except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -242,7 +279,7 @@ def cancel_overtime_application(
         
         return enrich_overtime_response(overtime, db)
     except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -287,7 +324,7 @@ def approve_overtime_application(
         
         return enrich_overtime_response(overtime, db)
     except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -309,16 +346,27 @@ def delete_overtime_application(
         if overtime.user_id != current_user.id and current_user.role != UserRole.ADMIN:
             raise PermissionDeniedException("只能删除自己的申请")
         
-        if overtime.status != OvertimeStatus.CANCELLED.value:
+        # 管理员可以删除任何状态的申请，普通用户只能删除已取消的申请
+        if current_user.role != UserRole.ADMIN and overtime.status != OvertimeStatus.CANCELLED.value:
             raise ValidationException("只能删除已取消的申请")
         
         db.delete(overtime)
         db.commit()
         return None
     except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.delete("/{overtime_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_overtime_application_with_delete(
+    overtime_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """删除加班申请（兼容前端路径：/{overtime_id}/delete）"""
+    return delete_overtime_application(overtime_id, db, current_user)
 
 
 @router.get("/approvers", response_model=List[dict])

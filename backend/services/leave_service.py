@@ -6,7 +6,7 @@ from typing import Optional, List
 from datetime import datetime, date
 from sqlalchemy.orm import Session
 
-from ..models import LeaveApplication, User, LeaveStatus, LeaveType
+from ..models import LeaveApplication, User, LeaveStatus, LeaveType, UserRole
 from ..repositories import LeaveRepository, UserRepository
 from ..exceptions import ValidationException, NotFoundException, PermissionDeniedException
 from ..utils.transaction import transaction
@@ -63,7 +63,6 @@ class LeaveService:
         Returns:
             请假申请对象
         """
-        from ..models import UserRole
         
         # 验证时间
         if end_date < start_date:
@@ -131,16 +130,19 @@ class LeaveService:
                 assigned_vp_id = assign_vice_president_for_leave(leave, user, self.db)
                 if assigned_vp_id:
                     leave.assigned_vp_id = assigned_vp_id
+                    self.db.flush()  # 确保修改被保存
             
             if "general_manager" in approval_levels:
                 assigned_gm_id = assign_general_manager_for_leave(leave, self.db)
                 if assigned_gm_id:
                     leave.assigned_gm_id = assigned_gm_id
+                    self.db.flush()  # 确保修改被保存
         elif user.role == UserRole.VICE_PRESIDENT and days > 3:
             # 副总请假超过3天，需要总经理审批
             assigned_gm_id = assign_general_manager_for_leave(leave, self.db)
             if assigned_gm_id:
                 leave.assigned_gm_id = assigned_gm_id
+                self.db.flush()  # 确保修改被保存
         
         return leave
     
@@ -247,6 +249,69 @@ class LeaveService:
                 leave.gm_comment = comment
         
         return leave
+    
+    @transaction
+    def update_leave_application(
+        self,
+        leave_id: int,
+        user: User,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        days: Optional[float] = None,
+        reason: Optional[str] = None,
+        leave_type_id: Optional[int] = None
+    ) -> LeaveApplication:
+        """
+        更新请假申请
+        
+        Args:
+            leave_id: 请假申请ID
+            user: 当前用户
+            start_date: 开始日期
+            end_date: 结束日期
+            days: 请假天数
+            reason: 请假原因
+            leave_type_id: 请假类型ID
+        
+        Returns:
+            请假申请对象
+        """
+        leave = self.leave_repo.get(leave_id)
+        if not leave:
+            raise NotFoundException("请假申请", leave_id)
+        
+        # 权限检查：只有申请人或管理员可以更新
+        if leave.user_id != user.id and user.role != UserRole.ADMIN:
+            raise PermissionDeniedException("只能更新自己的申请")
+        
+        # 状态检查：只能更新待审批状态的申请
+        if leave.status != LeaveStatus.PENDING.value and user.role != UserRole.ADMIN:
+            raise ValidationException("只能更新待审批状态的申请")
+        
+        # 更新字段
+        update_data = {}
+        if start_date is not None:
+            update_data['start_date'] = start_date
+        if end_date is not None:
+            update_data['end_date'] = end_date
+        if days is not None:
+            update_data['days'] = days
+        if reason is not None:
+            update_data['reason'] = reason
+        if leave_type_id is not None:
+            # 验证请假类型
+            leave_type = self.leave_repo.get_active_leave_type(leave_type_id)
+            if not leave_type:
+                raise NotFoundException("请假类型", leave_type_id)
+            update_data['leave_type_id'] = leave_type_id
+        
+        # 验证日期
+        final_start_date = update_data.get('start_date', leave.start_date)
+        final_end_date = update_data.get('end_date', leave.end_date)
+        if final_end_date < final_start_date:
+            raise ValidationException("结束时间不能早于开始时间")
+        
+        return self.leave_repo.update(leave_id, **update_data)
     
     @transaction
     def cancel_leave(self, leave_id: int, user: User) -> LeaveApplication:

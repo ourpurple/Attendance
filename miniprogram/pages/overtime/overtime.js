@@ -272,15 +272,66 @@ Page({
       
       wx.hideLoading();
       
+      // 格式化时间范围（智能省略重复的年份和日期）
+      const formatTimeRange = (startStr, endStr) => {
+        if (!startStr || !endStr) return '';
+        try {
+          const startDate = new Date(startStr);
+          const endDate = new Date(endStr);
+          
+          const startYear = startDate.getFullYear();
+          const startMonth = startDate.getMonth() + 1;
+          const startDay = startDate.getDate();
+          const startHours = String(startDate.getHours()).padStart(2, '0');
+          const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
+          
+          const endYear = endDate.getFullYear();
+          const endMonth = endDate.getMonth() + 1;
+          const endDay = endDate.getDate();
+          const endHours = String(endDate.getHours()).padStart(2, '0');
+          const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
+          
+          let startPart = `${startYear}/${startMonth}/${startDay} ${startHours}:${startMinutes}`;
+          let endPart = '';
+          
+          // 如果年份相同
+          if (startYear === endYear) {
+            // 如果日期也相同
+            if (startMonth === endMonth && startDay === endDay) {
+              // 只显示时间
+              endPart = `${endHours}:${endMinutes}`;
+            } else {
+              // 只省略年份
+              endPart = `${endMonth}/${endDay} ${endHours}:${endMinutes}`;
+            }
+          } else {
+            // 年份不同，显示完整日期时间
+            endPart = `${endYear}/${endMonth}/${endDay} ${endHours}:${endMinutes}`;
+          }
+          
+          return `${startPart} ~ ${endPart}`;
+        } catch (error) {
+          console.error('格式化时间范围失败:', error, startStr, endStr);
+          return `${formatDateTime(startStr)} ~ ${formatDateTime(endStr)}`;
+        }
+      };
+
+      const getOvertimeTypeText = (type) => {
+        return type === 'passive' ? '被动加班' : '主动加班';
+      };
+
       // 显示详情弹窗
       this.setData({
         showDetailModal: true,
         detailTitle: '加班详情',
         detailData: {
           status: getStatusName(overtime.status),
+          statusClass: overtime.status === 'approved' ? 'success' : (overtime.status === 'rejected' ? 'danger' : (overtime.status === 'cancelled' ? 'warning' : 'pending')),
           applicant: overtime.applicant_name || `用户${overtime.user_id}`,
+          timeRange: formatTimeRange(overtime.start_time, overtime.end_time),
           startTime: formatDateTime(overtime.start_time),
           endTime: formatDateTime(overtime.end_time),
+          overtimeType: getOvertimeTypeText(overtime.overtime_type),
           days: `${overtime.days}天`,
           reason: overtime.reason,
           approver: overtime.approver_name,

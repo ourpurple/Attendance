@@ -65,19 +65,19 @@
     <view class="detail-modal-content" wx:if="{{detailData}}">
       <view class="detail-item">
         <text class="detail-label">状态:</text>
-        <text class="detail-value">{{detailData.status}}</text>
+        <text class="status-badge status-{{detailData.statusClass}}">{{detailData.status}}</text>
       </view>
       <view class="detail-item">
         <text class="detail-label">申请人:</text>
         <text class="detail-value">{{detailData.applicant}}</text>
       </view>
       <view class="detail-item">
-        <text class="detail-label">开始时间:</text>
-        <text class="detail-value">{{detailData.startTime}}</text>
+        <text class="detail-label">加班性质:</text>
+        <text class="detail-value">{{detailData.overtimeType}}</text>
       </view>
       <view class="detail-item">
-        <text class="detail-label">结束时间:</text>
-        <text class="detail-value">{{detailData.endTime}}</text>
+        <text class="detail-label">加班时间:</text>
+        <text class="detail-value">{{detailData.timeRange}}</text>
       </view>
       <view class="detail-item">
         <text class="detail-label">天数:</text>

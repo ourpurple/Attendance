@@ -38,6 +38,10 @@ def transaction(func: Callable) -> Callable:
         if db is None:
             db = kwargs.get('db')
         
+        # 如果还是没有找到，尝试从self中查找（对于实例方法）
+        if db is None and args and hasattr(args[0], 'db'):
+            db = args[0].db
+        
         if db is None:
             # 如果没有找到db参数，直接执行函数
             return func(*args, **kwargs)

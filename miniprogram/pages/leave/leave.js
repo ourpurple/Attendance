@@ -36,14 +36,19 @@ Page({
         const userRes = await app.request({
           url: '/users/me'
         });
-        currentUserRole = (userRes.data || userRes).role;
+        // 处理可能的响应格式：可能是 {data: {...}} 或直接是对象
+        const userData = userRes.data || userRes;
+        currentUserRole = userData.role;
+        console.log('当前用户角色:', currentUserRole, '用户数据:', userData);
       } catch (error) {
         console.error('获取用户信息失败:', error);
       }
       
+      console.log('开始加载请假列表...');
       const data = await app.request({
         url: '/leave/my'
       });
+      console.log('请假列表数据:', data);
 
       const formatDate = (dateStr) => {
         try {

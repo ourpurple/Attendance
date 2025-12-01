@@ -2,8 +2,8 @@
  * 认证相关页面模块
  * 处理登录、修改密码、退出等
  */
-import { login, getCurrentUser, changePassword } from '../api/auth.js';
-import { setToken, clearToken, setCurrentUser } from '../config.js';
+import { login, getCurrentUser as apiGetCurrentUser, changePassword } from '../api/auth.js';
+import { setToken, clearToken, setCurrentUser, getCurrentUser } from '../config.js';
 import { showPage, showSection } from './navigation.js';
 import { showToast } from '../utils/toast.js';
 import { validatePassword, validatePasswordMatch, validatePasswordNotSame } from '../utils/validation.js';
@@ -18,7 +18,7 @@ export async function handleLogin(username, password) {
         setToken(data.access_token);
         
         // 获取当前用户信息
-        const user = await getCurrentUser();
+        const user = await apiGetCurrentUser();
         setCurrentUser(user);
         updateUserInfo();
         
@@ -40,8 +40,11 @@ export function updateUserInfo() {
     const nameEl = document.getElementById('header-user-name');
     const roleEl = document.getElementById('header-user-role');
     
-    if (initialEl) initialEl.textContent = currentUser.real_name.charAt(0);
-    if (nameEl) nameEl.textContent = currentUser.real_name;
+    const displayName = currentUser.real_name || currentUser.username || currentUser.email || '用户';
+    const initialChar = displayName ? displayName.charAt(0) : '用';
+    
+    if (initialEl) initialEl.textContent = initialChar;
+    if (nameEl) nameEl.textContent = displayName;
     if (roleEl) roleEl.textContent = getRoleName(currentUser.role);
     
     // 根据角色显示/隐藏审批功能

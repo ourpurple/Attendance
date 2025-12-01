@@ -6,7 +6,8 @@ import { API_BASE_URL, getToken, clearToken, setCurrentUser } from './config.js'
 import { getCurrentUser as apiGetCurrentUser } from './api/auth.js';
 import { showPage, showSection } from './pages/navigation.js';
 import { showToast } from './utils/toast.js';
-import { startClock, setDefaultOverviewDate, fixUsernameInputKeyboard } from './utils/dom.js';
+import { setDefaultOverviewDate, fixUsernameInputKeyboard } from './utils/dom.js';
+import { startClock } from './utils/time.js';
 import { handleLogin, updateUserInfo } from './pages/auth.js';
 
 // 导出到全局，供HTML中的onclick使用

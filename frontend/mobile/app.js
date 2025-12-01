@@ -489,9 +489,16 @@ if (document.readyState === 'loading') {
 // 更新用户信息
 function updateUserInfo() {
     if (currentUser) {
-        document.getElementById('user-initial').textContent = currentUser.real_name.charAt(0);
-        document.getElementById('header-user-name').textContent = currentUser.real_name;
-        document.getElementById('header-user-role').textContent = getRoleName(currentUser.role);
+        const displayName = currentUser.real_name || currentUser.username || currentUser.email || '用户';
+        const initialChar = displayName ? displayName.charAt(0) : '用';
+        
+        const initialEl = document.getElementById('user-initial');
+        const nameEl = document.getElementById('header-user-name');
+        const roleEl = document.getElementById('header-user-role');
+        
+        if (initialEl) initialEl.textContent = initialChar;
+        if (nameEl) nameEl.textContent = displayName;
+        if (roleEl) roleEl.textContent = getRoleName(currentUser.role);
         
         // 根据角色显示/隐藏审批功能
         updateApprovalVisibility();

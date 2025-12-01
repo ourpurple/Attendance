@@ -556,6 +556,23 @@ button:disabled {
     margin-bottom: 12px;
 }
 
+.item-time-lines {
+    margin-bottom: 8px;
+    color: var(--text-primary);
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.item-date-line + .item-date-line {
+    margin-top: 4px;
+}
+
+.item-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    margin-right: 6px;
+}
+
 .list-item-footer {
     display: flex;
     justify-content: space-between;

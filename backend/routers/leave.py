@@ -33,6 +33,14 @@ def enrich_leave_response(leave, db: Session, current_user: User) -> LeaveApplic
     if not data.get("leave_type_name"):
         data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
     
+    # 添加申请人姓名
+    if leave.user:
+        data["applicant_name"] = leave.user.real_name
+    else:
+        # 如果user关系未加载，查询一次
+        applicant = db.query(User).filter(User.id == leave.user_id).first()
+        data["applicant_name"] = applicant.real_name if applicant else f"用户{leave.user_id}"
+    
     # 添加审批人姓名
     approver_ids = []
     if leave.assigned_vp_id:
@@ -156,7 +164,7 @@ def create_leave_application(
         
         return enrich_leave_response(leave, db, current_user)
     except (BusinessException, ValidationException, NotFoundException, PermissionDeniedException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -219,15 +227,29 @@ def get_my_leave_applications(
         if not leaves:
             return []
         
+        # 获取ID列表并保持原始顺序
         leave_ids = [leave.id for leave in leaves]
-        leaves = db.query(LeaveApplication).options(
+        
+        # 重新查询以加载关联数据
+        leaves_with_relations = db.query(LeaveApplication).options(
             joinedload(LeaveApplication.leave_type)
         ).filter(
             LeaveApplication.id.in_(leave_ids)
         ).all()
         
-        return [enrich_leave_response(leave, db, current_user) for leave in leaves]
+        # 创建ID到对象的映射
+        leaves_map = {leave.id: leave for leave in leaves_with_relations}
+        
+        # 按照原始顺序重新排列并丰富响应
+        enriched_leaves = []
+        for leave_id in leave_ids:
+            if leave_id in leaves_map:
+                enriched_leaves.append(enrich_leave_response(leaves_map[leave_id], db, current_user))
+        
+        return enriched_leaves
     except Exception as e:
+        import logging
+        logging.error(f"获取请假申请失败: {str(e)}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
@@ -297,7 +319,40 @@ def get_leave_application(
         
         return enrich_leave_response(leave, db, current_user)
     except (BusinessException, NotFoundException, PermissionDeniedException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.put("/{leave_id}", response_model=LeaveApplicationResponse)
+def update_leave_application(
+    leave_id: int,
+    leave_update: LeaveApplicationUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """更新请假申请"""
+    try:
+        service = LeaveService(db)
+        leave = service.update_leave_application(
+            leave_id=leave_id,
+            user=current_user,
+            start_date=leave_update.start_date,
+            end_date=leave_update.end_date,
+            days=leave_update.days,
+            reason=leave_update.reason,
+            leave_type_id=leave_update.leave_type_id
+        )
+        
+        # 加载关联数据
+        leave = db.query(LeaveApplication).options(
+            joinedload(LeaveApplication.leave_type),
+            joinedload(LeaveApplication.user)
+        ).filter(LeaveApplication.id == leave_id).first()
+        
+        return enrich_leave_response(leave, db, current_user)
+    except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -320,7 +375,7 @@ def cancel_leave_application(
         
         return enrich_leave_response(leave, db, current_user)
     except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -366,7 +421,7 @@ def approve_leave_application(
         
         return enrich_leave_response(leave, db, current_user)
     except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -388,13 +443,24 @@ def delete_leave_application(
         if leave.user_id != current_user.id and current_user.role != UserRole.ADMIN:
             raise PermissionDeniedException("只能删除自己的申请")
         
-        if leave.status != LeaveStatus.CANCELLED.value:
+        # 管理员可以删除任何状态的申请，普通用户只能删除已取消的申请
+        if current_user.role != UserRole.ADMIN and leave.status != LeaveStatus.CANCELLED.value:
             raise ValidationException("只能删除已取消的申请")
         
         db.delete(leave)
         db.commit()
         return None
     except (BusinessException, NotFoundException, PermissionDeniedException, ValidationException) as e:
-        raise HTTPException(status_code=e.status_code, detail=e.detail)
+        raise HTTPException(status_code=e.status_code, detail=e.message)
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.delete("/{leave_id}/delete", status_code=status.HTTP_204_NO_CONTENT)
+def delete_leave_application_with_delete(
+    leave_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """删除请假申请（兼容前端路径：/{leave_id}/delete）"""
+    return delete_leave_application(leave_id, db, current_user)

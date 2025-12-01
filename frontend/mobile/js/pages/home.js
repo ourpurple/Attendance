@@ -36,6 +36,32 @@ export async function loadHomeData() {
 }
 
 /**
+ * 加载待审批数量
+ */
+async function loadPendingCount() {
+    try {
+        const { getPendingLeaves } = await import('../api/leave.js');
+        const { getPendingOvertimes } = await import('../api/overtime.js');
+        
+        const [leaves, overtimes] = await Promise.all([
+            getPendingLeaves(),
+            getPendingOvertimes()
+        ]);
+        const totalCount = (leaves?.length || 0) + (overtimes?.length || 0);
+        
+        const badge = document.getElementById('pending-count');
+        if (badge) {
+            badge.textContent = totalCount;
+            badge.style.display = totalCount > 0 ? 'inline-block' : 'none';
+        }
+        
+        updateTabBadges(leaves?.length || 0, overtimes?.length || 0);
+    } catch (error) {
+        console.error('加载待审批数量失败:', error);
+    }
+}
+
+/**
  * 加载今日打卡状态
  */
 export async function loadTodayAttendance() {
@@ -243,6 +269,21 @@ export async function loadMyPendingCounts() {
     }
 }
 
+function updateTabBadges(leaveCount, overtimeCount) {
+    const leaveTabBadge = document.getElementById('leave-tab-badge');
+    const overtimeTabBadge = document.getElementById('overtime-tab-badge');
+    
+    if (leaveTabBadge) {
+        leaveTabBadge.textContent = leaveCount;
+        leaveTabBadge.style.display = leaveCount > 0 ? 'inline-block' : 'none';
+    }
+    
+    if (overtimeTabBadge) {
+        overtimeTabBadge.textContent = overtimeCount;
+        overtimeTabBadge.style.display = overtimeCount > 0 ? 'inline-block' : 'none';
+    }
+}
+
 /**
  * 检查并设置打卡按钮状态
  */
@@ -293,7 +334,8 @@ export async function checkAndSetAttendanceButtons() {
     // 检查今天是否为工作日
     let workdayCheck;
     try {
-        workdayCheck = await checkWorkday();
+        const today = getCSTDate();
+        workdayCheck = await checkWorkday(today);
     } catch (error) {
         workdayCheck = localWorkdayCheck(getCSTDate());
     }
