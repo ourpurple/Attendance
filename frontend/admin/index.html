@@ -284,7 +284,11 @@
                         <div class="filters attendance-filters">
                             <div style="display: flex; gap: 10px; align-items: center;">
                                 <label style="display: flex; align-items: center; gap: 5px;">
-                                    <input type="radio" name="attendance-query-type" value="month" checked onchange="toggleAttendanceQueryType()">
+                                    <input type="radio" name="attendance-query-type" value="day" checked onchange="toggleAttendanceQueryType()">
+                                    按日查询
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 5px;">
+                                    <input type="radio" name="attendance-query-type" value="month" onchange="toggleAttendanceQueryType()">
                                     按月查询
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 5px;">
@@ -292,7 +296,14 @@
                                     自定义日期
                                 </label>
                             </div>
-                            <div id="attendance-month-filter" style="display: flex; gap: 10px; align-items: center;">
+                            <div id="attendance-day-filter" style="display: none; gap: 10px; align-items: center;">
+                                <input type="date" id="attendance-day" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                <select id="attendance-user-filter-day" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                    <option value="">全部员工</option>
+                                </select>
+                                <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                            </div>
+                            <div id="attendance-month-filter" style="display: none; gap: 10px; align-items: center;">
                                 <input type="month" id="attendance-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
                                 <select id="attendance-user-filter" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
                                     <option value="">全部员工</option>

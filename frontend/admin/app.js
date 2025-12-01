@@ -488,12 +488,23 @@ async function loadAddressesAsync(attendances) {
 // 切换考勤记录查询类型
 function toggleAttendanceQueryType() {
     const queryType = document.querySelector('input[name="attendance-query-type"]:checked').value;
+    const dayFilter = document.getElementById('attendance-day-filter');
     const monthFilter = document.getElementById('attendance-month-filter');
     const dateFilter = document.getElementById('attendance-date-filter');
 
-    if (queryType === 'month') {
+    // 隐藏所有筛选器
+    dayFilter.style.display = 'none';
+    monthFilter.style.display = 'none';
+    dateFilter.style.display = 'none';
+
+    if (queryType === 'day') {
+        dayFilter.style.display = 'flex';
+        // 设置默认日期为当天
+        if (!document.getElementById('attendance-day').value) {
+            document.getElementById('attendance-day').value = new Date().toISOString().split('T')[0];
+        }
+    } else if (queryType === 'month') {
         monthFilter.style.display = 'flex';
-        dateFilter.style.display = 'none';
         // 设置默认月份为当前月
         if (!document.getElementById('attendance-month').value) {
             const now = new Date();
@@ -501,7 +512,7 @@ function toggleAttendanceQueryType() {
             document.getElementById('attendance-month').value = monthStr;
         }
     } else {
-        monthFilter.style.display = 'none';
+        // custom - 自定义日期
         dateFilter.style.display = 'flex';
         // 设置默认日期为最近7天
         if (!document.getElementById('attendance-start-date').value) {
@@ -522,14 +533,19 @@ function initAttendanceQuery() {
 async function loadAttendanceUserList() {
     try {
         const users = await apiRequest('/users/');
+        const userFilterDay = document.getElementById('attendance-user-filter-day');
         const userFilter = document.getElementById('attendance-user-filter');
         const userFilterCustom = document.getElementById('attendance-user-filter-custom');
 
         // 保存当前选中的值
+        const currentValueDay = userFilterDay ? userFilterDay.value : '';
         const currentValue = userFilter.value;
         const currentValueCustom = userFilterCustom ? userFilterCustom.value : '';
 
         // 清空并添加"全部员工"选项
+        if (userFilterDay) {
+            userFilterDay.innerHTML = '<option value="">全部员工</option>';
+        }
         userFilter.innerHTML = '<option value="">全部员工</option>';
         if (userFilterCustom) {
             userFilterCustom.innerHTML = '<option value="">全部员工</option>';
@@ -540,7 +556,11 @@ async function loadAttendanceUserList() {
             const option = document.createElement('option');
             option.value = user.id;
             option.textContent = user.real_name;
-            userFilter.appendChild(option);
+            
+            if (userFilterDay) {
+                userFilterDay.appendChild(option.cloneNode(true));
+            }
+            userFilter.appendChild(option.cloneNode(true));
 
             if (userFilterCustom) {
                 const optionCustom = option.cloneNode(true);
@@ -549,6 +569,9 @@ async function loadAttendanceUserList() {
         });
 
         // 恢复之前选中的值
+        if (userFilterDay && currentValueDay) {
+            userFilterDay.value = currentValueDay;
+        }
         if (currentValue) {
             userFilter.value = currentValue;
         }
@@ -684,17 +707,21 @@ function resetOvertimePagination() {
 async function loadAttendanceRecords() {
     const queryType = document.querySelector('input[name="attendance-query-type"]:checked').value;
     let userId;
-
-    if (queryType === 'month') {
-        userId = document.getElementById('attendance-user-filter').value;
-    } else {
-        userId = document.getElementById('attendance-user-filter-custom').value;
-    }
-
     let startDate, endDate;
 
-    if (queryType === 'month') {
+    if (queryType === 'day') {
+        // 按日查询
+        userId = document.getElementById('attendance-user-filter-day').value;
+        const day = document.getElementById('attendance-day').value;
+        if (!day) {
+            alert('请选择日期');
+            return;
+        }
+        startDate = day;
+        endDate = day;
+    } else if (queryType === 'month') {
         // 按月查询
+        userId = document.getElementById('attendance-user-filter').value;
         const monthStr = document.getElementById('attendance-month').value;
         if (!monthStr) {
             alert('请选择月份');
@@ -705,6 +732,7 @@ async function loadAttendanceRecords() {
         endDate = dateRange.end;
     } else {
         // 自定义日期查询
+        userId = document.getElementById('attendance-user-filter-custom').value;
         startDate = document.getElementById('attendance-start-date').value;
         endDate = document.getElementById('attendance-end-date').value;
 
