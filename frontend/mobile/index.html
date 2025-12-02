@@ -108,12 +108,71 @@
                             </button>
                         </div>
                         <div id="checkin-status-selector" class="checkin-status-selector" style="display: none; margin-top: 10px;">
-                            <label for="checkin-status-select">打卡状态：</label>
-                            <select id="checkin-status-select" class="form-select">
-                                <option value="normal">正常签到</option>
-                                <option value="city_business">市区办事</option>
-                                <option value="business_trip">出差</option>
-                            </select>
+                            <style>
+                                .checkin-status-selector {
+                                    display: flex;
+                                    align-items: center;
+                                    gap: 12px;
+                                }
+                                .checkin-status-selector > label {
+                                    font-weight: 500;
+                                    color: var(--text-secondary);
+                                    white-space: nowrap;
+                                    flex-shrink: 0;
+                                }
+                                .checkin-radio-group {
+                                    display: flex;
+                                    gap: 8px;
+                                    flex: 1;
+                                }
+                                .checkin-radio-item {
+                                    flex: 1;
+                                    min-width: 70px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    padding: 10px 8px;
+                                    background: var(--bg-secondary);
+                                    border: 2px solid var(--border-color);
+                                    border-radius: 8px;
+                                    cursor: pointer;
+                                    transition: all 0.2s;
+                                    font-size: 11px;
+                                }
+                                .checkin-radio-item:active {
+                                    transform: scale(0.98);
+                                }
+                                .checkin-radio-item input[type="radio"] {
+                                    display: none;
+                                }
+                                .checkin-radio-item:has(input[type="radio"]:checked) {
+                                    background: var(--primary-color);
+                                    border-color: var(--primary-color);
+                                }
+                                .checkin-radio-item:has(input[type="radio"]:checked) span {
+                                    color: white;
+                                    font-weight: 600;
+                                }
+                                .checkin-radio-item span {
+                                    flex: 1;
+                                    text-align: center;
+                                }
+                            </style>
+                            <label>打卡状态：</label>
+                            <div class="checkin-radio-group">
+                                <label class="checkin-radio-item">
+                                    <input type="radio" name="checkin-status" value="normal" checked>
+                                    <span>正常打卡</span>
+                                </label>
+                                <label class="checkin-radio-item">
+                                    <input type="radio" name="checkin-status" value="city_business">
+                                    <span>市区办事</span>
+                                </label>
+                                <label class="checkin-radio-item">
+                                    <input type="radio" name="checkin-status" value="business_trip">
+                                    <span>出差</span>
+                                </label>
+                            </div>
                         </div>
                         <div id="clock-location" class="clock-location"></div>
                     </div>

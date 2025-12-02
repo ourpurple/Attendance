@@ -28,13 +28,14 @@
     </view>
 
     <!-- 打卡状态选择器 -->
-    <view class="checkin-status-selector" wx:if="{{showStatusSelector && attendanceEnabled}}" style="margin-top: 10px; padding: 10px;">
+    <view class="checkin-status-selector" wx:if="{{showStatusSelector && attendanceEnabled}}">
       <text class="status-label">打卡状态：</text>
-      <picker mode="selector" range="{{checkinStatusList}}" range-key="name" value="{{checkinStatusIndex}}" bindchange="onStatusChange">
-        <view class="picker">
-          {{checkinStatusList[checkinStatusIndex].name}}
-        </view>
-      </picker>
+      <radio-group class="radio-group" bindchange="onStatusChange">
+        <label class="radio-item {{index === checkinStatusIndex ? 'checked' : ''}}" wx:for="{{checkinStatusList}}" wx:key="code">
+          <radio value="{{index}}" checked="{{index === checkinStatusIndex}}" color="#007AFF"/>
+          <text>{{item.name}}</text>
+        </label>
+      </radio-group>
     </view>
 
     <view class="clock-location" wx:if="{{location}}" style="color: {{locationColor}}">{{location}}</view>

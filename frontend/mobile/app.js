@@ -1284,9 +1284,9 @@ async function checkin() {
         // 如果检查失败，继续执行打卡（不影响正常流程）
     }
     
-    // 获取打卡状态选择
-    const statusSelector = document.getElementById('checkin-status-select');
-    const checkinStatus = statusSelector ? statusSelector.value : 'normal';
+    // 获取打卡状态选择（单选按钮）
+    const selectedRadio = document.querySelector('input[name="checkin-status"]:checked');
+    const checkinStatus = selectedRadio ? selectedRadio.value : 'normal';
     
     btn.disabled = true;
     btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
