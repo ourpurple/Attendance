@@ -281,8 +281,24 @@
                 <div id="attendance-content" class="content-section">
                     <div class="section-header">
                         <h2>考勤记录</h2>
-                        <div class="filters attendance-filters">
-                            <div style="display: flex; gap: 10px; align-items: center;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; padding: 0 4px;">
+                            <div id="attendance-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                                    每页显示：
+                                    <select id="attendance-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetAttendancePagination()">
+                                        <option value="30">30条</option>
+                                        <option value="50">50条</option>
+                                        <option value="100">100条</option>
+                                        <option value="0">不分页</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filters attendance-filters" style="flex-direction: column; align-items: flex-end;">
+                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
                                 <label style="display: flex; align-items: center; gap: 5px;">
                                     <input type="radio" name="attendance-query-type" value="day" checked onchange="toggleAttendanceQueryType()">
                                     按日查询
@@ -296,42 +312,30 @@
                                     自定义日期
                                 </label>
                             </div>
-                            <div id="attendance-day-filter" style="display: none; gap: 10px; align-items: center;">
-                                <input type="date" id="attendance-day" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
-                                <select id="attendance-user-filter-day" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
-                                    <option value="">全部员工</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                            <div style="display: flex; justify-content: flex-end; width: 100%;">
+                                <div id="attendance-day-filter" style="display: none; gap: 10px; align-items: center;">
+                                    <input type="date" id="attendance-day" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                    <select id="attendance-user-filter-day" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                        <option value="">全部员工</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                                </div>
+                                <div id="attendance-month-filter" style="display: none; gap: 10px; align-items: center;">
+                                    <input type="month" id="attendance-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                    <select id="attendance-user-filter" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                        <option value="">全部员工</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                                </div>
+                                <div id="attendance-date-filter" style="display: none; gap: 10px; align-items: center;">
+                                    <input type="date" id="attendance-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                    <input type="date" id="attendance-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
+                                    <select id="attendance-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
+                                        <option value="">全部员工</option>
+                                    </select>
+                                    <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                                </div>
                             </div>
-                            <div id="attendance-month-filter" style="display: none; gap: 10px; align-items: center;">
-                                <input type="month" id="attendance-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
-                                <select id="attendance-user-filter" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
-                                    <option value="">全部员工</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
-                            </div>
-                            <div id="attendance-date-filter" style="display: none; gap: 10px; align-items: center;">
-                                <input type="date" id="attendance-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
-                                <input type="date" id="attendance-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
-                                <select id="attendance-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
-                                    <option value="">全部员工</option>
-                                </select>
-                                <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; margin-bottom: 16px; padding: 0 4px;">
-                        <div id="attendance-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
-                                每页显示：
-                                <select id="attendance-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetAttendancePagination()">
-                                    <option value="30">30条</option>
-                                    <option value="50">50条</option>
-                                    <option value="100">100条</option>
-                                    <option value="0">不分页</option>
-                                </select>
-                            </label>
                         </div>
                     </div>
                     <div class="table-container">
@@ -348,6 +352,7 @@
                                     <th>工时</th>
                                     <th>迟到</th>
                                     <th>早退</th>
+                                    <th>操作</th>
                                 </tr>
                             </thead>
                             <tbody id="attendance-tbody">
@@ -360,8 +365,24 @@
                 <div id="leave-content" class="content-section">
                     <div class="section-header">
                         <h2>请假记录</h2>
-                        <div class="filters leave-filters">
-                            <div style="display: flex; gap: 10px; align-items: center;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; padding: 0 4px;">
+                            <div id="leave-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                                    每页显示：
+                                    <select id="leave-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetLeavePagination()">
+                                        <option value="30">30条</option>
+                                        <option value="50">50条</option>
+                                        <option value="100">100条</option>
+                                        <option value="0">不分页</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filters leave-filters" style="flex-direction: column; align-items: flex-end;">
+                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
                                 <label style="display: flex; align-items: center; gap: 5px;">
                                     <input type="radio" name="leave-query-type" value="month" checked onchange="toggleLeaveQueryType()">
                                     按月查询
@@ -378,7 +399,7 @@
                                 </select>
                                 <button class="btn btn-primary" onclick="loadLeaveApplications()">查询</button>
                             </div>
-                            <div id="leave-date-filter" style="display: none;">
+                            <div id="leave-date-filter" style="display: none; gap: 10px; align-items: center;">
                                 <input type="date" id="leave-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
                                 <input type="date" id="leave-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
                                 <select id="leave-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
@@ -386,20 +407,6 @@
                                 </select>
                                 <button class="btn btn-primary" onclick="loadLeaveApplications()">查询</button>
                             </div>
-                        </div>
-                    </div>
-                    <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; margin-bottom: 16px; padding: 0 4px;">
-                        <div id="leave-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
-                                每页显示：
-                                <select id="leave-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetLeavePagination()">
-                                    <option value="30">30条</option>
-                                    <option value="50">50条</option>
-                                    <option value="100">100条</option>
-                                    <option value="0">不分页</option>
-                                </select>
-                            </label>
                         </div>
                     </div>
                     <div class="table-container">
@@ -428,8 +435,24 @@
                 <div id="overtime-content" class="content-section">
                     <div class="section-header">
                         <h2>加班记录</h2>
-                        <div class="filters overtime-filters">
-                            <div style="display: flex; gap: 10px; align-items: center;">
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                        <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; padding: 0 4px;">
+                            <div id="overtime-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                                    每页显示：
+                                    <select id="overtime-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetOvertimePagination()">
+                                        <option value="30">30条</option>
+                                        <option value="50">50条</option>
+                                        <option value="100">100条</option>
+                                        <option value="0">不分页</option>
+                                    </select>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="filters overtime-filters" style="flex-direction: column; align-items: flex-end;">
+                            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 5px;">
                                 <label style="display: flex; align-items: center; gap: 5px;">
                                     <input type="radio" name="overtime-query-type" value="month" checked onchange="toggleOvertimeQueryType()">
                                     按月查询
@@ -446,7 +469,7 @@
                                 </select>
                                 <button class="btn btn-primary" onclick="loadOvertimeApplications()">查询</button>
                             </div>
-                            <div id="overtime-date-filter" style="display: none;">
+                            <div id="overtime-date-filter" style="display: none; gap: 10px; align-items: center;">
                                 <input type="date" id="overtime-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
                                 <input type="date" id="overtime-end-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
                                 <select id="overtime-user-filter-custom" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px; min-width: 150px;">
@@ -454,20 +477,6 @@
                                 </select>
                                 <button class="btn btn-primary" onclick="loadOvertimeApplications()">查询</button>
                             </div>
-                        </div>
-                    </div>
-                    <div class="pagination-controls" style="display: flex; justify-content: flex-start; align-items: center; gap: 16px; margin-bottom: 16px; padding: 0 4px;">
-                        <div id="overtime-pagination" style="display: flex; align-items: center; gap: 8px;"></div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <label style="display: flex; align-items: center; gap: 5px; font-size: 14px;">
-                                每页显示：
-                                <select id="overtime-page-size" style="padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;" onchange="resetOvertimePagination()">
-                                    <option value="30">30条</option>
-                                    <option value="50">50条</option>
-                                    <option value="100">100条</option>
-                                    <option value="0">不分页</option>
-                                </select>
-                            </label>
                         </div>
                     </div>
                     <div class="table-container">

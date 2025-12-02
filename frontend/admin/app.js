@@ -812,9 +812,100 @@ function renderAttendanceTable() {
             <td>${att.work_hours ? att.work_hours.toFixed(1) + 'h' : '-'}</td>
             <td>${att.is_late ? '<span style="color: #FF3B30; font-weight: 500;">是</span>' : '否'}</td>
             <td>${att.is_early_leave ? '<span style="color: #FF3B30; font-weight: 500;">是</span>' : '否'}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn btn-small btn-primary" onclick="editAttendanceRecord(${att.id})">编辑</button>
+                    <button class="btn btn-small btn-danger" onclick="deleteAttendanceRecord(${att.id})">删除</button>
+                </div>
+            </td>
         </tr>
     `;
     }).join('');
+}
+
+// 编辑考勤记录
+async function editAttendanceRecord(id) {
+    try {
+        const state = paginationState.attendance;
+        const record = state.allData.find(att => att.id === id);
+        if (!record) {
+            showToast('记录不存在', 'error');
+            return;
+        }
+
+        const content = `
+            <div class="form-group">
+                <label>上班打卡时间</label>
+                <input type="datetime-local" id="edit-checkin-time" class="form-input" value="${record.checkin_time ? new Date(record.checkin_time).toISOString().slice(0, 16) : ''}">
+            </div>
+            <div class="form-group">
+                <label>下班打卡时间</label>
+                <input type="datetime-local" id="edit-checkout-time" class="form-input" value="${record.checkout_time ? new Date(record.checkout_time).toISOString().slice(0, 16) : ''}">
+            </div>
+            <div class="form-group">
+                <label>工作时长(小时)</label>
+                <input type="number" id="edit-work-hours" class="form-input" step="0.1" value="${record.work_hours || ''}">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-is-late" ${record.is_late ? 'checked' : ''}>
+                    迟到
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-is-early-leave" ${record.is_early_leave ? 'checked' : ''}>
+                    早退
+                </label>
+            </div>
+        `;
+
+        showModal('编辑考勤记录', content, async () => {
+            const checkinTime = document.getElementById('edit-checkin-time').value;
+            const checkoutTime = document.getElementById('edit-checkout-time').value;
+            const workHours = parseFloat(document.getElementById('edit-work-hours').value);
+            const isLate = document.getElementById('edit-is-late').checked;
+            const isEarlyLeave = document.getElementById('edit-is-early-leave').checked;
+
+            const updateData = {};
+            if (checkinTime) updateData.checkin_time = new Date(checkinTime).toISOString();
+            if (checkoutTime) updateData.checkout_time = new Date(checkoutTime).toISOString();
+            if (!isNaN(workHours)) updateData.work_hours = workHours;
+            updateData.is_late = isLate;
+            updateData.is_early_leave = isEarlyLeave;
+
+            try {
+                await apiRequest(`/attendance/${id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(updateData)
+                });
+                closeModal();
+                showToast('更新成功', 'success');
+                loadAttendanceRecords();
+            } catch (error) {
+                showToast('更新失败: ' + error.message, 'error');
+            }
+        });
+    } catch (error) {
+        showToast('加载记录失败: ' + error.message, 'error');
+    }
+}
+
+// 删除考勤记录
+function deleteAttendanceRecord(id) {
+    showConfirmDialog(
+        '确认删除',
+        '确定要删除这条考勤记录吗？删除后无法恢复！',
+        async () => {
+            try {
+                await apiRequest(`/attendance/${id}`, { method: 'DELETE' });
+                showToast('删除成功', 'success');
+                loadAttendanceRecords();
+            } catch (error) {
+                showToast('删除失败: ' + error.message, 'error');
+            }
+        }
+    );
 }
 
 // 切换请假管理查询类型

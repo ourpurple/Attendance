@@ -8,7 +8,7 @@ import httpx
 from ..database import get_db
 from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday, LeaveStatus, CheckinStatusConfig
 from ..schemas import (
-    AttendanceCheckin, AttendanceCheckout, AttendanceResponse, 
+    AttendanceCheckin, AttendanceCheckout, AttendanceResponse, AttendanceUpdate, 
     AttendancePolicyResponse, AttendancePolicyCreate, AttendancePolicyUpdate,
     BatchGeocodeRequest, BatchGeocodeResponse, GeocodeResult, LocationPoint,
     AttendanceOverviewResponse, AttendanceOverviewItem, LeaveStatusResponse,
@@ -1269,4 +1269,46 @@ def get_attendance_overview(
         workday_reason=workday_status["reason"]
     )
 
+
+@router.put("/{attendance_id}", response_model=AttendanceResponse)
+def update_attendance(
+    attendance_id: int,
+    attendance_update: AttendanceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """更新考勤记录（仅管理员）"""
+    attendance = db.query(Attendance).filter(Attendance.id == attendance_id).first()
+    if not attendance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="考勤记录不存在"
+        )
+    
+    update_data = attendance_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(attendance, field, value)
+    
+    db.commit()
+    db.refresh(attendance)
+    return attendance
+
+
+@router.delete("/{attendance_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_attendance(
+    attendance_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """删除考勤记录（仅管理员）"""
+    attendance = db.query(Attendance).filter(Attendance.id == attendance_id).first()
+    if not attendance:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="考勤记录不存在"
+        )
+    
+    db.delete(attendance)
+    db.commit()
+    return None
 

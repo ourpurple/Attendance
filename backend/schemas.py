@@ -183,6 +183,27 @@ class BatchGeocodeResponse(BaseModel):
     results: List[GeocodeResult]
 
 
+
+class AttendanceUpdate(BaseModel):
+    """考勤记录更新"""
+    checkin_time: Optional[datetime] = None
+    checkin_location: Optional[str] = None
+    checkin_latitude: Optional[float] = None
+    checkin_longitude: Optional[float] = None
+    checkout_time: Optional[datetime] = None
+    checkout_location: Optional[str] = None
+    checkout_latitude: Optional[float] = None
+    checkout_longitude: Optional[float] = None
+    is_late: Optional[bool] = None
+    is_early_leave: Optional[bool] = None
+    work_hours: Optional[float] = None
+    checkin_status: Optional[str] = None
+    morning_status: Optional[str] = None
+    afternoon_status: Optional[str] = None
+    morning_leave: Optional[bool] = None
+    afternoon_leave: Optional[bool] = None
+
+
 class AttendanceResponse(BaseModel):
     id: int
     user_id: int
