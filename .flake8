@@ -1,0 +1,37 @@
+[flake8]
+# 最大行长度
+max-line-length = 120
+
+# 排除的目录
+exclude =
+    .git,
+    __pycache__,
+    .venv,
+    venv,
+    .pytest_cache,
+    .mypy_cache,
+    htmlcov,
+    migrations,
+    *.egg-info,
+    build,
+    dist
+
+# 忽略的错误代码
+ignore =
+    # E203: whitespace before ':'
+    E203,
+    # E501: line too long (handled by black)
+    E501,
+    # W503: line break before binary operator
+    W503,
+    # W504: line break after binary operator
+    W504,
+    # E402: module level import not at top of file
+    E402,
+
+# 每个文件的最大复杂度
+max-complexity = 10
+
+# 导入顺序检查
+import-order-style = google
+application-import-names = backend

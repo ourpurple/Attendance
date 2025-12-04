@@ -87,6 +87,47 @@ def run_all_migrations():
             print("  ✅ password_change_logs表创建成功")
             migrations_applied += 1
         
+        # 迁移3: 添加性能优化索引
+        print("\n【迁移3】添加性能优化索引")
+        print("-" * 70)
+        
+        indexes_to_create = [
+            ("idx_attendances_user_id", "attendances", "user_id"),
+            ("idx_attendances_user_date", "attendances", "user_id, date"),
+            ("idx_leave_applications_user_id", "leave_applications", "user_id"),
+            ("idx_leave_applications_status", "leave_applications", "status"),
+            ("idx_leave_applications_user_status", "leave_applications", "user_id, status"),
+            ("idx_overtime_applications_user_id", "overtime_applications", "user_id"),
+            ("idx_overtime_applications_status", "overtime_applications", "status"),
+            ("idx_overtime_applications_user_status", "overtime_applications", "user_id, status"),
+            ("idx_users_department_id", "users", "department_id"),
+            ("idx_users_role", "users", "role"),
+            ("idx_users_is_active", "users", "is_active"),
+        ]
+        
+        index_created = 0
+        index_skipped = 0
+        
+        for index_name, table_name, columns in indexes_to_create:
+            cursor.execute(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name=?",
+                (index_name,)
+            )
+            
+            if cursor.fetchone():
+                index_skipped += 1
+            else:
+                print(f"  ➕ 创建索引 {index_name}...")
+                cursor.execute(f"CREATE INDEX {index_name} ON {table_name}({columns})")
+                index_created += 1
+        
+        if index_created > 0:
+            print(f"  ✅ 创建了 {index_created} 个索引")
+            migrations_applied += 1
+        else:
+            print(f"  ⏭️  所有索引已存在，跳过")
+            migrations_skipped += 1
+        
         # 提交所有更改
         conn.commit()
         
@@ -111,6 +152,13 @@ def run_all_migrations():
         else:
             print("❌ password_change_logs表不存在")
             all_valid = False
+        
+        # 验证索引
+        cursor.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name LIKE 'idx_%'"
+        )
+        index_count = cursor.fetchone()[0]
+        print(f"✅ 数据库共有 {index_count} 个自定义索引")
         
         conn.close()
         

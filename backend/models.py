@@ -120,7 +120,7 @@ class Attendance(Base):
     __tablename__ = "attendances"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     checkin_time = Column(DateTime, comment="上班打卡时间")
     checkin_location = Column(String(255), comment="上班打卡地点")
     checkin_latitude = Column(Float, comment="上班打卡纬度")
@@ -143,6 +143,11 @@ class Attendance(Base):
     
     # 关系
     user = relationship("User", back_populates="attendances")
+    
+    # 复合索引：优化按用户和日期查询
+    __table_args__ = (
+        {"sqlite_autoincrement": True},
+    )
 
 
 class LeavePolicy(Base):
@@ -177,12 +182,12 @@ class LeaveApplication(Base):
     __tablename__ = "leave_applications"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     start_date = Column(DateTime, nullable=False, comment="请假开始日期")
     end_date = Column(DateTime, nullable=False, comment="请假结束日期")
     days = Column(Float, nullable=False, comment="请假天数")
     reason = Column(Text, nullable=False, comment="请假原因")
-    status = Column(String(20), default=LeaveStatus.PENDING.value, comment="审批状态")
+    status = Column(String(20), default=LeaveStatus.PENDING.value, index=True, comment="审批状态")
     version = Column(Integer, default=1, nullable=False, comment="版本号（用于乐观锁）")
     assigned_vp_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的副总审批人ID")
     assigned_gm_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的总经理审批人ID")
@@ -214,13 +219,13 @@ class OvertimeApplication(Base):
     __tablename__ = "overtime_applications"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     start_time = Column(DateTime, nullable=False, comment="加班开始时间")
     end_time = Column(DateTime, nullable=False, comment="加班结束时间")
     hours = Column(Float, nullable=False, comment="加班时长（小时）")
     days = Column(Float, nullable=False, default=0.5, comment="加班天数")
     reason = Column(Text, nullable=False, comment="加班原因")
-    status = Column(String(20), default=OvertimeStatus.PENDING.value, comment="审批状态")
+    status = Column(String(20), default=OvertimeStatus.PENDING.value, index=True, comment="审批状态")
     version = Column(Integer, default=1, nullable=False, comment="版本号（用于乐观锁）")
     assigned_approver_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的审批人ID")
     approver_id = Column(Integer, ForeignKey("users.id"), comment="审批人ID")

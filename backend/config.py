@@ -37,7 +37,19 @@ class Settings(BaseSettings):
     # CORS配置
     CORS_ORIGINS: List[str] = Field(
         default=["*"],
-        description="允许的CORS来源"
+        description="允许的CORS来源（生产环境应配置具体域名）"
+    )
+    CORS_ALLOW_CREDENTIALS: bool = Field(
+        default=True,
+        description="是否允许携带凭证"
+    )
+    CORS_ALLOW_METHODS: List[str] = Field(
+        default=["*"],
+        description="允许的HTTP方法"
+    )
+    CORS_ALLOW_HEADERS: List[str] = Field(
+        default=["*"],
+        description="允许的HTTP头"
     )
     
     # 高德地图API配置
@@ -85,10 +97,19 @@ class Settings(BaseSettings):
     
     @field_validator("CORS_ORIGINS")
     @classmethod
-    def validate_cors_origins(cls, v: List[str]) -> List[str]:
+    def validate_cors_origins(cls, v: List[str], info) -> List[str]:
         """验证CORS配置"""
         if not v:
             return ["*"]
+        
+        # 生产环境警告使用通配符
+        if info.data.get("ENVIRONMENT") == "production" and "*" in v:
+            import warnings
+            warnings.warn(
+                "生产环境使用CORS通配符(*)存在安全风险，建议配置具体的域名白名单",
+                UserWarning
+            )
+        
         return v
     
     class Config:

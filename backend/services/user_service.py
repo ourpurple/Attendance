@@ -64,6 +64,8 @@ class UserService:
         enable_attendance: bool = True
     ) -> User:
         """创建用户"""
+        from ..security import validate_password_strength
+        
         # 检查用户名是否已存在
         if self.user_repo.get_by_username(username):
             raise ConflictException(f"用户名 {username} 已存在")
@@ -71,6 +73,11 @@ class UserService:
         # 检查邮箱是否已存在
         if email and self.user_repo.get_by_email(email):
             raise ConflictException(f"邮箱 {email} 已被使用")
+        
+        # 验证密码强度
+        is_valid, error_msg = validate_password_strength(password)
+        if not is_valid:
+            raise ValidationException(error_msg)
         
         # 创建用户
         user = self.user_repo.create(

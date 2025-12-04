@@ -6,7 +6,7 @@ import logging
 import sys
 from .config import settings
 from .database import init_db
-from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types
+from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types, monitoring
 from .middleware import setup_exception_handlers
 from .middleware.rate_limit import RateLimitMiddleware
 
@@ -30,9 +30,9 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+    allow_methods=settings.CORS_ALLOW_METHODS,
+    allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
 # 添加频率限制中间件
@@ -72,6 +72,7 @@ app.include_router(holidays.router, prefix="/api")
 app.include_router(vp_departments.router, prefix="/api")
 app.include_router(attendance_viewers.router, prefix="/api")
 app.include_router(leave_types.router, prefix="/api")
+app.include_router(monitoring.router, prefix="/api")
 
 # 静态文件服务（用于前端）
 import os
@@ -104,6 +105,8 @@ except Exception as e:
 async def startup_event():
     """应用启动时初始化数据库和验证配置"""
     from .config import validate_settings
+    from .database import engine
+    from .utils.query_logger import enable_query_logging
     
     # 验证配置
     try:
@@ -118,6 +121,11 @@ async def startup_event():
     # 初始化数据库
     init_db()
     print("✓ 数据库初始化完成")
+    
+    # 启用查询日志（仅在DEBUG模式下）
+    if settings.DEBUG:
+        enable_query_logging(engine, slow_query_threshold=0.1)
+        print("✓ 查询日志已启用（慢查询阈值: 0.1秒）")
 
 
 @app.get("/")

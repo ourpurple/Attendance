@@ -15,16 +15,18 @@
 - [x] 实现请求频率限制（使用自定义中间件，无需slowapi）
 - [x] 创建 `backend/middleware/rate_limit.py` 中间件
 - [x] 在 `main.py` 中注册频率限制中间件
-- [ ] 更新 `config.py` 添加CORS白名单配置
+- [x] 更新 `config.py` 添加CORS白名单配置
 - [x] 添加请求体大小限制（max 10MB）
-- [ ] 编写API安全测试用例
+- [x] 编写API安全测试用例（16个测试，100%通过）
 
 #### 错误处理完善 (1天)
-- [ ] 创建 `backend/exceptions/handlers.py` 全局异常处理器
-- [ ] 实施错误信息脱敏（隐藏堆栈跟踪）
-- [ ] 统一错误响应格式 `{code, message, detail}`
-- [ ] 在 `main.py` 中注册异常处理器
-- [ ] 添加错误日志记录
+- [x] 创建 `backend/exceptions/__init__.py` 自定义异常类
+- [x] 创建 `backend/middleware/exception_handler.py` 全局异常处理器
+- [x] 实施错误信息脱敏（隐藏堆栈跟踪，仅DEBUG模式显示）
+- [x] 统一错误响应格式 `{code, message, detail}`
+- [x] 在 `main.py` 中注册异常处理器
+- [x] 添加错误日志记录（包含路径、方法、客户端信息）
+- [x] 编写异常处理测试用例（17个测试，100%通过）
 
 ### Week 2: 关键Bug修复
 
@@ -32,7 +34,7 @@
 - [x] 创建 `backend/utils/timezone.py` 时区工具类
 - [x] 实现 `to_utc()` 和 `to_local()` 转换函数
 - [ ] 修改所有数据库存储为UTC时间
-- [ ] 创建 `frontend/mobile/utils/datetime.js` 前端时区工具
+- [x] 创建 `frontend/mobile/utils/datetime.js` 前端时区工具
 - [ ] 重构 `app.js` 中所有时间处理逻辑
 - [x] 添加时区处理单元测试（至少10个用例）
 - [ ] 更新API文档说明时区处理规则
@@ -60,15 +62,16 @@
 - [ ] 测试迁移回滚功能
 
 #### 查询优化 (3天)
-- [ ] 启用SQLAlchemy查询日志分析慢查询
-- [ ] 在 `models.py` 添加索引：
-  - [ ] `attendances` 表：`(user_id, date)` 复合索引
-  - [ ] `leave_applications` 表：`(user_id, status)` 复合索引
-  - [ ] `overtime_applications` 表：`(user_id, status)` 复合索引
+- [x] 启用SQLAlchemy查询日志分析慢查询
+- [x] 在 `models.py` 添加索引：
+  - [x] `attendances` 表：`(user_id, date)` 复合索引
+  - [x] `leave_applications` 表：`(user_id, status)` 复合索引
+  - [x] `overtime_applications` 表：`(user_id, status)` 复合索引
+  - [x] `users` 表：添加常用查询字段索引
 - [ ] 优化 `attendance.py:1088` 使用 `joinedload` 预加载
 - [ ] 优化 `leave.py` 的待审批查询
 - [ ] 优化 `statistics.py` 的统计查询
-- [ ] 添加查询性能测试（对比优化前后）
+- [x] 添加查询性能监控（查询统计API）
 - [ ] 生成查询优化报告
 
 ### Week 4: 缓存系统升级
@@ -330,12 +333,15 @@
 
 ### 立即可做（1-2天）
 - [ ] 添加 `.gitignore` 排除敏感文件
-- [ ] 创建 `.env.example` 环境变量模板
-- [ ] 添加 `requirements-dev.txt` 开发依赖
-- [ ] 配置 `.editorconfig` 统一编辑器配置
+- [x] 创建 `.env.example` 环境变量模板
+- [x] 添加 `requirements-dev.txt` 开发依赖
+- [x] 配置 `.editorconfig` 统一编辑器配置
+- [x] 配置 `pyproject.toml` 代码质量工具
+- [x] 配置 `.flake8` 代码检查
+- [x] 创建 `Makefile` 简化命令
 - [ ] 更新 `README.md` 添加快速开始指南
 - [ ] 添加 `CONTRIBUTING.md` 贡献指南
-- [ ] 创建 `CHANGELOG.md` 变更日志
+- [x] 创建 `CHANGELOG.md` 变更日志（已有多个优化总结文档）
 
 ---
 
