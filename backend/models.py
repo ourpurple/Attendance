@@ -70,6 +70,7 @@ class User(Base):
     wechat_openid = Column(String(128), unique=True, nullable=True, index=True, comment="微信OpenID")
     annual_leave_days = Column(Float, default=10.0, comment="年假天数")
     enable_attendance = Column(Boolean, default=True, comment="是否开启考勤管理")
+    version = Column(Integer, default=1, nullable=False, comment="版本号（用于乐观锁）")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     
@@ -182,6 +183,7 @@ class LeaveApplication(Base):
     days = Column(Float, nullable=False, comment="请假天数")
     reason = Column(Text, nullable=False, comment="请假原因")
     status = Column(String(20), default=LeaveStatus.PENDING.value, comment="审批状态")
+    version = Column(Integer, default=1, nullable=False, comment="版本号（用于乐观锁）")
     assigned_vp_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的副总审批人ID")
     assigned_gm_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的总经理审批人ID")
     dept_approver_id = Column(Integer, ForeignKey("users.id"), comment="部门主任审批人ID")
@@ -219,6 +221,7 @@ class OvertimeApplication(Base):
     days = Column(Float, nullable=False, default=0.5, comment="加班天数")
     reason = Column(Text, nullable=False, comment="加班原因")
     status = Column(String(20), default=OvertimeStatus.PENDING.value, comment="审批状态")
+    version = Column(Integer, default=1, nullable=False, comment="版本号（用于乐观锁）")
     assigned_approver_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的审批人ID")
     approver_id = Column(Integer, ForeignKey("users.id"), comment="审批人ID")
     approved_at = Column(DateTime, comment="审批时间")
@@ -299,5 +302,22 @@ class CheckinStatusConfig(Base):
     sort_order = Column(Integer, default=0, comment="排序顺序")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
+class PasswordChangeLog(Base):
+    """密码修改日志表"""
+    __tablename__ = "password_change_logs"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="用户ID")
+    changed_by_id = Column(Integer, ForeignKey("users.id"), nullable=False, comment="修改人ID（可能是管理员或用户自己）")
+    ip_address = Column(String(45), comment="IP地址")
+    user_agent = Column(String(255), comment="用户代理")
+    change_type = Column(String(20), nullable=False, comment="修改类型: self_change=用户自己修改, admin_reset=管理员重置")
+    created_at = Column(DateTime, default=datetime.now, comment="修改时间")
+    
+    # 关系
+    user = relationship("User", foreign_keys=[user_id], post_update=True)
+    changed_by = relationship("User", foreign_keys=[changed_by_id], post_update=True)
 
 

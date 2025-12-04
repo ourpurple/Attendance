@@ -2,7 +2,7 @@
 用户路由（重构版）
 使用Service层架构
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from typing import List
 from ..database import get_db
@@ -24,6 +24,7 @@ def read_current_user(current_user: User = Depends(get_current_user)):
 @router.post("/me/change-password", status_code=status.HTTP_204_NO_CONTENT)
 def change_password(
     password_change: PasswordChange,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -33,7 +34,8 @@ def change_password(
         service.change_password(
             user_id=current_user.id,
             old_password=password_change.old_password,
-            new_password=password_change.new_password
+            new_password=password_change.new_password,
+            request=request
         )
         return None
     except (BusinessException, ValidationException) as e:

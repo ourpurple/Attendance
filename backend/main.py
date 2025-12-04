@@ -1,12 +1,14 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import JSONResponse
 import logging
 import sys
 from .config import settings
 from .database import init_db
 from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types
 from .middleware import setup_exception_handlers
+from .middleware.rate_limit import RateLimitMiddleware
 
 # 配置日志，确保输出到标准输出（systemd journal）
 logging.basicConfig(
@@ -32,6 +34,28 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 添加频率限制中间件
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=60,  # 每分钟60次请求
+    requests_per_hour=1000   # 每小时1000次请求
+)
+
+# 请求体大小限制中间件
+@app.middleware("http")
+async def limit_request_size(request: Request, call_next):
+    """限制请求体大小为10MB"""
+    max_size = 10 * 1024 * 1024  # 10MB
+    
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > max_size:
+        return JSONResponse(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            content={"detail": "请求体过大，最大允许10MB"}
+        )
+    
+    return await call_next(request)
 
 # 设置全局异常处理器
 setup_exception_handlers(app)

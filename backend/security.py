@@ -14,18 +14,65 @@ security = HTTPBearer()
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """验证密码"""
+    """
+    验证密码
+    
+    注意：如果密码超过72字节，需要先用SHA256哈希，与get_password_hash保持一致
+    """
+    import hashlib
+    
+    password_bytes = plain_password.encode('utf-8')
+    
+    # 如果密码超过72字节，先用SHA256哈希（与get_password_hash保持一致）
+    if len(password_bytes) > 72:
+        plain_password = hashlib.sha256(password_bytes).hexdigest()
+    
     return pwd_context.verify(plain_password, hashed_password)
 
 
+def validate_password_strength(password: str) -> tuple[bool, str]:
+    """
+    验证密码强度
+    
+    要求：
+    - 最少8个字符
+    - 至少包含一个大写字母
+    - 至少包含一个小写字母
+    - 至少包含一个数字
+    
+    Returns:
+        (is_valid, error_message)
+    """
+    if len(password) < 8:
+        return False, "密码长度至少8个字符"
+    
+    if not any(c.isupper() for c in password):
+        return False, "密码必须包含至少一个大写字母"
+    
+    if not any(c.islower() for c in password):
+        return False, "密码必须包含至少一个小写字母"
+    
+    if not any(c.isdigit() for c in password):
+        return False, "密码必须包含至少一个数字"
+    
+    return True, ""
+
+
 def get_password_hash(password: str) -> str:
-    """获取密码哈希"""
-    # bcrypt限制密码长度不能超过72字节
-    # 如果密码是UTF-8编码，需要确保字节长度不超过72
+    """
+    获取密码哈希
+    
+    注意：bcrypt限制密码长度不能超过72字节
+    对于超长密码，使用SHA256预哈希处理
+    """
+    import hashlib
+    
     password_bytes = password.encode('utf-8')
+    
+    # 如果密码超过72字节，先用SHA256哈希
     if len(password_bytes) > 72:
-        password_bytes = password_bytes[:72]
-        password = password_bytes.decode('utf-8', errors='ignore')
+        password = hashlib.sha256(password_bytes).hexdigest()
+    
     return pwd_context.hash(password)
 
 

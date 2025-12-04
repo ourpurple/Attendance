@@ -9,9 +9,9 @@ bcrypt==3.2.0
 python-multipart==0.0.6
 httpx==0.25.2
 Pillow==10.1.0
+pytz==2023.3
 
 # Testing dependencies
 pytest==7.4.3
 pytest-asyncio==0.21.1
 pytest-cov==4.1.0
-httpx==0.25.2

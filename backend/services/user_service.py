@@ -166,20 +166,37 @@ class UserService:
         return user
     
     @transaction
-    def change_password(self, user_id: int, old_password: str, new_password: str) -> None:
+    def change_password(self, user_id: int, old_password: str, new_password: str, request=None) -> None:
         """修改用户密码"""
+        from ..security import validate_password_strength
+        from ..utils.password_log import log_password_change
+        
         user = self.get_user(user_id)
         
         # 验证旧密码
         if not verify_password(old_password, user.password_hash):
             raise ValidationException("原密码错误")
         
-        # 验证新密码长度
-        if len(new_password) < 6:
-            raise ValidationException("新密码长度至少为6位")
+        # 验证新密码强度
+        is_valid, error_msg = validate_password_strength(new_password)
+        if not is_valid:
+            raise ValidationException(error_msg)
         
         # 更新密码
         user.password_hash = get_password_hash(new_password)
+        
+        # 记录密码修改日志
+        try:
+            log_password_change(
+                db=self.db,
+                user_id=user_id,
+                changed_by_id=user_id,
+                change_type="self_change",
+                request=request
+            )
+        except Exception as e:
+            # 日志记录失败不影响密码修改
+            print(f"记录密码修改日志失败: {e}")
     
     def get_approvers(self) -> List[User]:
         """获取可用的审批人列表（所有登录用户可访问）"""
