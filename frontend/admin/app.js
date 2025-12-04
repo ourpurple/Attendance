@@ -833,6 +833,35 @@ async function editAttendanceRecord(id) {
             return;
         }
 
+        // 获取打卡状态列表
+        let checkinStatuses = [];
+        try {
+            checkinStatuses = await apiRequest('/attendance/checkin-statuses?include_inactive=false');
+        } catch (error) {
+            console.error('获取打卡状态列表失败:', error);
+            // 使用默认状态
+            checkinStatuses = [
+                { code: 'normal', name: '正常签到' },
+                { code: 'city_business', name: '市区办事' },
+                { code: 'business_trip', name: '出差' },
+                { code: 'leave', name: '请假' },
+                { code: 'absent', name: '缺勤' }
+            ];
+        }
+
+        // 生成打卡状态选项
+        const statusOptions = checkinStatuses.map(status => 
+            `<option value="${status.code}" ${record.checkin_status === status.code ? 'selected' : ''}>${status.name}</option>`
+        ).join('');
+
+        const morningStatusOptions = checkinStatuses.map(status => 
+            `<option value="${status.code}" ${record.morning_status === status.code ? 'selected' : ''}>${status.name}</option>`
+        ).join('');
+
+        const afternoonStatusOptions = checkinStatuses.map(status => 
+            `<option value="${status.code}" ${record.afternoon_status === status.code ? 'selected' : ''}>${status.name}</option>`
+        ).join('');
+
         const content = `
             <div class="form-group">
                 <label>上班打卡时间</label>
@@ -847,6 +876,27 @@ async function editAttendanceRecord(id) {
                 <input type="number" id="edit-work-hours" class="form-input" step="0.1" value="${record.work_hours || ''}">
             </div>
             <div class="form-group">
+                <label>签到状态</label>
+                <select id="edit-checkin-status" class="form-input">
+                    <option value="">请选择</option>
+                    ${statusOptions}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>上午状态</label>
+                <select id="edit-morning-status" class="form-input">
+                    <option value="">请选择</option>
+                    ${morningStatusOptions}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>下午状态</label>
+                <select id="edit-afternoon-status" class="form-input">
+                    <option value="">请选择</option>
+                    ${afternoonStatusOptions}
+                </select>
+            </div>
+            <div class="form-group">
                 <label>
                     <input type="checkbox" id="edit-is-late" ${record.is_late ? 'checked' : ''}>
                     迟到
@@ -858,21 +908,43 @@ async function editAttendanceRecord(id) {
                     早退
                 </label>
             </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-morning-leave" ${record.morning_leave ? 'checked' : ''}>
+                    上午请假
+                </label>
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="edit-afternoon-leave" ${record.afternoon_leave ? 'checked' : ''}>
+                    下午请假
+                </label>
+            </div>
         `;
 
         showModal('编辑考勤记录', content, async () => {
             const checkinTime = document.getElementById('edit-checkin-time').value;
             const checkoutTime = document.getElementById('edit-checkout-time').value;
             const workHours = parseFloat(document.getElementById('edit-work-hours').value);
+            const checkinStatus = document.getElementById('edit-checkin-status').value;
+            const morningStatus = document.getElementById('edit-morning-status').value;
+            const afternoonStatus = document.getElementById('edit-afternoon-status').value;
             const isLate = document.getElementById('edit-is-late').checked;
             const isEarlyLeave = document.getElementById('edit-is-early-leave').checked;
+            const morningLeave = document.getElementById('edit-morning-leave').checked;
+            const afternoonLeave = document.getElementById('edit-afternoon-leave').checked;
 
             const updateData = {};
             if (checkinTime) updateData.checkin_time = new Date(checkinTime).toISOString();
             if (checkoutTime) updateData.checkout_time = new Date(checkoutTime).toISOString();
             if (!isNaN(workHours)) updateData.work_hours = workHours;
+            if (checkinStatus) updateData.checkin_status = checkinStatus;
+            if (morningStatus) updateData.morning_status = morningStatus;
+            if (afternoonStatus) updateData.afternoon_status = afternoonStatus;
             updateData.is_late = isLate;
             updateData.is_early_leave = isEarlyLeave;
+            updateData.morning_leave = morningLeave;
+            updateData.afternoon_leave = afternoonLeave;
 
             try {
                 await apiRequest(`/attendance/${id}`, {
