@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import and_, func
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
@@ -688,7 +688,9 @@ def get_my_attendance(
     current_user: User = Depends(get_current_user)
 ):
     """获取我的考勤记录"""
-    query = db.query(Attendance).filter(Attendance.user_id == current_user.id)
+    query = db.query(Attendance).options(
+        joinedload(Attendance.user)
+    ).filter(Attendance.user_id == current_user.id)
     
     if start_date:
         query = query.filter(func.date(Attendance.date) >= start_date)
@@ -717,7 +719,9 @@ def get_user_attendance(
             detail="权限不足"
         )
     
-    query = db.query(Attendance).filter(Attendance.user_id == user_id)
+    query = db.query(Attendance).options(
+        joinedload(Attendance.user)
+    ).filter(Attendance.user_id == user_id)
     
     if start_date:
         query = query.filter(func.date(Attendance.date) >= start_date)
@@ -739,7 +743,9 @@ def list_attendance(
     current_user: User = Depends(get_current_active_admin)
 ):
     """获取所有考勤记录（管理员）"""
-    query = db.query(Attendance)
+    query = db.query(Attendance).options(
+        joinedload(Attendance.user)
+    )
     
     if start_date:
         query = query.filter(func.date(Attendance.date) >= start_date)
@@ -1066,8 +1072,11 @@ def get_attendance_overview(
     user_ids = [user.id for user in users]
     
     # 获取目标日期的考勤记录（只查询已过滤用户的记录）
+    # 使用 joinedload 预加载关联的 user 数据，避免 N+1 查询
     if user_ids:
-        attendances = db.query(Attendance).filter(
+        attendances = db.query(Attendance).options(
+            joinedload(Attendance.user)
+        ).filter(
             func.date(Attendance.date) == target_date,
             Attendance.user_id.in_(user_ids)
         ).all()
@@ -1076,8 +1085,12 @@ def get_attendance_overview(
     attendance_dict = {att.user_id: att for att in attendances}
     
     # 获取目标日期的请假记录（已批准的，只查询已过滤用户的记录）
+    # 使用 joinedload 预加载关联的 user 和 leave_type 数据
     if user_ids:
-        leaves = db.query(LeaveApplication).filter(
+        leaves = db.query(LeaveApplication).options(
+            joinedload(LeaveApplication.user),
+            joinedload(LeaveApplication.leave_type)
+        ).filter(
             func.date(LeaveApplication.start_date) <= target_date,
             func.date(LeaveApplication.end_date) >= target_date,
             LeaveApplication.status == "approved",
@@ -1129,8 +1142,11 @@ def get_attendance_overview(
             leave_dict[leave.user_id] += 1.0
     
     # 获取目标日期的加班记录（已批准的，只查询已过滤用户的记录）
+    # 使用 joinedload 预加载关联的 user 数据
     if user_ids:
-        overtimes = db.query(OvertimeApplication).filter(
+        overtimes = db.query(OvertimeApplication).options(
+            joinedload(OvertimeApplication.user)
+        ).filter(
             func.date(OvertimeApplication.start_time) <= target_date,
             func.date(OvertimeApplication.end_time) >= target_date,
             OvertimeApplication.status == "approved",

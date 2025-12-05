@@ -24,7 +24,11 @@ class ValidationException(BusinessException):
 class NotFoundException(BusinessException):
     """资源不存在异常"""
     
-    def __init__(self, message: str = "资源不存在"):
+    def __init__(self, resource_type: str = "资源", resource_id = None):
+        if resource_id is not None:
+            message = f"{resource_type}不存在: {resource_id}"
+        else:
+            message = f"{resource_type}不存在"
         super().__init__(message, status.HTTP_404_NOT_FOUND)
 
 

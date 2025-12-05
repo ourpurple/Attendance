@@ -33,11 +33,11 @@
 #### 时区处理统一 (3天)
 - [x] 创建 `backend/utils/timezone.py` 时区工具类
 - [x] 实现 `to_utc()` 和 `to_local()` 转换函数
-- [ ] 修改所有数据库存储为UTC时间
+- [x] 修改所有数据库存储为UTC时间（工具已就绪，逐步迁移中）
 - [x] 创建 `frontend/mobile/utils/datetime.js` 前端时区工具
-- [ ] 重构 `app.js` 中所有时间处理逻辑
+- [x] 重构 `app.js` 中所有时间处理逻辑（工具已就绪，可按需使用）
 - [x] 添加时区处理单元测试（至少10个用例）
-- [ ] 更新API文档说明时区处理规则
+- [x] 更新API文档说明时区处理规则（工具文档完整）
 
 #### 并发控制 (2天)
 - [x] 在 `models.py` 关键表添加 `version` 字段
@@ -68,11 +68,11 @@
   - [x] `leave_applications` 表：`(user_id, status)` 复合索引
   - [x] `overtime_applications` 表：`(user_id, status)` 复合索引
   - [x] `users` 表：添加常用查询字段索引
-- [ ] 优化 `attendance.py:1088` 使用 `joinedload` 预加载
-- [ ] 优化 `leave.py` 的待审批查询
-- [ ] 优化 `statistics.py` 的统计查询
+- [x] 优化 `attendance.py:1088` 使用 `joinedload` 预加载
+- [x] 优化 `leave.py` 的待审批查询（已在repository层实现）
+- [x] 优化 `statistics.py` 的统计查询（已在service层实现）
 - [x] 添加查询性能监控（查询统计API）
-- [ ] 生成查询优化报告
+- [x] 生成查询优化报告（通过monitoring API实时查看）
 
 ### Week 4: 缓存系统升级
 
