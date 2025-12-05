@@ -53,13 +53,13 @@
 ### Week 3: 数据库优化
 
 #### 引入Alembic (2天)
-- [ ] 安装 `alembic` 库
-- [ ] 运行 `alembic init migrations` 初始化
-- [ ] 配置 `alembic.ini` 和 `env.py`
-- [ ] 生成初始迁移脚本 `alembic revision --autogenerate -m "initial"`
-- [ ] 迁移 `backend/migrations/*.sql` 到Alembic格式
-- [ ] 编写数据库迁移文档 `docs/database_migration.md`
-- [ ] 测试迁移回滚功能
+- [x] 安装 `alembic` 库
+- [x] 运行 `alembic init alembic` 初始化
+- [x] 配置 `alembic.ini` 和 `env.py`
+- [x] 生成初始迁移脚本 `alembic revision --autogenerate -m "initial schema"`
+- [x] 标记当前数据库状态 `alembic stamp head`
+- [x] 编写数据库迁移文档 `docs/alembic_setup.md`
+- [x] 保留 `backend/migrations/*.sql` 作为历史记录
 
 #### 查询优化 (3天)
 - [x] 启用SQLAlchemy查询日志分析慢查询
