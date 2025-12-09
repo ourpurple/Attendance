@@ -862,14 +862,26 @@ async function editAttendanceRecord(id) {
             `<option value="${status.code}" ${record.afternoon_status === status.code ? 'selected' : ''}>${status.name}</option>`
         ).join('');
 
+        // 将UTC时间转换为本地时间格式 (用于datetime-local输入框)
+        const formatLocalDateTime = (isoString) => {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        };
+
         const content = `
             <div class="form-group">
                 <label>上班打卡时间</label>
-                <input type="datetime-local" id="edit-checkin-time" class="form-input" value="${record.checkin_time ? new Date(record.checkin_time).toISOString().slice(0, 16) : ''}">
+                <input type="datetime-local" id="edit-checkin-time" class="form-input" value="${formatLocalDateTime(record.checkin_time)}">
             </div>
             <div class="form-group">
                 <label>下班打卡时间</label>
-                <input type="datetime-local" id="edit-checkout-time" class="form-input" value="${record.checkout_time ? new Date(record.checkout_time).toISOString().slice(0, 16) : ''}">
+                <input type="datetime-local" id="edit-checkout-time" class="form-input" value="${formatLocalDateTime(record.checkout_time)}">
             </div>
             <div class="form-group">
                 <label>工作时长(小时)</label>
@@ -935,8 +947,9 @@ async function editAttendanceRecord(id) {
             const afternoonLeave = document.getElementById('edit-afternoon-leave').checked;
 
             const updateData = {};
-            if (checkinTime) updateData.checkin_time = new Date(checkinTime).toISOString();
-            if (checkoutTime) updateData.checkout_time = new Date(checkoutTime).toISOString();
+            // 直接使用本地时间字符串，不转换为UTC
+            if (checkinTime) updateData.checkin_time = checkinTime.replace('T', ' ') + ':00';
+            if (checkoutTime) updateData.checkout_time = checkoutTime.replace('T', ' ') + ':00';
             if (!isNaN(workHours)) updateData.work_hours = workHours;
             if (checkinStatus) updateData.checkin_status = checkinStatus;
             if (morningStatus) updateData.morning_status = morningStatus;
