@@ -419,12 +419,39 @@ def get_pending_leave_applications(
         # 副总：查看分配给自己的申请
         # 1. 副总自己的申请（pending状态，assigned_vp_id是自己）
         # 2. 部门主任已批准待副总审批的申请（dept_approved状态，assigned_vp_id是自己）
-        query = query.filter(
-            LeaveApplication.assigned_vp_id == current_user.id
-        ).filter(
-            (LeaveApplication.status == LeaveStatus.PENDING) |
-            (LeaveApplication.status == LeaveStatus.DEPT_APPROVED)
-        )
+        # 3. 如果副总同时是某部门的head，也要能看到该部门的pending申请
+        
+        # 查找副总作为head的部门
+        head_dept_ids = db.query(Department.id).filter(
+            Department.head_id == current_user.id
+        ).all()
+        head_dept_ids = [d.id for d in head_dept_ids]
+        
+        if head_dept_ids:
+            # 副总同时是部门主任，需要同时查看两种情况
+            query = query.outerjoin(User, LeaveApplication.user_id == User.id).filter(
+                # 情况1：分配给自己的副总审批（pending或dept_approved）
+                (
+                    (LeaveApplication.assigned_vp_id == current_user.id) &
+                    (
+                        (LeaveApplication.status == LeaveStatus.PENDING) |
+                        (LeaveApplication.status == LeaveStatus.DEPT_APPROVED)
+                    )
+                ) |
+                # 情况2：作为部门head，查看本部门的pending申请
+                (
+                    (User.department_id.in_(head_dept_ids)) &
+                    (LeaveApplication.status == LeaveStatus.PENDING)
+                )
+            )
+        else:
+            # 纯副总，只查看分配给自己的申请
+            query = query.filter(
+                LeaveApplication.assigned_vp_id == current_user.id
+            ).filter(
+                (LeaveApplication.status == LeaveStatus.PENDING) |
+                (LeaveApplication.status == LeaveStatus.DEPT_APPROVED)
+            )
     elif current_user.role == UserRole.GENERAL_MANAGER:
         # 总经理：查看分配给自己的申请
         # 1. 总经理自己的申请（pending状态）
@@ -657,7 +684,7 @@ def approve_leave_application(
     
     elif current_user.role == UserRole.VICE_PRESIDENT:
         # 副总审批（权限已在 can_approve_leave 中检查）
-        # 如果是副总审批自己的申请（pending状态），需要特殊处理
+        # 情况1：副总审批自己的申请（pending状态，assigned_vp_id是自己）
         if leave.status == LeaveStatus.PENDING and leave.user_id == current_user.id:
             # 副总审批自己的申请，直接完成
             leave.vp_approver_id = current_user.id
@@ -673,8 +700,36 @@ def approve_leave_application(
                     leave.status = LeaveStatus.VP_APPROVED
             else:
                 leave.status = LeaveStatus.REJECTED
+        # 情况2：副总作为部门head审批pending状态的申请（走部门主任流程）
+        elif leave.status == LeaveStatus.PENDING:
+            # 检查是否是作为部门head审批
+            is_dept_head = False
+            if applicant and applicant.department_id:
+                dept = db.query(Department).filter(Department.id == applicant.department_id).first()
+                if dept and dept.head_id == current_user.id:
+                    is_dept_head = True
+            
+            if is_dept_head:
+                # 作为部门head审批，走部门主任流程
+                leave.dept_approver_id = current_user.id
+                leave.dept_approved_at = now
+                leave.dept_comment = approval.comment
+                
+                if approval.approved:
+                    # 根据天数判断下一步
+                    if leave.days <= 1:
+                        leave.status = LeaveStatus.APPROVED
+                    else:
+                        leave.status = LeaveStatus.DEPT_APPROVED
+                else:
+                    leave.status = LeaveStatus.REJECTED
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="该申请不在待您审批状态"
+                )
         else:
-            # 正常的副总审批流程（dept_approved状态）
+            # 情况3：正常的副总审批流程（dept_approved状态）
             leave.vp_approver_id = current_user.id
             leave.vp_approved_at = now
             leave.vp_comment = approval.comment

@@ -226,7 +226,17 @@ def can_approve_leave(leave: LeaveApplication, approver: User, db: Session) -> T
         return True, ""
     
     elif approver.role == UserRole.VICE_PRESIDENT:
-        # 副总只能审批分配给自己的申请
+        # 副总可能同时是部门主任（head_id指向副总）
+        # 情况1：作为部门head审批pending状态的申请
+        if leave.status == "pending":
+            # 检查副总是否是申请人所在部门的head
+            if applicant.department_id:
+                dept = db.query(Department).filter(Department.id == applicant.department_id).first()
+                if dept and dept.head_id == approver.id:
+                    return True, ""
+            return False, "该申请不在待您审批状态"
+        
+        # 情况2：作为副总审批dept_approved状态的申请
         if leave.status != "dept_approved":
             return False, "该申请不在待副总审批状态"
         
