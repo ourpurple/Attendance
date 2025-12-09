@@ -87,7 +87,6 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
             # 绑定openid到当前用户
             user.wechat_openid = openid
             db.commit()
-            print(f"✅ 用户 {user.username} 成功绑定微信OpenID")
         except HTTPException as e:
             # 如果是code失效的错误，提供更友好的错误信息
             if "invalid code" in str(e.detail) or "code been used" in str(e.detail):
@@ -98,9 +97,8 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
             # 其他HTTP异常直接抛出
             raise
         except Exception as e:
-            # 如果绑定失败，不影响登录，只记录错误
-            print(f"绑定微信OpenID失败: {str(e)}")
-            # 不抛出异常，允许用户继续登录
+            # 如果绑定失败，不影响登录
+            pass
     
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -117,22 +115,12 @@ async def wechat_login(wechat_login: WechatLogin, db: Session = Depends(get_db))
     try:
         # 获取微信OpenID
         openid = await get_wechat_openid(wechat_login.code)
-        print(f"✅ 获取到微信OpenID: {openid[:10]}...")  # 只打印前10个字符，保护隐私
         
         # 查找已绑定该OpenID的用户
-        try:
-            user = db.query(User).filter(User.wechat_openid == openid).first()
-        except Exception as e:
-            # 如果查询失败，可能是数据库字段不存在
-            print(f"❌ 查询用户失败，可能是数据库字段不存在: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="数据库配置错误，请联系管理员"
-            )
+        user = db.query(User).filter(User.wechat_openid == openid).first()
         
         if not user:
-            # 未绑定，返回404提示需要绑定（这是正常的业务逻辑）
-            print(f"ℹ️ OpenID {openid[:10]}... 未绑定账号")
+            # 未绑定，返回404提示需要绑定
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="需要绑定账号"
@@ -151,18 +139,14 @@ async def wechat_login(wechat_login: WechatLogin, db: Session = Depends(get_db))
             expires_delta=access_token_expires
         )
         
-        print(f"✅ 微信登录成功，用户: {user.username}")
         return {"access_token": access_token, "token_type": "bearer"}
         
     except HTTPException:
-        # 重新抛出HTTP异常
         raise
     except Exception as e:
-        # 捕获其他异常
-        print(f"❌ 微信登录异常: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"微信登录失败: {str(e)}"
+            detail="微信登录失败"
         )
 
 

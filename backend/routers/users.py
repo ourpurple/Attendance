@@ -290,8 +290,6 @@ def clear_wechat_binding(
     user.wechat_openid = None
     db.commit()
     
-    print(f"✅ 管理员 {current_user.username} 清理了用户 {user.username} 的微信绑定")
-    
     return None
 
 

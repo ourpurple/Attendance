@@ -979,7 +979,6 @@ async function editAttendanceRecord(id) {
 // 删除考勤记录
 function deleteAttendanceRecord(id) {
     showConfirmDialog(
-        '确认删除',
         '确定要删除这条考勤记录吗？删除后无法恢复！',
         async () => {
             try {
@@ -989,7 +988,12 @@ function deleteAttendanceRecord(id) {
             } catch (error) {
                 showToast('删除失败: ' + error.message, 'error');
             }
-        }
+        },
+        null,
+        '确认删除',
+        '确定删除',
+        '取消',
+        'danger'
     );
 }
 
@@ -1801,8 +1805,6 @@ async function loadAllStatistics() {
 
 // 加载总统计
 function loadOverallStats(periodStats) {
-    console.log('loadOverallStats - periodStats:', periodStats);
-    console.log('total_users:', periodStats.total_users, typeof periodStats.total_users);
     const statsTotalUsersEl = document.getElementById('stats-total-users');
     if (statsTotalUsersEl) {
         statsTotalUsersEl.textContent = periodStats.total_users || 0;
@@ -2149,9 +2151,6 @@ function loadOvertimeStats() {
 
 // 显示请假明细（全局函数）
 window.showLeaveDetails = async function (userId, userName) {
-    console.log('showLeaveDetails called:', userId, userName);
-    console.log('currentStatsDateRange:', currentStatsDateRange);
-
     if (!currentStatsDateRange.startDate || !currentStatsDateRange.endDate) {
         alert('请先加载统计数据');
         return;
@@ -2159,13 +2158,9 @@ window.showLeaveDetails = async function (userId, userName) {
 
     try {
         const url = `/statistics/user/${userId}/leave-details?start_date=${currentStatsDateRange.startDate}&end_date=${currentStatsDateRange.endDate}`;
-        console.log('Requesting URL:', url);
-
         const leaves = await apiRequest(url);
-        console.log('Received leaves:', leaves);
 
         if (!leaves || !Array.isArray(leaves)) {
-            console.error('Invalid response:', leaves);
             alert('获取数据格式错误');
             return;
         }
@@ -2219,8 +2214,7 @@ window.showLeaveDetails = async function (userId, userName) {
         }
 
         modalContainer.innerHTML = modalHtml;
-        modalContainer.style.display = 'flex';  // 显示模态框
-        console.log('Modal displayed');
+        modalContainer.style.display = 'flex';
     } catch (error) {
         console.error('加载请假明细失败:', error);
         alert('加载请假明细失败: ' + (error.message || '未知错误'));
@@ -2229,9 +2223,6 @@ window.showLeaveDetails = async function (userId, userName) {
 
 // 显示加班明细（全局函数）
 window.showOvertimeDetails = async function (userId, userName) {
-    console.log('showOvertimeDetails called:', userId, userName);
-    console.log('currentStatsDateRange:', currentStatsDateRange);
-
     if (!currentStatsDateRange.startDate || !currentStatsDateRange.endDate) {
         alert('请先加载统计数据');
         return;
@@ -2239,13 +2230,9 @@ window.showOvertimeDetails = async function (userId, userName) {
 
     try {
         const url = `/statistics/user/${userId}/overtime-details?start_date=${currentStatsDateRange.startDate}&end_date=${currentStatsDateRange.endDate}`;
-        console.log('Requesting URL:', url);
-
         const overtimes = await apiRequest(url, { method: 'GET' });
-        console.log('Received overtimes:', overtimes);
 
         if (!overtimes || !Array.isArray(overtimes)) {
-            console.error('Invalid response:', overtimes);
             alert('获取数据格式错误');
             return;
         }
@@ -2297,8 +2284,7 @@ window.showOvertimeDetails = async function (userId, userName) {
         }
 
         modalContainer.innerHTML = modalHtml;
-        modalContainer.style.display = 'flex';  // 显示模态框
-        console.log('Modal displayed');
+        modalContainer.style.display = 'flex';
     } catch (error) {
         console.error('加载加班明细失败:', error);
         alert('加载加班明细失败: ' + (error.message || '未知错误'));
@@ -4523,13 +4509,13 @@ function showConfirmDialog(message, onConfirm, onCancel = null, title = '确认�
     window.currentCancelCallback = onCancel;
 }
 
-function closeConfirmDialog() {
+function closeConfirmDialog(skipCancelCallback = false) {
     const modalContainer = document.getElementById('modal-container');
     if (modalContainer) {
         modalContainer.innerHTML = '';
         modalContainer.style.display = 'none';
     }
-    if (window.currentCancelCallback) {
+    if (!skipCancelCallback && window.currentCancelCallback) {
         window.currentCancelCallback();
     }
     window.currentConfirmCallback = null;
@@ -4540,7 +4526,7 @@ function handleConfirmDialog() {
     if (window.currentConfirmCallback) {
         window.currentConfirmCallback();
     }
-    closeConfirmDialog();
+    closeConfirmDialog(true);  // 跳过取消回调
 }
 
 // 动画关键帧

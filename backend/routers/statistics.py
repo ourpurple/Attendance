@@ -201,19 +201,6 @@ def get_period_statistics(
     ]
     total_users = len(enabled_users)
     enabled_user_ids = [user.id for user in enabled_users]
-    admin_found = any(user.username == "admin" for user in all_users)
-    
-    # 调试信息（生产环境可删除）
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.info(
-        "总用户数统计: 总用户数=%s, 激活用户数=%s, admin存在=%s, 启用考勤用户数=%s",
-        len(all_users),
-        sum(1 for u in all_users if u.is_active),
-        admin_found,
-        total_users
-    )
-    
     # 计算实际工作日天数（排除周末和法定节假日）
     total_days = calculate_workdays(start_date, end_date, db)
     

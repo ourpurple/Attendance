@@ -6,7 +6,7 @@ class Settings(BaseSettings):
     # 应用配置
     APP_NAME: str = "考勤请假系统"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    DEBUG: bool = False
     
     # 数据库配置
     DATABASE_URL: str = "sqlite:///./attendance.db"
