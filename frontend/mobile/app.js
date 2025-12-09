@@ -601,6 +601,13 @@ async function loadAttendanceOverview() {
             }
         });
         
+        // 已打卡人员按签到时间降序排列（最后签到的在前面/左上角）
+        checkedIn.sort((a, b) => {
+            const timeA = a.checkin_time ? new Date(a.checkin_time).getTime() : 0;
+            const timeB = b.checkin_time ? new Date(b.checkin_time).getTime() : 0;
+            return timeB - timeA;
+        });
+        
         // 休息日仅关注加班
         const categoryData = overview.is_workday
             ? [
