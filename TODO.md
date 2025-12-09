@@ -100,36 +100,50 @@
 - [ ] 配置Celery worker启动脚本
 - [ ] 测试异步任务执行
 
-### Week 5-6: 前端代码重构
+### Week 5-6: 前端代码重构（移动端Web + 小程序）
+
+#### 小程序优化 (1天)
+- [x] 创建 `utils/config.js` 配置模块
+- [x] 创建 `utils/request.js` 请求封装
+- [x] 创建 `utils/auth.js` 认证模块
+- [x] 创建 `utils/subscribe.js` 订阅消息模块
+- [x] 创建 `utils/system.js` 系统信息模块
+- [x] 创建 `app-refactored.js` 重构版本（代码量减少90%）
+- [ ] 测试所有功能正常运行
+- [ ] 更新页面代码使用新模块
+
+#### 移动端Web重构
 
 #### 代码模块化 (4天)
-- [ ] 创建 `frontend/mobile/src/` 目录结构
-- [ ] 拆分 `app.js` 为模块：
-  - [ ] `src/auth.js` - 登录、登出、token管理
+- [x] 创建 `frontend/mobile/src/` 目录结构
+- [x] 拆分 `app.js` 为模块（基础模块）：
+  - [x] `src/config.js` - 配置管理
+  - [x] `src/store.js` - 状态管理
+  - [x] `src/api.js` - API请求封装
+  - [x] `src/ui.js` - UI组件（toast、modal等）
+  - [x] `src/utils.js` - 工具函数
+  - [x] `src/auth.js` - 登录、登出、token管理
   - [ ] `src/attendance.js` - 打卡相关功能
   - [ ] `src/leave.js` - 请假申请和列表
   - [ ] `src/overtime.js` - 加班申请和列表
   - [ ] `src/approval.js` - 审批功能
   - [ ] `src/statistics.js` - 统计功能
-  - [ ] `src/api.js` - API请求封装
-  - [ ] `src/utils.js` - 工具函数
-  - [ ] `src/ui.js` - UI组件（toast、modal等）
 - [ ] 创建 `src/main.js` 作为入口文件
 - [ ] 配置Webpack或Vite打包工具
 - [ ] 更新 `index.html` 引用打包后的文件
 - [ ] 测试所有功能正常运行
 
 #### 状态管理优化 (2天)
-- [ ] 创建 `src/store.js` 状态管理器
-- [ ] 实现状态订阅和发布机制
-- [ ] 迁移全局变量到状态管理器
-- [ ] 实施LocalStorage持久化
-- [ ] 添加状态变更日志（开发模式）
+- [x] 创建 `src/store.js` 状态管理器
+- [x] 实现状态订阅和发布机制
+- [x] 迁移全局变量到状态管理器
+- [x] 实施LocalStorage持久化
+- [x] 添加状态变更日志（开发模式）
 - [ ] 测试状态同步功能
 
 #### 性能优化 (2天)
-- [ ] 创建 `src/utils/debounce.js` 防抖函数
-- [ ] 创建 `src/utils/throttle.js` 节流函数
+- [x] 创建防抖函数（已集成到 `src/utils.js`）
+- [x] 创建节流函数（已集成到 `src/utils.js`）
 - [ ] 在搜索、滚动等场景应用防抖节流
 - [ ] 实施虚拟滚动（考勤列表、申请列表）
 - [ ] 优化DOM操作（使用DocumentFragment）
