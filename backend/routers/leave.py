@@ -700,7 +700,23 @@ def approve_leave_application(
                     leave.status = LeaveStatus.VP_APPROVED
             else:
                 leave.status = LeaveStatus.REJECTED
-        # 情况2：副总作为部门head审批pending状态的申请（走部门主任流程）
+        # 情况2：副总审批其他副总的申请（pending状态，assigned_vp_id是当前审批人）
+        elif leave.status == LeaveStatus.PENDING and applicant and applicant.role == UserRole.VICE_PRESIDENT and leave.assigned_vp_id == current_user.id:
+            # 副总审批其他副总的申请
+            leave.vp_approver_id = current_user.id
+            leave.vp_approved_at = now
+            leave.vp_comment = approval.comment
+            
+            if approval.approved:
+                # 根据天数判断下一步
+                if leave.days <= 3:
+                    leave.status = LeaveStatus.APPROVED
+                else:
+                    # 需要总经理审批
+                    leave.status = LeaveStatus.VP_APPROVED
+            else:
+                leave.status = LeaveStatus.REJECTED
+        # 情况3：副总作为部门head审批pending状态的申请（走部门主任流程）
         elif leave.status == LeaveStatus.PENDING:
             # 检查是否是作为部门head审批
             is_dept_head = False
