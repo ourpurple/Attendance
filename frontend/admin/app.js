@@ -1427,7 +1427,7 @@ function renderOvertimeTable() {
                     <td>${formatTimeRange(ot.start_time, ot.end_time)}</td>
                     <td>${ot.days}天</td>
                     <td><span class="overtime-type ${overtimeTypeClass}">${overtimeTypeText}</span></td>
-                    <td>${ot.reason}</td>
+                    <td class="reason-cell" title="${ot.reason}">${ot.reason}</td>
                     <td>${formatDateTime(ot.created_at)}</td>
                     <td>
                         <span class="status-badge status-${ot.status}">
