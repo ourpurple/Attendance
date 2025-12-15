@@ -131,47 +131,63 @@ Page({
     });
 
     if (!overview.is_workday) {
-      return [
-        {
+      // 休息日只显示加班中，且人数为0时不显示
+      const categories = [];
+      if (onOvertime.length > 0) {
+        categories.push({
           key: 'onOvertime',
           title: '加班中',
           count: onOvertime.length,
           list: onOvertime,
           tone: 'warning'
-        }
-      ];
+        });
+      }
+      return categories;
     }
 
-    return [
-      {
+    // 工作日：请假中、未打卡、加班中人数为0时不显示，已打卡始终显示
+    const categories = [];
+    
+    if (onLeave.length > 0) {
+      categories.push({
         key: 'onLeave',
         title: '请假中',
         count: onLeave.length,
         list: onLeave,
         tone: 'info'
-      },
-      {
+      });
+    }
+    
+    if (notChecked.length > 0) {
+      categories.push({
         key: 'notChecked',
         title: '未打卡',
         count: notChecked.length,
         list: notChecked,
         tone: 'danger'
-      },
-      {
+      });
+    }
+    
+    if (onOvertime.length > 0) {
+      categories.push({
         key: 'onOvertime',
         title: '加班中',
         count: onOvertime.length,
         list: onOvertime,
         tone: 'warning'
-      },
-      {
-        key: 'checkedIn',
-        title: '已打卡',
-        count: checkedIn.length,
-        list: checkedIn,
-        tone: 'success'
-      }
-    ];
+      });
+    }
+    
+    // 已打卡始终显示
+    categories.push({
+      key: 'checkedIn',
+      title: '已打卡',
+      count: checkedIn.length,
+      list: checkedIn,
+      tone: 'success'
+    });
+
+    return categories;
   },
 
   buildPerson(item, category) {

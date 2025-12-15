@@ -608,17 +608,28 @@ async function loadAttendanceOverview() {
             return timeB - timeA;
         });
         
-        // 休息日仅关注加班
-        const categoryData = overview.is_workday
-            ? [
-                { key: 'onLeave', title: '请假中', count: onLeave.length, list: onLeave, tone: 'info', extra: '请假' },
-                { key: 'notChecked', title: '未打卡', count: notCheckedIn.length, list: notCheckedIn, tone: 'danger', extra: '待打卡' },
-                { key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' },
-                { key: 'checkedIn', title: '已打卡', count: checkedIn.length, list: checkedIn, tone: 'success', extra: '已打卡' }
-            ]
-            : [
-                { key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' }
-            ];
+        // 休息日仅关注加班，工作日显示所有分类（人数为0的分类不显示，已打卡除外）
+        let categoryData = [];
+        
+        if (overview.is_workday) {
+            // 工作日：请假中、未打卡、加班中人数为0时不显示，已打卡始终显示
+            if (onLeave.length > 0) {
+                categoryData.push({ key: 'onLeave', title: '请假中', count: onLeave.length, list: onLeave, tone: 'info', extra: '请假' });
+            }
+            if (notCheckedIn.length > 0) {
+                categoryData.push({ key: 'notChecked', title: '未打卡', count: notCheckedIn.length, list: notCheckedIn, tone: 'danger', extra: '待打卡' });
+            }
+            if (onOvertime.length > 0) {
+                categoryData.push({ key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' });
+            }
+            // 已打卡始终显示
+            categoryData.push({ key: 'checkedIn', title: '已打卡', count: checkedIn.length, list: checkedIn, tone: 'success', extra: '已打卡' });
+        } else {
+            // 休息日：只显示加班中，且人数为0时不显示
+            if (onOvertime.length > 0) {
+                categoryData.push({ key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' });
+            }
+        }
         
         // 渲染分类卡片
         if (categoriesContainer) {
