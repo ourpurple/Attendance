@@ -98,7 +98,7 @@
           </view>
           <view class="attendance-time">
             <text>下班: {{item.checkoutTime || '-'}}</text>
-            <text class="status-badge status-warning" wx:if="{{item.isEarlyLeave}}">早退</text>
+            <view class="checkout-status-badge {{item.checkoutStatusClass}}" wx:if="{{item.checkoutStatusText}}">{{item.checkoutStatusText}}</view>
           </view>
           <view class="attendance-location" wx:if="{{item.checkoutLocation}}">
             <text class="location-text">📍 {{item.checkoutLocation}}</text>

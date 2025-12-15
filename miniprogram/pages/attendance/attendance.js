@@ -94,6 +94,17 @@ Page({
         }
         return { text: '', class: '' };
       };
+
+      // 格式化签退状态
+      const formatCheckoutStatus = (att) => {
+        if (!att.checkout_time) {
+          return { text: '未签退', class: 'checkout-status-absent' };
+        } else if (att.is_early_leave) {
+          return { text: '早退', class: 'checkout-status-early' };
+        } else {
+          return { text: '正常签退', class: 'checkout-status-normal' };
+        }
+      };
       
       const attendanceList = safeData.map(att => {
         // 确保 att 不是 null
@@ -101,6 +112,7 @@ Page({
           return null;
         }
         const statusInfo = formatCheckinStatus(att.checkin_status);
+        const checkoutStatusInfo = formatCheckoutStatus(att);
         return {
           id: att.id,
           date: formatDate(att.date),
@@ -112,7 +124,9 @@ Page({
           checkinLocation: att.checkin_location || null,
           checkoutLocation: att.checkout_location || null,
           checkinStatusText: att.checkin_time ? statusInfo.text : '',
-          checkinStatusClass: att.checkin_time ? statusInfo.class : ''
+          checkinStatusClass: att.checkin_time ? statusInfo.class : '',
+          checkoutStatusText: checkoutStatusInfo.text,
+          checkoutStatusClass: checkoutStatusInfo.class
         };
       }).filter(item => item !== null);
 

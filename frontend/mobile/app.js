@@ -2154,12 +2154,25 @@ async function loadRecentAttendance() {
             return { text: '', class: '' };
         };
 
+        // 格式化签退状态
+        const formatCheckoutStatus = (att) => {
+            if (!att.checkout_time) {
+                return { text: '未签退', class: 'checkout-status-absent' };
+            } else if (att.is_early_leave) {
+                return { text: '早退', class: 'checkout-status-early' };
+            } else {
+                return { text: '正常签退', class: 'checkout-status-normal' };
+            }
+        };
+
         container.innerHTML = attendances.map(att => {
             const date = new Date(att.date);
             const statusInfo = formatCheckinStatus(att.checkin_status);
             const statusBadge = att.checkin_time && statusInfo.text 
                 ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>` 
                 : '';
+            const checkoutStatusInfo = formatCheckoutStatus(att);
+            const checkoutStatusBadge = `<span class="checkout-status-badge ${checkoutStatusInfo.class}">${checkoutStatusInfo.text}</span>`;
             return `
                 <div class="attendance-item">
                     <div class="attendance-date">
@@ -2177,7 +2190,7 @@ async function loadRecentAttendance() {
                         <div class="attendance-time">
                             <span>下班:</span>
                             <strong>${att.checkout_time ? formatTime(att.checkout_time) : '-'}</strong>
-                            ${att.is_early_leave ? '<span class="status-badge status-warning">早退</span>' : ''}
+                            ${checkoutStatusBadge}
                         </div>
                         ${att.checkout_location ? `<div class="attendance-location"><span>📍 ${att.checkout_location}</span></div>` : ''}
                     </div>
@@ -2301,11 +2314,24 @@ async function loadAttendanceByMonth() {
             return { text: '', class: '' };
         };
 
+        // 格式化签退状态
+        const formatCheckoutStatus = (att) => {
+            if (!att.checkout_time) {
+                return { text: '未签退', class: 'checkout-status-absent' };
+            } else if (att.is_early_leave) {
+                return { text: '早退', class: 'checkout-status-early' };
+            } else {
+                return { text: '正常签退', class: 'checkout-status-normal' };
+            }
+        };
+
         container.innerHTML = attendances.map(att => {
             const statusInfo = formatCheckinStatus(att.checkin_status);
             const statusBadge = att.checkin_time && statusInfo.text 
                 ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>` 
                 : '';
+            const checkoutStatusInfo = formatCheckoutStatus(att);
+            const checkoutStatusBadge = `<span class="checkout-status-badge ${checkoutStatusInfo.class}">${checkoutStatusInfo.text}</span>`;
             return `
             <div class="list-item">
                 <div class="list-item-header">
@@ -2321,9 +2347,9 @@ async function loadAttendanceByMonth() {
                         </div>
                     </div>
                     ${att.checkin_location ? `<div class="attendance-location" style="margin-bottom: 8px; color: #666; font-size: 0.9em;"><span>📍 ${att.checkin_location}</span></div>` : ''}
-                    <div style="display: flex; justify-content: space-between;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
                         <span>下班: ${att.checkout_time ? formatTime(att.checkout_time) : '-'}</span>
-                        ${att.is_early_leave ? '<span class="status-badge status-warning">早退</span>' : ''}
+                        ${checkoutStatusBadge}
                     </div>
                     ${att.checkout_location ? `<div class="attendance-location" style="margin-top: 8px; color: #666; font-size: 0.9em;"><span>📍 ${att.checkout_location}</span></div>` : ''}
                 </div>

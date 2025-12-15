@@ -623,6 +623,31 @@ button:disabled {
     color: #ffffff;
 }
 
+/* 签退状态标签 */
+.checkout-status-badge {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    margin-left: auto;
+}
+
+.checkout-status-normal {
+    background: #34C759;
+    color: #ffffff;
+}
+
+.checkout-status-early {
+    background: #FF9500;
+    color: #ffffff;
+}
+
+.checkout-status-absent {
+    background: #FF3B30;
+    color: #ffffff;
+}
+
 .attendance-info {
     display: flex;
     flex-direction: column;
