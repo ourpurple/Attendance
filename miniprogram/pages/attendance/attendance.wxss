@@ -85,3 +85,26 @@
   color: #8E8E93;
 }
 
+/* 缺勤状态样式 */
+.checkin-status-absent {
+  background: #FF3B30;
+  color: #ffffff;
+}
+
+/* 请假状态样式 */
+.checkin-status-leave {
+  background: #007AFF;
+  color: #ffffff;
+}
+
+.checkout-status-leave {
+  background: #007AFF;
+  color: #ffffff;
+}
+
+/* 缺勤列表项背景 */
+.list-item-absent {
+  background-color: rgba(255, 59, 48, 0.05);
+  border-left: 6rpx solid #FF3B30;
+}
+

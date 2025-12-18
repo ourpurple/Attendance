@@ -22,12 +22,12 @@ function showInputDialog(title, placeholder, required = false) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'toast-overlay';
-        
+
         const dialog = document.createElement('div');
         dialog.className = 'custom-toast input-dialog';
-        
+
         const inputId = 'approval-comment-input';
-        
+
         dialog.innerHTML = `
             <div class="toast-content">
                 <div class="input-dialog-title">${title}</div>
@@ -43,14 +43,14 @@ function showInputDialog(title, placeholder, required = false) {
                 </div>
             </div>
         `;
-        
+
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
-        
+
         // 存储resolve函数到全局
         window._inputDialogResolve = resolve;
         window._inputDialogRequired = required;
-        
+
         // 聚焦输入框
         setTimeout(() => {
             const input = document.getElementById(inputId);
@@ -58,7 +58,7 @@ function showInputDialog(title, placeholder, required = false) {
                 input.focus();
             }
         }, 100);
-        
+
         // 监听ESC键关闭弹窗
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
@@ -72,7 +72,7 @@ function showInputDialog(title, placeholder, required = false) {
                 }
             }
         };
-        
+
         document.addEventListener('keydown', handleKeyDown);
         window._inputDialogKeyHandler = handleKeyDown;
     });
@@ -103,7 +103,7 @@ function closeInputDialog(value) {
             }, 200);
             return;
         }
-        
+
         // 验证必填项（仅在点击确定时验证）
         if (window._inputDialogRequired && (!value || !value.trim())) {
             // 显示错误提示
@@ -118,7 +118,7 @@ function closeInputDialog(value) {
             }
             return;
         }
-        
+
         // 关闭弹窗并返回输入值
         overlay.style.animation = 'fadeOut 0.2s ease-out';
         const dialog = overlay.querySelector('.input-dialog');
@@ -145,19 +145,19 @@ function showToast(message, type = 'info', options = {}) {
     return new Promise((resolve) => {
         const overlay = document.createElement('div');
         overlay.className = 'toast-overlay';
-        
+
         const toast = document.createElement('div');
         toast.className = 'custom-toast';
-        
+
         const iconMap = {
             success: { icon: '✓', class: 'success' },
             error: { icon: '✕', class: 'error' },
             warning: { icon: '⚠', class: 'warning' },
             info: { icon: 'ℹ', class: 'info' }
         };
-        
+
         const iconInfo = iconMap[type] || iconMap.info;
-        
+
         const actions = options.confirm ? `
             <div class="toast-actions">
                 <button class="btn btn-secondary" onclick="closeToast(false)">${options.cancelText || '取消'}</button>
@@ -168,7 +168,7 @@ function showToast(message, type = 'info', options = {}) {
                 <button class="btn btn-primary" onclick="closeToast(true)">${options.buttonText || '确定'}</button>
             </div>
         `;
-        
+
         toast.innerHTML = `
             <div class="toast-content">
                 <div class="toast-icon ${iconInfo.class}">${iconInfo.icon}</div>
@@ -176,13 +176,13 @@ function showToast(message, type = 'info', options = {}) {
                 ${actions}
             </div>
         `;
-        
+
         overlay.appendChild(toast);
         document.body.appendChild(overlay);
-        
+
         // 存储resolve函数到全局，供closeToast使用
         window._toastResolve = resolve;
-        
+
         // 自动关闭（如果设置了autoClose）
         if (options.autoClose !== false && !options.confirm) {
             const timeout = options.timeout || 2000;
@@ -288,7 +288,7 @@ async function apiRequest(endpoint, options = {}) {
         if (!response.ok) {
             const error = await response.json();
             let errorMessage = '请求失败';
-            
+
             // 处理不同格式的错误信息
             if (typeof error.detail === 'string') {
                 errorMessage = error.detail;
@@ -298,14 +298,14 @@ async function apiRequest(endpoint, options = {}) {
             } else if (error.detail) {
                 errorMessage = JSON.stringify(error.detail);
             }
-            
+
             throw new Error(errorMessage);
         }
 
         return await response.json();
     } catch (error) {
         console.error('API请求错误:', error);
-        
+
         // 处理网络错误
         if (error.name === 'TypeError' && error.message.includes('fetch')) {
             const errorMsg = `网络连接失败，请检查：
@@ -315,7 +315,7 @@ async function apiRequest(endpoint, options = {}) {
 4. 访问地址是否正确：${API_BASE_URL}`;
             throw new Error(errorMsg);
         }
-        
+
         throw error;
     }
 }
@@ -345,7 +345,7 @@ async function showSection(sectionName) {
             return;
         }
     }
-    
+
     // 权限检查：出勤情况页面需要查看权限
     if (sectionName === 'attendance-overview') {
         try {
@@ -359,7 +359,7 @@ async function showSection(sectionName) {
             return;
         }
     }
-    
+
     document.querySelectorAll('.content-section').forEach(section => {
         section.classList.remove('active');
     });
@@ -426,7 +426,7 @@ function setDefaultOverviewDate() {
 function fixUsernameInputKeyboard() {
     const usernameInput = document.getElementById('username');
     if (!usernameInput) return;
-    
+
     // 强制设置输入模式为文本
     usernameInput.setAttribute('type', 'text');
     usernameInput.setAttribute('inputmode', 'text');
@@ -434,9 +434,9 @@ function fixUsernameInputKeyboard() {
     usernameInput.setAttribute('autocapitalize', 'none');
     usernameInput.setAttribute('autocorrect', 'off');
     usernameInput.setAttribute('spellcheck', 'false');
-    
+
     // 在focus时再次强制设置
-    usernameInput.addEventListener('focus', function() {
+    usernameInput.addEventListener('focus', function () {
         // 延迟设置，确保覆盖iOS的默认行为
         setTimeout(() => {
             this.setAttribute('type', 'text');
@@ -444,9 +444,9 @@ function fixUsernameInputKeyboard() {
             this.setAttribute('autocomplete', 'off');
         }, 10);
     }, { passive: true });
-    
+
     // 在touchstart时也设置（iOS微信可能需要）
-    usernameInput.addEventListener('touchstart', function() {
+    usernameInput.addEventListener('touchstart', function () {
         this.setAttribute('type', 'text');
         this.setAttribute('inputmode', 'text');
         this.setAttribute('autocomplete', 'off');
@@ -467,7 +467,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         });
 
         setToken(data.access_token);
-        
+
         // 获取当前用户信息
         currentUser = await apiRequest('/users/me');
         updateUserInfo();
@@ -492,7 +492,7 @@ function updateUserInfo() {
         document.getElementById('user-initial').textContent = currentUser.real_name.charAt(0);
         document.getElementById('header-user-name').textContent = currentUser.real_name;
         document.getElementById('header-user-role').textContent = getRoleName(currentUser.role);
-        
+
         // 根据角色显示/隐藏审批功能
         updateApprovalVisibility();
     }
@@ -501,21 +501,21 @@ function updateUserInfo() {
 // 更新审批功能可见性
 function updateApprovalVisibility() {
     const hasApprovalPermission = ['admin', 'general_manager', 'vice_president', 'department_head'].includes(currentUser.role);
-    
+
     // 显示或隐藏所有带有 approval-only 类的元素
     const approvalElements = document.querySelectorAll('.approval-only');
     approvalElements.forEach(el => {
         el.style.display = hasApprovalPermission ? '' : 'none';
     });
-    
+
     // 如果有审批权限，加载待审批数量
     if (hasApprovalPermission) {
         loadPendingCount();
     }
-    
+
     // 加载我的未完成申请数量
     loadMyPendingCounts();
-    
+
     // 检查出勤情况查看权限
     checkAttendanceOverviewPermission();
 }
@@ -525,7 +525,7 @@ async function checkAttendanceOverviewPermission() {
     try {
         const permission = await apiRequest('/attendance-viewers/check-permission');
         const hasPermission = permission.has_permission;
-        
+
         // 显示或隐藏所有带有 attendance-overview-only 类的元素
         const overviewElements = document.querySelectorAll('.attendance-overview-only');
         overviewElements.forEach(el => {
@@ -545,19 +545,19 @@ async function loadAttendanceOverview() {
     try {
         const dateInput = document.getElementById('overview-date');
         const targetDate = dateInput.value || getCSTDate(); // 使用东八区日期
-        
+
         const overview = await apiRequest(`/attendance/overview?target_date=${targetDate}`);
         const infoBar = document.getElementById('overview-info');
         const badge = document.getElementById('overview-workday-badge');
         const infoText = document.getElementById('overview-workday-text');
         const categoriesContainer = document.getElementById('overview-categories');
-        
+
         // 更新工作日信息（显示更详细的原因）
         const isWorkday = overview.is_workday;
         badge.textContent = isWorkday ? '工作日' : '休息日';
         badge.classList.toggle('workday', isWorkday);
         badge.classList.toggle('holiday', !isWorkday);
-        
+
         // 显示详细原因
         let reasonText = '';
         if (isWorkday) {
@@ -578,13 +578,13 @@ async function loadAttendanceOverview() {
         }
         infoText.textContent = reasonText;
         infoBar.style.display = 'flex';
-        
+
         // 分类人员
         const notCheckedIn = [];
         const checkedIn = [];
         const onLeave = [];
         const onOvertime = [];
-        
+
         overview.items.forEach(item => {
             if (item.has_leave) {
                 onLeave.push(item);
@@ -600,17 +600,17 @@ async function loadAttendanceOverview() {
                 notCheckedIn.push(item);
             }
         });
-        
+
         // 已打卡人员按签到时间降序排列（最后签到的在前面/左上角）
         checkedIn.sort((a, b) => {
             const timeA = a.checkin_time ? new Date(a.checkin_time).getTime() : 0;
             const timeB = b.checkin_time ? new Date(b.checkin_time).getTime() : 0;
             return timeB - timeA;
         });
-        
+
         // 休息日仅关注加班，工作日显示所有分类（人数为0的分类不显示，已打卡除外）
         let categoryData = [];
-        
+
         if (overview.is_workday) {
             // 工作日：请假中、未打卡、加班中人数为0时不显示，已打卡始终显示
             if (onLeave.length > 0) {
@@ -630,7 +630,7 @@ async function loadAttendanceOverview() {
                 categoryData.push({ key: 'onOvertime', title: '加班中', count: onOvertime.length, list: onOvertime, tone: 'warning', extra: '加班' });
             }
         }
-        
+
         // 渲染分类卡片
         if (categoriesContainer) {
             categoriesContainer.innerHTML = categoryData.map(category => {
@@ -651,13 +651,13 @@ async function loadAttendanceOverview() {
                     `;
                     }).join('')
                     : `<div class="overview-empty">暂无人员</div>`;
-                
+
                 const countClass = category.tone === 'danger'
                     ? 'danger'
                     : category.tone === 'warning'
                         ? 'warning'
                         : '';
-                
+
                 return `
                     <div class="overview-category-card">
                         <div class="overview-category-header">
@@ -742,18 +742,18 @@ function formatLeaveDateTime(start, end) {
         // 如果不包含 'T'，可能是纯日期格式，添加默认时间
         return dateStr + 'T00:00:00';
     };
-    
+
     const normalizedStartStr = normalizeDateStr(start);
     const normalizedEndStr = normalizeDateStr(end || start);
-    
+
     // 手动解析日期时间，避免时区转换问题
     const parseDateTime = (dateStr) => {
         if (!dateStr) return null;
-        
+
         // 格式：YYYY-MM-DDTHH:mm:ss 或 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DD
         let datePart = '';
         let timePart = '';
-        
+
         if (dateStr.includes('T')) {
             const parts = dateStr.split('T');
             datePart = parts[0];
@@ -767,7 +767,7 @@ function formatLeaveDateTime(start, end) {
             datePart = dateStr;
             timePart = '00:00:00';
         }
-        
+
         // 移除时区信息
         if (timePart.includes('+') || timePart.includes('Z')) {
             timePart = timePart.split('+')[0].split('Z')[0];
@@ -776,13 +776,13 @@ function formatLeaveDateTime(start, end) {
         if (timePart.includes('.')) {
             timePart = timePart.split('.')[0];
         }
-        
+
         const dateParts = datePart.split('-');
         const timeParts = timePart.split(':');
-        
+
         if (dateParts.length !== 3) return null;
         if (timeParts.length < 2) return null;
-        
+
         return {
             year: parseInt(dateParts[0]),
             month: parseInt(dateParts[1]),
@@ -791,33 +791,33 @@ function formatLeaveDateTime(start, end) {
             minutes: parseInt(timeParts[1] || '0')
         };
     };
-    
+
     const startParts = parseDateTime(normalizedStartStr);
     const endParts = parseDateTime(normalizedEndStr);
-    
+
     if (!startParts || !endParts) {
         return { date: '', time: '' };
     }
-    
+
     // 使用解析的日期时间部分
     const startMonth = String(startParts.month).padStart(2, '0');
     const startDay = String(startParts.day).padStart(2, '0');
     const startHours = String(startParts.hours).padStart(2, '0');
     const startMinutes = String(startParts.minutes).padStart(2, '0');
-    
+
     const endMonth = String(endParts.month).padStart(2, '0');
     const endDay = String(endParts.day).padStart(2, '0');
     const endHours = String(endParts.hours).padStart(2, '0');
     const endMinutes = String(endParts.minutes).padStart(2, '0');
-    
+
     // 判断是否同一天
-    const isSameDay = startParts.year === endParts.year && 
-                      startParts.month === endParts.month && 
-                      startParts.day === endParts.day;
-    
+    const isSameDay = startParts.year === endParts.year &&
+        startParts.month === endParts.month &&
+        startParts.day === endParts.day;
+
     let dateText = '';
     let timeText = '';
-    
+
     if (isSameDay) {
         // 一天以内：第一排显示日期，第二排显示时间
         dateText = `${startMonth}月${startDay}日`;
@@ -827,7 +827,7 @@ function formatLeaveDateTime(start, end) {
         dateText = `${startMonth}月${startDay}日 ${startHours}:${startMinutes}`;
         timeText = `${endMonth}月${endDay}日 ${endHours}:${endMinutes}`;
     }
-    
+
     return { date: dateText, time: timeText };
 }
 
@@ -869,18 +869,18 @@ function formatOvertimeDateTime(start, end) {
         // 如果不包含 'T'，可能是纯日期格式，添加默认时间
         return dateStr + 'T00:00:00';
     };
-    
+
     const normalizedStartStr = normalizeDateStr(start);
     const normalizedEndStr = normalizeDateStr(end || start);
-    
+
     // 手动解析日期时间，避免时区转换问题
     const parseDateTime = (dateStr) => {
         if (!dateStr) return null;
-        
+
         // 格式：YYYY-MM-DDTHH:mm:ss 或 YYYY-MM-DD HH:mm:ss 或 YYYY-MM-DD
         let datePart = '';
         let timePart = '';
-        
+
         if (dateStr.includes('T')) {
             const parts = dateStr.split('T');
             datePart = parts[0];
@@ -894,7 +894,7 @@ function formatOvertimeDateTime(start, end) {
             datePart = dateStr;
             timePart = '00:00:00';
         }
-        
+
         // 移除时区信息
         if (timePart.includes('+') || timePart.includes('Z')) {
             timePart = timePart.split('+')[0].split('Z')[0];
@@ -903,13 +903,13 @@ function formatOvertimeDateTime(start, end) {
         if (timePart.includes('.')) {
             timePart = timePart.split('.')[0];
         }
-        
+
         const dateParts = datePart.split('-');
         const timeParts = timePart.split(':');
-        
+
         if (dateParts.length !== 3) return null;
         if (timeParts.length < 2) return null;
-        
+
         return {
             year: parseInt(dateParts[0]),
             month: parseInt(dateParts[1]),
@@ -918,33 +918,33 @@ function formatOvertimeDateTime(start, end) {
             minutes: parseInt(timeParts[1] || '0')
         };
     };
-    
+
     const startParts = parseDateTime(normalizedStartStr);
     const endParts = parseDateTime(normalizedEndStr);
-    
+
     if (!startParts || !endParts) {
         return { date: '', time: '' };
     }
-    
+
     // 使用解析的日期时间部分
     const startMonth = String(startParts.month).padStart(2, '0');
     const startDay = String(startParts.day).padStart(2, '0');
     const startHours = String(startParts.hours).padStart(2, '0');
     const startMinutes = String(startParts.minutes).padStart(2, '0');
-    
+
     const endMonth = String(endParts.month).padStart(2, '0');
     const endDay = String(endParts.day).padStart(2, '0');
     const endHours = String(endParts.hours).padStart(2, '0');
     const endMinutes = String(endParts.minutes).padStart(2, '0');
-    
+
     // 判断是否同一天
-    const isSameDay = startParts.year === endParts.year && 
-                      startParts.month === endParts.month && 
-                      startParts.day === endParts.day;
-    
+    const isSameDay = startParts.year === endParts.year &&
+        startParts.month === endParts.month &&
+        startParts.day === endParts.day;
+
     let dateText = '';
     let timeText = '';
-    
+
     if (isSameDay) {
         // 一天以内：第一排显示日期，第二排显示时间
         dateText = `${startMonth}月${startDay}日`;
@@ -954,7 +954,7 @@ function formatOvertimeDateTime(start, end) {
         dateText = `${startMonth}月${startDay}日 ${startHours}:${startMinutes}`;
         timeText = `${endMonth}月${endDay}日 ${endHours}:${endMinutes}`;
     }
-    
+
     return { date: dateText, time: timeText };
 }
 
@@ -981,7 +981,7 @@ function toggleUserMenu() {
 // 显示修改密码弹窗
 function showChangePasswordModal() {
     document.getElementById('user-menu').classList.remove('active');
-    
+
     const modalHtml = `
         <div class="modal-overlay" onclick="closeFormModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
@@ -1010,36 +1010,36 @@ function showChangePasswordModal() {
             </div>
         </div>
     `;
-    
+
     document.getElementById('modal-container').innerHTML = modalHtml;
 }
 
 // 提交修改密码
 async function submitChangePassword(event) {
     event.preventDefault();
-    
+
     const oldPassword = document.getElementById('old-password').value;
     const newPassword = document.getElementById('new-password').value;
     const confirmPassword = document.getElementById('confirm-password').value;
-    
+
     // 验证新密码长度
     if (newPassword.length < 6) {
         await showToast('新密码长度至少为6位', 'warning');
         return;
     }
-    
+
     // 验证两次输入的新密码是否一致
     if (newPassword !== confirmPassword) {
         await showToast('两次输入的新密码不一致', 'warning');
         return;
     }
-    
+
     // 验证新密码不能与原密码相同
     if (oldPassword === newPassword) {
         await showToast('新密码不能与原密码相同', 'warning');
         return;
     }
-    
+
     try {
         await apiRequest('/users/me/change-password', {
             method: 'POST',
@@ -1048,7 +1048,7 @@ async function submitChangePassword(event) {
                 new_password: newPassword
             })
         });
-        
+
         await showToast('密码修改成功！', 'success', { timeout: 2000 });
         closeFormModal();
     } catch (error) {
@@ -1095,11 +1095,11 @@ async function reverseGeocode(latitude, longitude) {
         const response = await apiRequest(
             `/attendance/geocode/reverse?latitude=${latitude}&longitude=${longitude}`
         );
-        
+
         if (response && response.address) {
             return response.address;
         }
-        
+
         // 如果获取失败，返回坐标
         return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
     } catch (error) {
@@ -1130,17 +1130,17 @@ async function getCurrentLocation(retryCount = 0) {
             async (position) => {
                 try {
                     const { latitude, longitude, accuracy } = position.coords;
-                    
+
                     // 检查定位精度（如果精度太差，给出警告但继续）
                     if (accuracy > 100) {
                         console.warn(`定位精度较低: ${accuracy}米，但继续打卡`);
                     }
-                    
+
                     // 验证坐标有效性
                     if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
                         throw new Error('获取的位置坐标无效');
                     }
-                    
+
                     // 调用地理编码API获取地址文本（不阻塞，失败时使用坐标）
                     let address = null;
                     try {
@@ -1149,9 +1149,9 @@ async function getCurrentLocation(retryCount = 0) {
                         console.warn('地理编码失败，使用坐标:', geocodeError);
                         // 地理编码失败不影响打卡，使用坐标
                     }
-                    
+
                     const location = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-                    
+
                     resolve({
                         location,  // 保留坐标字符串用于兼容（必需字段）
                         address: address || location,  // 地址文本，失败时使用坐标
@@ -1167,8 +1167,8 @@ async function getCurrentLocation(retryCount = 0) {
                 // 详细的错误信息
                 let errorMessage = '无法获取位置信息';
                 let shouldRetry = false;
-                
-                switch(error.code) {
+
+                switch (error.code) {
                     case error.PERMISSION_DENIED:
                         errorMessage = '定位权限被拒绝\n\n解决方法：\n1. 点击浏览器地址栏左侧的锁图标\n2. 选择"位置"权限\n3. 设置为"允许"\n4. 刷新页面重试';
                         break;
@@ -1194,7 +1194,7 @@ async function getCurrentLocation(retryCount = 0) {
                         errorMessage = `获取位置失败: ${error.message || '未知错误'}`;
                         break;
                 }
-                
+
                 // 如果应该重试且未超过重试次数
                 if (shouldRetry && retryCount < 1) {
                     console.log('定位失败，尝试降低精度重试...');
@@ -1216,28 +1216,28 @@ async function getCurrentLocation(retryCount = 0) {
 // 上班打卡
 async function checkin() {
     const btn = document.getElementById('checkin-btn');
-    
+
     if (currentUser?.enable_attendance === false) {
         await showToast('您不用打卡!', 'info');
         return;
     }
-    
+
     // 如果按钮已禁用（已打卡），直接返回
     if (btn.disabled) {
         await showToast('今天已经打过上班卡', 'warning');
         return;
     }
-    
+
     // 检查是否为工作日
     const workdayCheck = await checkWorkday();
     if (!workdayCheck.is_workday) {
-        const message = workdayCheck.holiday_name 
-            ? `今天是${workdayCheck.holiday_name}，无需打卡！` 
+        const message = workdayCheck.holiday_name
+            ? `今天是${workdayCheck.holiday_name}，无需打卡！`
             : '今天是休息日，无需打卡！';
         await showToast(message, 'info');
         return;
     }
-    
+
     // 检查请假状态
     try {
         const leaveStatus = await apiRequest('/attendance/leave-status');
@@ -1273,7 +1273,7 @@ async function checkin() {
         console.warn('检查请假状态失败:', error);
         // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     // 检查是否会迟到（只有在非上午请假的情况下才检查）
     try {
         const leaveStatus = await apiRequest('/attendance/leave-status').catch(() => ({ morning_leave: false }));
@@ -1301,22 +1301,22 @@ async function checkin() {
         console.warn('检查迟到状态失败:', error);
         // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     // 获取打卡状态选择（单选按钮）
     const selectedRadio = document.querySelector('input[name="checkin-status"]:checked');
     const checkinStatus = selectedRadio ? selectedRadio.value : 'normal';
-    
+
     btn.disabled = true;
     btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
 
     try {
         // 显示获取位置提示
         await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
-        
+
         const locationData = await getCurrentLocation();
         // 添加打卡状态
         locationData.checkin_status = checkinStatus;
-        
+
         const result = await apiRequest('/attendance/checkin', {
             method: 'POST',
             body: JSON.stringify(locationData)
@@ -1341,18 +1341,18 @@ async function checkin() {
 // 下班打卡
 async function checkout() {
     const btn = document.getElementById('checkout-btn');
-    
+
     if (currentUser?.enable_attendance === false) {
         await showToast('您不用打卡!', 'info');
         return;
     }
-    
+
     // 如果按钮已禁用（已打卡），直接返回
     if (btn.disabled) {
         await showToast('今天已经打过下班卡', 'warning');
         return;
     }
-    
+
     // 检查请假状态
     try {
         const leaveStatus = await apiRequest('/attendance/leave-status');
@@ -1364,17 +1364,17 @@ async function checkout() {
         console.warn('检查请假状态失败:', error);
         // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     // 检查是否为工作日
     const workdayCheck = await checkWorkday();
     if (!workdayCheck.is_workday) {
-        const message = workdayCheck.holiday_name 
-            ? `今天是${workdayCheck.holiday_name}，无需打卡！` 
+        const message = workdayCheck.holiday_name
+            ? `今天是${workdayCheck.holiday_name}，无需打卡！`
             : '今天是休息日，无需打卡！';
         await showToast(message, 'info');
         return;
     }
-    
+
     // 检查是否会早退
     try {
         const earlyLeaveCheck = await apiRequest('/attendance/check-early-leave');
@@ -1399,16 +1399,16 @@ async function checkout() {
         console.warn('检查早退状态失败:', error);
         // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     btn.disabled = true;
     btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
 
     try {
         // 显示获取位置提示
         await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
-        
+
         const locationData = await getCurrentLocation();
-        
+
         const result = await apiRequest('/attendance/checkout', {
             method: 'POST',
             body: JSON.stringify(locationData)
@@ -1451,7 +1451,7 @@ async function checkWorkday(date = null) {
         if (!date) {
             date = getCSTDate();
         }
-        
+
         // 调用后端API检查（无需登录）
         const response = await fetch(`${API_BASE_URL}/holidays/check/${date}`);
         if (!response.ok) {
@@ -1459,7 +1459,7 @@ async function checkWorkday(date = null) {
             console.warn('API调用失败，使用本地判断');
             return localWorkdayCheck(date);
         }
-        
+
         const result = await response.json();
         return result;
     } catch (error) {
@@ -1474,7 +1474,7 @@ function localWorkdayCheck(dateStr) {
     const date = new Date(dateStr);
     const dayOfWeek = date.getDay();
     const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    
+
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
         return {
             date: dateStr,
@@ -1498,13 +1498,13 @@ async function checkAndSetAttendanceButtons() {
     const checkoutBtn = document.getElementById('checkout-btn');
     const clockLocation = document.getElementById('clock-location');
     const clockStatus = document.getElementById('clock-status'); // 打卡状态区域（红框区域）
-    
+
     // 先获取今日打卡状态，以确定按钮是否应该禁用
     let todayAttendance = null;
     try {
         // 使用东八区获取今天的日期
         const today = getCSTDate();
-        
+
         // 获取最近7天的数据，然后在前端过滤今天的记录
         // 使用东八区计算7天前的日期
         const now = new Date();
@@ -1515,9 +1515,9 @@ async function checkAndSetAttendanceButtons() {
         const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
         const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
         const startDate = `${startYear}-${startMonth}-${startDay}`;
-        
+
         const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${today}&limit=10`);
-        
+
         // 在前端过滤今天的记录，避免时区问题
         if (attendances && attendances.length > 0) {
             const todayDateStr = today;
@@ -1543,10 +1543,10 @@ async function checkAndSetAttendanceButtons() {
     } catch (error) {
         console.error('获取今日打卡状态失败:', error);
     }
-    
+
     // 检查今天是否为工作日
     const workdayCheck = await checkWorkday();
-    
+
     // 确保 workdayCheck 存在且 is_workday 是布尔值
     if (!workdayCheck || workdayCheck.is_workday === undefined) {
         console.error('工作日检查结果异常:', workdayCheck);
@@ -1554,13 +1554,13 @@ async function checkAndSetAttendanceButtons() {
         const localCheck = localWorkdayCheck(getCSTDate());
         workdayCheck = localCheck;
     }
-    
+
     if (!workdayCheck.is_workday) {
         // 非工作日，隐藏打卡状态区域
         if (clockStatus) {
             clockStatus.style.display = 'none';
         }
-        
+
         // 禁用打卡按钮
         checkinBtn.disabled = true;
         checkoutBtn.disabled = true;
@@ -1568,13 +1568,13 @@ async function checkAndSetAttendanceButtons() {
         checkoutBtn.style.opacity = '0.5';
         checkinBtn.style.cursor = 'not-allowed';
         checkoutBtn.style.cursor = 'not-allowed';
-        
+
         // 显示提示信息：休息日（详细说明原因）
         if (clockLocation) {
             let reasonText = '';
             const reason = workdayCheck.reason || '休息日';
             const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
-            
+
             if (reason === '周末') {
                 reasonText = `今日${reason}，无需打卡`;
             } else if (reason === '公司节假日') {
@@ -1584,7 +1584,7 @@ async function checkAndSetAttendanceButtons() {
             } else {
                 reasonText = `今日${reason}，无需打卡${holidayName}`;
             }
-            
+
             clockLocation.textContent = reasonText;
             clockLocation.style.color = '#ff9500';
             clockLocation.style.fontWeight = 'bold';
@@ -1602,13 +1602,13 @@ async function checkAndSetAttendanceButtons() {
         }
         // 工作日
         // 根据打卡状态设置按钮（已打卡的按钮保持禁用）
-        const hasCheckin = todayAttendance && todayAttendance.checkin_time && 
-                          todayAttendance.checkin_time !== null && 
-                          todayAttendance.checkin_time !== '';
-        const hasCheckout = todayAttendance && todayAttendance.checkout_time && 
-                           todayAttendance.checkout_time !== null && 
-                           todayAttendance.checkout_time !== '';
-        
+        const hasCheckin = todayAttendance && todayAttendance.checkin_time &&
+            todayAttendance.checkin_time !== null &&
+            todayAttendance.checkin_time !== '';
+        const hasCheckout = todayAttendance && todayAttendance.checkout_time &&
+            todayAttendance.checkout_time !== null &&
+            todayAttendance.checkout_time !== '';
+
         // 获取打卡策略（获取打卡时间范围）
         let policy = null;
         let checkinStartTime = '08:00';
@@ -1629,29 +1629,29 @@ async function checkAndSetAttendanceButtons() {
         } catch (error) {
             console.warn('获取打卡策略失败，使用默认时间:', error);
         }
-        
+
         // 判断是否在打卡时间内
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
         const currentTime = currentHour * 60 + currentMinute; // 转换为分钟数
-        
+
         // 解析打卡时间范围
         const parseTime = (timeStr) => {
             const [h, m] = timeStr.split(':').map(Number);
             return h * 60 + m;
         };
-        
+
         const checkinStart = parseTime(checkinStartTime);
         const checkinEnd = parseTime(checkinEndTime);
         const checkoutStart = parseTime(checkoutStartTime);
         const checkoutEnd = parseTime(checkoutEndTime);
-        
+
         // 判断是否在打卡时间内
         const isInCheckinTime = currentTime >= checkinStart && currentTime <= checkinEnd;
         const isInCheckoutTime = currentTime >= checkoutStart && currentTime <= checkoutEnd;
         const isInPunchTime = isInCheckinTime || isInCheckoutTime;
-        
+
         // 如果已打卡或是在打卡时间内且未打卡，显示打卡状态区域
         if (hasCheckin || hasCheckout || (isInPunchTime && !hasCheckin)) {
             if (clockStatus) {
@@ -1663,16 +1663,16 @@ async function checkAndSetAttendanceButtons() {
                 clockStatus.style.display = 'none';
             }
         }
-        
+
         // 设置按钮状态和提示
         let checkinDisabledReason = '';
         let checkoutDisabledReason = '';
-        
+
         if (todayAttendance) {
             // 已打卡的按钮保持禁用状态（灰色）
             checkinBtn.disabled = hasCheckin;
             checkoutBtn.disabled = !hasCheckin || hasCheckout;
-            
+
             if (hasCheckin) {
                 checkinDisabledReason = '今日已签到';
             }
@@ -1685,7 +1685,7 @@ async function checkAndSetAttendanceButtons() {
             // 未打卡，根据打卡时间判断按钮状态
             checkinBtn.disabled = !isInCheckinTime;
             checkoutBtn.disabled = true; // 未上班时，下班按钮禁用
-            
+
             if (!isInCheckinTime) {
                 if (currentTime < checkinStart) {
                     checkinDisabledReason = `签到时间：${checkinStartTime}-${checkinEndTime}`;
@@ -1695,13 +1695,13 @@ async function checkAndSetAttendanceButtons() {
             }
             checkoutDisabledReason = '请先签到';
         }
-        
+
         // 设置按钮样式和title提示
         checkinBtn.style.opacity = checkinBtn.disabled ? '0.6' : '1';
         checkoutBtn.style.opacity = checkoutBtn.disabled ? '0.6' : '1';
         checkinBtn.style.cursor = checkinBtn.disabled ? 'not-allowed' : 'pointer';
         checkoutBtn.style.cursor = checkoutBtn.disabled ? 'not-allowed' : 'pointer';
-        
+
         // 设置按钮title提示
         if (checkinBtn.disabled && checkinDisabledReason) {
             checkinBtn.title = checkinDisabledReason;
@@ -1713,7 +1713,7 @@ async function checkAndSetAttendanceButtons() {
         } else {
             checkoutBtn.title = '';
         }
-        
+
         // 检查请假状态并显示相应提示
         let leaveStatusInfo = null;
         try {
@@ -1721,7 +1721,7 @@ async function checkAndSetAttendanceButtons() {
         } catch (error) {
             console.warn('获取请假状态失败:', error);
         }
-        
+
         // 显示状态选择器（如果未打卡且在打卡时间内）
         const statusSelector = document.getElementById('checkin-status-selector');
         if (statusSelector) {
@@ -1731,12 +1731,12 @@ async function checkAndSetAttendanceButtons() {
                 statusSelector.style.display = 'none';
             }
         }
-        
+
         // 显示提示信息或位置信息
         // 如果是调休工作日且未打卡，已经显示了调休工作日提示，这里不再覆盖
         const isMakeupWorkday = workdayCheck.reason === '调休工作日';
         const alreadyShownMakeupWorkday = isMakeupWorkday && !hasCheckin && !hasCheckout;
-        
+
         if (clockLocation && !alreadyShownMakeupWorkday) {
             if (hasCheckin && hasCheckout) {
                 // 已下班打卡，显示完成提示
@@ -1762,7 +1762,7 @@ async function checkAndSetAttendanceButtons() {
                         clockLocation.style.color = '#999';
                         clockLocation.style.fontWeight = 'bold';
                         clockLocation.style.display = 'block';
-                }
+                    }
                 } else {
                     clockLocation.textContent = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
                     clockLocation.style.color = '#999';
@@ -1871,7 +1871,7 @@ function updateAttendanceAvailabilityState(isEnabled) {
     const checkoutStatusEl = document.getElementById('checkout-status');
     const checkinBtn = document.getElementById('checkin-btn');
     const checkoutBtn = document.getElementById('checkout-btn');
-    
+
     if (!isEnabled) {
         if (clockStatus) clockStatus.style.display = 'none';
         if (clockActions) clockActions.style.display = 'none';
@@ -1898,7 +1898,7 @@ function updateAttendanceAvailabilityState(isEnabled) {
         }
         return;
     }
-    
+
     if (clockStatus) clockStatus.style.display = '';
     if (clockActions) clockActions.style.display = '';
     if (statusSelector) statusSelector.style.display = 'none';
@@ -1926,7 +1926,7 @@ function updateAttendanceAvailabilityState(isEnabled) {
 async function loadHomeData() {
     const attendanceEnabled = currentUser?.enable_attendance !== false;
     updateAttendanceAvailabilityState(attendanceEnabled);
-    
+
     if (attendanceEnabled) {
         await loadTodayAttendance();
     }
@@ -1934,7 +1934,7 @@ async function loadHomeData() {
     await loadRecentAttendance();
     await loadPendingCount();
     await loadMyPendingCounts();  // 加载我的未完成申请数量
-    
+
     if (attendanceEnabled) {
         // 检查工作日并设置按钮状态（会考虑打卡状态）
         await checkAndSetAttendanceButtons();
@@ -1946,7 +1946,7 @@ async function loadTodayAttendance() {
     try {
         // 使用东八区获取今天的日期
         const today = getCSTDate();
-        
+
         // 获取最近7天的数据，然后在前端过滤今天的记录
         // 使用东八区计算7天前的日期
         const now = new Date();
@@ -1957,15 +1957,15 @@ async function loadTodayAttendance() {
         const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
         const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
         const startDate = `${startYear}-${startMonth}-${startDay}`;
-        
+
         const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${today}&limit=10`);
-        
+
         // 在前端过滤今天的记录，避免时区问题
         let todayAttendance = null;
         if (attendances && attendances.length > 0) {
             // 获取今天的日期用于比较
             const todayDateStr = today;
-            
+
             // 遍历所有记录，找到今天的记录
             for (const att of attendances) {
                 if (att.date) {
@@ -1985,7 +1985,7 @@ async function loadTodayAttendance() {
                             attDateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
                         }
                     }
-                    
+
                     if (attDateStr === todayDateStr) {
                         todayAttendance = att;
                         break;
@@ -1993,18 +1993,18 @@ async function loadTodayAttendance() {
                 }
             }
         }
-        
+
         if (todayAttendance) {
             const att = todayAttendance;
-            
+
             // 更严格地检查时间字段是否存在且有效
             const hasCheckin = att.checkin_time && att.checkin_time !== null && att.checkin_time !== '';
             const hasCheckout = att.checkout_time && att.checkout_time !== null && att.checkout_time !== '';
-            
+
             // 更新状态显示
             const checkinStatusEl = document.getElementById('checkin-status');
             const checkoutStatusEl = document.getElementById('checkout-status');
-            
+
             if (checkinStatusEl) {
                 checkinStatusEl.textContent = hasCheckin ? formatTime(att.checkin_time) : '未打卡';
             }
@@ -2015,7 +2015,7 @@ async function loadTodayAttendance() {
             const checkinBtn = document.getElementById('checkin-btn');
             const checkoutBtn = document.getElementById('checkout-btn');
             const clockLocation = document.getElementById('clock-location');
-            
+
             // 设置按钮禁用状态（已打卡的按钮会变为灰色）
             if (checkinBtn) {
                 checkinBtn.disabled = hasCheckin;
@@ -2023,7 +2023,7 @@ async function loadTodayAttendance() {
             if (checkoutBtn) {
                 checkoutBtn.disabled = !hasCheckin || hasCheckout;
             }
-            
+
             // 根据打卡状态显示相应信息
             if (clockLocation) {
                 if (hasCheckin && hasCheckout) {
@@ -2049,7 +2049,7 @@ async function loadTodayAttendance() {
                     } catch (error) {
                         console.warn('获取打卡策略失败，使用默认时间:', error);
                     }
-                    
+
                     // 检查请假状态
                     let leaveStatusInfo = null;
                     try {
@@ -2057,7 +2057,7 @@ async function loadTodayAttendance() {
                     } catch (error) {
                         console.warn('获取请假状态失败:', error);
                     }
-                    
+
                     if (leaveStatusInfo) {
                         if (leaveStatusInfo.full_day_leave) {
                             clockLocation.textContent = '今天全天请假';
@@ -2089,7 +2089,7 @@ async function loadTodayAttendance() {
             const checkoutStatusEl = document.getElementById('checkout-status');
             const checkinBtn = document.getElementById('checkin-btn');
             const checkoutBtn = document.getElementById('checkout-btn');
-            
+
             if (checkinStatusEl) {
                 checkinStatusEl.textContent = '未打卡';
             }
@@ -2126,15 +2126,16 @@ async function loadRecentAttendance() {
         const month = String(now.getMonth() + 1).padStart(2, '0');
         const day = String(now.getDate()).padStart(2, '0');
         const endDate = `${year}-${month}-${day}`;
-        
+
         // 计算7天前的日期
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
         const startYear = sevenDaysAgo.getFullYear();
         const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
         const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
         const startDate = `${startYear}-${startMonth}-${startDay}`;
-        
-        const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${endDate}&limit=5`);
+
+        // 添加include_absent参数，获取包含缺勤日期的完整列表
+        const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${endDate}&include_absent=true&limit=5`);
 
         const container = document.getElementById('recent-attendance');
         if (attendances.length === 0) {
@@ -2143,7 +2144,16 @@ async function loadRecentAttendance() {
         }
 
         // 格式化打卡状态
-        const formatCheckinStatus = (status) => {
+        const formatCheckinStatus = (att) => {
+            // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+            if (!att.checkin_time && att.morning_status === 'absent') {
+                return { text: '缺勤', class: 'checkin-status-absent' };
+            }
+            // 检查是否为请假
+            if (!att.checkin_time && att.morning_status === 'leave') {
+                return { text: '请假', class: 'checkin-status-leave' };
+            }
+            const status = att.checkin_status;
             if (!status || status === 'normal') {
                 return { text: '正常打卡', class: 'checkin-status-normal' };
             } else if (status === 'city_business') {
@@ -2156,6 +2166,14 @@ async function loadRecentAttendance() {
 
         // 格式化签退状态
         const formatCheckoutStatus = (att) => {
+            // 检查是否为缺勤记录
+            if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
+                return { text: '缺勤', class: 'checkout-status-absent' };
+            }
+            // 检查是否为请假
+            if (!att.checkout_time && att.afternoon_status === 'leave') {
+                return { text: '请假', class: 'checkout-status-leave' };
+            }
             if (!att.checkout_time) {
                 return { text: '未签退', class: 'checkout-status-absent' };
             } else if (att.is_early_leave) {
@@ -2167,14 +2185,16 @@ async function loadRecentAttendance() {
 
         container.innerHTML = attendances.map(att => {
             const date = new Date(att.date);
-            const statusInfo = formatCheckinStatus(att.checkin_status);
-            const statusBadge = att.checkin_time && statusInfo.text 
-                ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>` 
+            const statusInfo = formatCheckinStatus(att);
+            // 对于缺勤和请假记录，始终显示状态标签
+            const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
+            const statusBadge = (att.checkin_time && statusInfo.text) || isAbsentOrLeave
+                ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>`
                 : '';
             const checkoutStatusInfo = formatCheckoutStatus(att);
             const checkoutStatusBadge = `<span class="checkout-status-badge ${checkoutStatusInfo.class}">${checkoutStatusInfo.text}</span>`;
             return `
-                <div class="attendance-item">
+                <div class="attendance-item${isAbsentOrLeave ? ' attendance-absent' : ''}">
                     <div class="attendance-date">
                         <div class="attendance-day">${date.getDate()}</div>
                         <div class="attendance-month">${date.getMonth() + 1}月</div>
@@ -2208,14 +2228,14 @@ async function loadPendingCount() {
         const leaves = await apiRequest('/leave/pending');
         const overtimes = await apiRequest('/overtime/pending');
         const totalCount = leaves.length + overtimes.length;
-        
+
         // 更新首页的待审批数量徽章
         const badge = document.getElementById('pending-count');
         if (badge) {
             badge.textContent = totalCount;
             badge.style.display = totalCount > 0 ? 'inline-block' : 'none';
         }
-        
+
         // 更新标签上的徽章
         updateTabBadges(leaves.length, overtimes.length);
     } catch (error) {
@@ -2231,24 +2251,24 @@ async function loadMyPendingCounts() {
             apiRequest('/leave/my').catch(() => []),
             apiRequest('/overtime/my').catch(() => [])
         ]);
-        
+
         // 统计未完成的请假申请（pending, dept_approved, vp_approved）
-        const leavePendingCount = Array.isArray(leaves) 
-            ? leaves.filter(leave => ['pending', 'dept_approved', 'vp_approved'].includes(leave.status)).length 
+        const leavePendingCount = Array.isArray(leaves)
+            ? leaves.filter(leave => ['pending', 'dept_approved', 'vp_approved'].includes(leave.status)).length
             : 0;
-        
+
         // 统计未完成的加班申请（pending）
         const overtimePendingCount = Array.isArray(overtimes)
             ? overtimes.filter(ot => ot.status === 'pending').length
             : 0;
-        
+
         // 更新请假申请徽章
         const leaveBadge = document.getElementById('leave-pending-count');
         if (leaveBadge) {
             leaveBadge.textContent = leavePendingCount;
             leaveBadge.style.display = leavePendingCount > 0 ? 'inline-block' : 'none';
         }
-        
+
         // 更新加班申请徽章
         const overtimeBadge = document.getElementById('overtime-pending-count');
         if (overtimeBadge) {
@@ -2269,12 +2289,12 @@ async function loadMyPendingCounts() {
 function updateTabBadges(leaveCount, overtimeCount) {
     const leaveBadge = document.getElementById('leave-tab-badge');
     const overtimeBadge = document.getElementById('overtime-tab-badge');
-    
+
     if (leaveBadge) {
         leaveBadge.textContent = leaveCount;
         leaveBadge.style.display = leaveCount > 0 ? 'inline-block' : 'none';
     }
-    
+
     if (overtimeBadge) {
         overtimeBadge.textContent = overtimeCount;
         overtimeBadge.style.display = overtimeCount > 0 ? 'inline-block' : 'none';
@@ -2291,10 +2311,13 @@ async function loadAttendanceByMonth() {
 
     const [year, month] = monthInput.value.split('-');
     const startDate = `${year}-${month}-01`;
-    const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+    // 修复时区问题，使用字符串拼接
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
 
     try {
-        const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${endDate}`);
+        // 添加include_absent参数，获取包含缺勤日期的完整列表
+        const attendances = await apiRequest(`/attendance/my?start_date=${startDate}&end_date=${endDate}&include_absent=true`);
         const container = document.getElementById('attendance-list');
 
         if (attendances.length === 0) {
@@ -2303,7 +2326,16 @@ async function loadAttendanceByMonth() {
         }
 
         // 格式化打卡状态
-        const formatCheckinStatus = (status) => {
+        const formatCheckinStatus = (att) => {
+            // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+            if (!att.checkin_time && att.morning_status === 'absent') {
+                return { text: '缺勤', class: 'checkin-status-absent' };
+            }
+            // 检查是否为请假
+            if (!att.checkin_time && att.morning_status === 'leave') {
+                return { text: '请假', class: 'checkin-status-leave' };
+            }
+            const status = att.checkin_status;
             if (!status || status === 'normal') {
                 return { text: '正常打卡', class: 'checkin-status-normal' };
             } else if (status === 'city_business') {
@@ -2316,6 +2348,14 @@ async function loadAttendanceByMonth() {
 
         // 格式化签退状态
         const formatCheckoutStatus = (att) => {
+            // 检查是否为缺勤记录
+            if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
+                return { text: '缺勤', class: 'checkout-status-absent' };
+            }
+            // 检查是否为请假
+            if (!att.checkout_time && att.afternoon_status === 'leave') {
+                return { text: '请假', class: 'checkout-status-leave' };
+            }
             if (!att.checkout_time) {
                 return { text: '未签退', class: 'checkout-status-absent' };
             } else if (att.is_early_leave) {
@@ -2326,14 +2366,16 @@ async function loadAttendanceByMonth() {
         };
 
         container.innerHTML = attendances.map(att => {
-            const statusInfo = formatCheckinStatus(att.checkin_status);
-            const statusBadge = att.checkin_time && statusInfo.text 
-                ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>` 
+            const statusInfo = formatCheckinStatus(att);
+            // 对于缺勤和请假记录，始终显示状态标签
+            const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
+            const statusBadge = (att.checkin_time && statusInfo.text) || isAbsentOrLeave
+                ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>`
                 : '';
             const checkoutStatusInfo = formatCheckoutStatus(att);
             const checkoutStatusBadge = `<span class="checkout-status-badge ${checkoutStatusInfo.class}">${checkoutStatusInfo.text}</span>`;
             return `
-            <div class="list-item">
+            <div class="list-item${isAbsentOrLeave ? ' list-item-absent' : ''}">
                 <div class="list-item-header">
                     <span class="list-item-title">${formatDate(att.date)}</span>
                     ${att.work_hours ? `<span>${att.work_hours.toFixed(1)}小时</span>` : ''}
@@ -2375,7 +2417,7 @@ async function loadMyLeaveApplications() {
         container.innerHTML = leaves.map(leave => {
             // 判断是否可以撤回（待审批状态）
             const canCancel = ['pending', 'dept_approved', 'vp_approved'].includes(leave.status);
-            
+
             // 获取待审批人信息
             let pendingApprover = '';
             if (leave.status === 'pending') {
@@ -2383,15 +2425,15 @@ async function loadMyLeaveApplications() {
                 const userRole = currentUser?.role;
                 if (userRole === 'vice_president') {
                     // 副总申请：待副总审批
-                    pendingApprover = leave.pending_vp_name || leave.assigned_vp_name ? 
+                    pendingApprover = leave.pending_vp_name || leave.assigned_vp_name ?
                         `待审批: ${leave.pending_vp_name || leave.assigned_vp_name}` : '待审批: 副总';
                 } else if (userRole === 'general_manager') {
                     // 总经理申请：待总经理审批
-                    pendingApprover = leave.pending_gm_name || leave.assigned_gm_name ? 
+                    pendingApprover = leave.pending_gm_name || leave.assigned_gm_name ?
                         `待审批: ${leave.pending_gm_name || leave.assigned_gm_name}` : '待审批: 总经理';
                 } else {
                     // 员工和部门主任申请：待部门主任审批
-                    pendingApprover = leave.pending_dept_head_name ? 
+                    pendingApprover = leave.pending_dept_head_name ?
                         `待审批: ${leave.pending_dept_head_name}` : '待审批: 部门主任';
                 }
             } else if (leave.status === 'dept_approved') {
@@ -2399,7 +2441,7 @@ async function loadMyLeaveApplications() {
             } else if (leave.status === 'vp_approved') {
                 pendingApprover = leave.assigned_gm_name ? `待审批: ${leave.assigned_gm_name}` : '待审批: 总经理';
             }
-            
+
             return `
                 <div class="list-item">
                     <div class="list-item-header">
@@ -2446,17 +2488,17 @@ async function loadMyOvertimeApplications() {
         container.innerHTML = overtimes.map(ot => {
             // 判断是否可以撤回（待审批状态）
             const canCancel = ot.status === 'pending';
-            
+
             // 获取待审批人信息
             let pendingApprover = '';
             if (ot.status === 'pending') {
                 pendingApprover = ot.assigned_approver_name ? `待审批: ${ot.assigned_approver_name}` : '待审批: 审批人';
             }
-            
+
             // 获取加班类型显示
             const overtimeTypeText = ot.overtime_type === 'passive' ? '被动加班' : '主动加班';
             const overtimeTypeClass = ot.overtime_type === 'passive' ? 'passive' : 'active';
-            
+
             return `
                 <div class="list-item">
                     <div class="list-item-header">
@@ -2518,7 +2560,7 @@ async function loadPendingLeaves() {
     try {
         const leaves = await apiRequest('/leave/pending');
         const container = document.getElementById('approval-leave-list');
-        
+
         // 更新请假标签徽章
         const leaveBadge = document.getElementById('leave-tab-badge');
         if (leaveBadge) {
@@ -2562,7 +2604,7 @@ async function loadPendingOvertimes() {
     try {
         const overtimes = await apiRequest('/overtime/pending');
         const container = document.getElementById('approval-overtime-list');
-        
+
         // 更新加班标签徽章
         const overtimeBadge = document.getElementById('overtime-tab-badge');
         if (overtimeBadge) {
@@ -2579,7 +2621,7 @@ async function loadPendingOvertimes() {
             // 获取加班类型显示
             const overtimeTypeText = ot.overtime_type === 'passive' ? '被动加班' : '主动加班';
             const overtimeTypeClass = ot.overtime_type === 'passive' ? 'passive' : 'active';
-            
+
             return `
                 <div class="list-item">
                     <div class="list-item-header">
@@ -2612,7 +2654,7 @@ async function approveLeave(id, approved) {
     const title = approved ? '批准请假申请' : '拒绝请假申请';
     const placeholder = approved ? '请输入批准意见（可选）' : '请输入拒绝理由（必填）';
     const comment = await showInputDialog(title, placeholder, !approved);
-    
+
     if (comment === null) return; // 用户取消
     if (!approved && (!comment || !comment.trim())) {
         await showToast('拒绝时必须填写理由', 'warning');
@@ -2644,7 +2686,7 @@ async function approveOvertime(id, approved) {
     const title = approved ? '批准加班申请' : '拒绝加班申请';
     const placeholder = approved ? '请输入批准意见（可选）' : '请输入拒绝理由（必填）';
     const comment = await showInputDialog(title, placeholder, !approved);
-    
+
     if (comment === null) return; // 用户取消
     if (!approved && (!comment || !comment.trim())) {
         await showToast('拒绝时必须填写理由', 'warning');
@@ -2736,49 +2778,49 @@ async function showNewLeaveForm() {
     // 根据用户角色决定是否显示审批人选择器
     const userRole = currentUser?.role;
     const isVicePresident = userRole === 'vice_president';
-    
+
     // 只有副总需要显示审批人选择器
     let vpOptions = '<option value="">默认本人审批</option>';
     let gmOptions = '<option value="">系统自动分配</option>';
-    
+
     if (isVicePresident) {
         try {
             const approvers = await apiRequest('/users/approvers');
             const vps = approvers.filter(u => u.role === 'vice_president');
             const gms = approvers.filter(u => u.role === 'general_manager');
-            
+
             vpOptions += vps.map(vp => `<option value="${vp.id}" ${vp.id === currentUser.id ? 'selected' : ''}>${vp.real_name}</option>`).join('');
             gmOptions += gms.map(gm => `<option value="${gm.id}">${gm.real_name}</option>`).join('');
         } catch (error) {
             console.error('加载审批人列表失败:', error);
         }
     }
-    
+
     // 开始时间节点选项（9:00默认、14:00）
     const startTimeNodes = [
         { value: '09:00', label: '09:00' },
         { value: '14:00', label: '14:00' }
     ];
-    const startTimeNodeOptions = startTimeNodes.map(node => 
+    const startTimeNodeOptions = startTimeNodes.map(node =>
         `<option value="${node.value}">${node.label}</option>`
     ).join('');
-    
+
     // 结束时间节点选项（12:00、17:30默认）
     const endTimeNodes = [
         { value: '12:00', label: '12:00' },
         { value: '17:30', label: '17:30' }
     ];
-    const endTimeNodeOptions = endTimeNodes.map(node => 
+    const endTimeNodeOptions = endTimeNodes.map(node =>
         `<option value="${node.value}" ${node.value === '17:30' ? 'selected' : ''}>${node.label}</option>`
     ).join('');
-    
+
     const leaveTypes = await fetchLeaveTypes();
     if (!leaveTypes.length) {
         await showToast('请假类型未配置，请联系管理员', 'warning');
         return;
     }
     const leaveTypeOptions = leaveTypes.map(type => `<option value="${type.id}">${type.name}</option>`).join('');
-    
+
     const modalHtml = `
         <div class="modal-overlay" onclick="closeFormModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
@@ -2854,9 +2896,9 @@ async function showNewLeaveForm() {
             </div>
         </div>
     `;
-    
+
     document.getElementById('modal-container').innerHTML = modalHtml;
-    
+
     // 设置默认日期为今天（使用本地时间）
     const now = new Date();
     const year = now.getFullYear();
@@ -2865,15 +2907,15 @@ async function showNewLeaveForm() {
     const today = `${year}-${month}-${day}`;
     document.getElementById('leave-start-date').value = today;
     document.getElementById('leave-end-date').value = today;
-    
+
     // 加载年假使用情况
     await loadAnnualLeaveInfo();
-    
+
     // 检查是否已经选择了"年假调休"类型，如果是则显示年假信息
     setTimeout(() => {
         onLeaveTypeChange();
     }, 100);
-    
+
     // 初始计算请假天数
     calculateLeaveDays();
 }
@@ -2895,15 +2937,15 @@ async function loadAnnualLeaveInfo() {
 function onLeaveTypeChange() {
     const leaveTypeSelect = document.getElementById('leave-type-select');
     const annualLeaveInfoDiv = document.getElementById('annual-leave-info');
-    
+
     if (!leaveTypeSelect || !annualLeaveInfoDiv) {
         return;
     }
-    
+
     const selectedOption = leaveTypeSelect.options[leaveTypeSelect.selectedIndex];
     const leaveTypeName = selectedOption ? selectedOption.text : '';
     const isAnnualLeave = leaveTypeName === '年假调休';
-    
+
     if (isAnnualLeave && annualLeaveInfo) {
         // 显示年假信息
         annualLeaveInfoDiv.textContent = `您本年度年假共计${annualLeaveInfo.total_days}天，已调休${annualLeaveInfo.used_days}天，剩余${annualLeaveInfo.remaining_days}天`;
@@ -2921,27 +2963,27 @@ function calculateLeaveDays() {
     const endDate = document.getElementById('leave-end-date')?.value;
     const endTimeNode = document.getElementById('leave-end-time-node')?.value;
     const calculatedDaysDiv = document.getElementById('leave-calculated-days');
-    
+
     if (!startDate || !startTimeNode || !endDate || !endTimeNode || !calculatedDaysDiv) {
         if (calculatedDaysDiv) calculatedDaysDiv.textContent = '0 天';
         return;
     }
-    
+
     // 确保日期格式正确
     const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
     const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
-    
+
     const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
     const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
-    
+
     if (endDateObj < startDateObj) {
         calculatedDaysDiv.textContent = '0 天';
         return;
     }
-    
+
     const days = calculateLeaveDaysByRules(normalizedStartDate, startTimeNode, normalizedEndDate, endTimeNode);
     calculatedDaysDiv.textContent = days.toFixed(1) + ' 天';
-    
+
     // 更新审批人选择器可见性
     updateLeaveApproverVisibility();
 }
@@ -2951,20 +2993,20 @@ function calculateLeaveDaysByRules(startDate, startTime, endDate, endTime) {
     // 确保日期格式正确（YYYY-MM-DD）
     const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
     const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
-    
+
     // 如果是同一天
     if (normalizedStartDate === normalizedEndDate) {
         return calculateSingleDayLeave(startTime, endTime);
     }
-    
+
     // 跨天情况
     let totalDays = 0;
-    
+
     // 使用标准日期格式，避免时区问题
     const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
     const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
     const currentDate = new Date(startDateObj);
-    
+
     // 格式化日期字符串用于比较（YYYY-MM-DD格式）
     const formatDateStr = (date) => {
         const year = date.getFullYear();
@@ -2972,17 +3014,17 @@ function calculateLeaveDaysByRules(startDate, startTime, endDate, endTime) {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     };
-    
+
     const startDateStr = formatDateStr(startDateObj);
     const endDateStr = formatDateStr(endDateObj);
-    
+
     // 确保循环能正确执行
     let loopCount = 0;
     const maxLoops = 100; // 防止无限循环
-    
+
     while (currentDate <= endDateObj && loopCount < maxLoops) {
         const currentDateStr = formatDateStr(currentDate);
-        
+
         if (currentDateStr === startDateStr) {
             // 起始日：根据开始时间节点计算
             // 9点开始算请假的，起始日算一天
@@ -3009,11 +3051,11 @@ function calculateLeaveDaysByRules(startDate, startTime, endDate, endTime) {
             // 中间天数：每天的算一天
             totalDays += 1.0;
         }
-        
+
         currentDate.setDate(currentDate.getDate() + 1);
         loopCount++;
     }
-    
+
     return Math.round(totalDays * 10) / 10;
 }
 
@@ -3023,7 +3065,7 @@ function calculateSingleDayLeave(startTime, endTime) {
     // 9:00-12:00 = 0.5天
     // 14:00-17:30 = 0.5天
     // 9:00-17:30 = 1天
-    
+
     if (startTime === '09:00' && endTime === '12:00') {
         return 0.5;
     } else if (startTime === '14:00' && endTime === '17:30') {
@@ -3031,7 +3073,7 @@ function calculateSingleDayLeave(startTime, endTime) {
     } else if (startTime === '09:00' && endTime === '17:30') {
         return 1.0;
     }
-    
+
     return 0;
 }
 
@@ -3040,22 +3082,22 @@ function updateLeaveApproverVisibility() {
     const calculatedDaysDiv = document.getElementById('leave-calculated-days');
     const vpSelector = document.getElementById('leave-vp-selector');
     const gmSelector = document.getElementById('leave-gm-selector');
-    
+
     if (!calculatedDaysDiv) return;
-    
+
     const userRole = currentUser?.role;
     const isVicePresident = userRole === 'vice_president';
-    
+
     // 只有副总才显示审批人选择器
     if (!isVicePresident) {
         if (vpSelector) vpSelector.style.display = 'none';
         if (gmSelector) gmSelector.style.display = 'none';
         return;
     }
-    
+
     const daysText = calculatedDaysDiv.textContent.replace(' 天', '');
     const days = parseFloat(daysText) || 0;
-    
+
     // 副总请假：3天以上需要总经理审批
     if (gmSelector) {
         if (days > 3) {
@@ -3068,7 +3110,7 @@ function updateLeaveApproverVisibility() {
 
 async function submitLeaveForm(event) {
     event.preventDefault();
-    
+
     const startDate = document.getElementById('leave-start-date').value;
     const startTimeNode = document.getElementById('leave-start-time-node').value;
     const endDate = document.getElementById('leave-end-date').value;
@@ -3078,37 +3120,37 @@ async function submitLeaveForm(event) {
     const leaveTypeId = document.getElementById('leave-type-select')?.value;
     const assignedVpId = document.getElementById('leave-assigned-vp')?.value || '';
     const assignedGmId = document.getElementById('leave-assigned-gm')?.value || '';
-    
+
     if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason || !leaveTypeId) {
         await showToast('请填写所有必填项', 'warning');
         return;
     }
-    
+
     // 确保日期格式正确
     const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
     const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
-    
+
     const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
     const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
-    
+
     if (endDateObj < startDateObj) {
         await showToast('结束日期不能早于开始日期', 'warning');
         return;
     }
-    
+
     // 获取计算出的请假天数
     const calculatedDaysText = calculatedDaysDiv?.textContent || '0 天';
     const days = parseFloat(calculatedDaysText.replace(' 天', ''));
-    
+
     if (days <= 0) {
         await showToast('请选择有效的时间节点', 'warning');
         return;
     }
-    
+
     // 构建开始和结束日期时间
     const startDateTime = `${normalizedStartDate}T${startTimeNode}:00`;
     const endDateTime = `${normalizedEndDate}T${endTimeNode}:00`;
-    
+
     const requestData = {
         start_date: startDateTime,
         end_date: endDateTime,
@@ -3116,7 +3158,7 @@ async function submitLeaveForm(event) {
         reason: reason,
         leave_type_id: parseInt(leaveTypeId)
     };
-    
+
     // 如果指定了审批人，添加到请求中
     if (assignedVpId) {
         requestData.assigned_vp_id = parseInt(assignedVpId);
@@ -3124,13 +3166,13 @@ async function submitLeaveForm(event) {
     if (assignedGmId) {
         requestData.assigned_gm_id = parseInt(assignedGmId);
     }
-    
+
     try {
         await apiRequest('/leave/', {
             method: 'POST',
             body: JSON.stringify(requestData)
         });
-        
+
         await showToast('请假申请提交成功！', 'success', { timeout: 2000 });
         closeFormModal();
         loadMyLeaveApplications();
@@ -3148,7 +3190,7 @@ function showNewOvertimeForm() {
         { value: '14:00', label: '14:00' },
         { value: '17:30', label: '17:30' }
     ];
-    
+
     // 终点时间节点选项（可选：12:00, 17:30, 20:00, 22:00）
     const endTimeNodes = [
         { value: '12:00', label: '12:00' },
@@ -3156,10 +3198,10 @@ function showNewOvertimeForm() {
         { value: '20:00', label: '20:00' },
         { value: '22:00', label: '22:00' }
     ];
-    
+
     const startTimeNodeOptions = startTimeNodes.map(n => `<option value="${n.value}">${n.label}</option>`).join('');
     const endTimeNodeOptions = endTimeNodes.map(n => `<option value="${n.value}">${n.label}</option>`).join('');
-    
+
     const modalHtml = `
         <div class="modal-overlay" onclick="closeFormModal(event)">
             <div class="modal" onclick="event.stopPropagation()">
@@ -3300,16 +3342,16 @@ function showNewOvertimeForm() {
             </div>
         </div>
     `;
-    
+
     document.getElementById('modal-container').innerHTML = modalHtml;
-    
+
     // 设置默认日期为今天（使用本地时间）
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const today = `${year}-${month}-${day}`;
-    
+
     const dateInput = document.getElementById('overtime-date');
     const startDateInput = document.getElementById('overtime-start-date');
     const endDateInput = document.getElementById('overtime-end-date');
@@ -3321,7 +3363,7 @@ function showNewOvertimeForm() {
         startDateInput.value = today;
         startDateInput.setAttribute('value', today);
         // 添加日期联动事件监听器
-        startDateInput.addEventListener('change', function() {
+        startDateInput.addEventListener('change', function () {
             if (endDateInput) {
                 endDateInput.value = this.value;
             }
@@ -3332,7 +3374,7 @@ function showNewOvertimeForm() {
         endDateInput.value = today;
         endDateInput.setAttribute('value', today);
     }
-    
+
     // 设置默认值：加班类型为单日
     const overtimeTypeSelect = document.getElementById('overtime-type');
     if (overtimeTypeSelect) {
@@ -3340,10 +3382,10 @@ function showNewOvertimeForm() {
         // 触发change事件以显示单日表单
         handleOvertimeTypeChange();
     }
-    
+
     setDefaultSingleOvertimeNodes();
     setDefaultMultiOvertimeNodes();
-    
+
     // 加载审批人列表
     loadOvertimeApprovers();
 }
@@ -3352,17 +3394,17 @@ function showNewOvertimeForm() {
 async function loadOvertimeApprovers() {
     const approverSelect = document.getElementById('overtime-assigned-approver');
     if (!approverSelect) return;
-    
+
     const userRole = currentUser?.role;
     if (userRole !== 'vice_president') return;
-    
+
     try {
         const approvers = await apiRequest('/users/approvers');
         const vps = approvers.filter(u => u.role === 'vice_president');
-        
+
         let options = '<option value="">默认本人审批</option>';
         options += vps.map(vp => `<option value="${vp.id}" ${vp.id === currentUser.id ? 'selected' : ''}>${vp.real_name}</option>`).join('');
-        
+
         approverSelect.innerHTML = options;
     } catch (error) {
         console.error('加载审批人列表失败:', error);
@@ -3373,11 +3415,11 @@ function handleOvertimeTypeChange() {
     const type = document.getElementById('overtime-type').value;
     const singleSection = document.getElementById('single-day-section');
     const multiSection = document.getElementById('multi-day-section');
-    
+
     // 重置显示
     if (singleSection) singleSection.style.display = 'none';
     if (multiSection) multiSection.style.display = 'none';
-    
+
     if (type === 'single') {
         if (singleSection) singleSection.style.display = 'block';
         setDefaultSingleOvertimeNodes();
@@ -3385,7 +3427,7 @@ function handleOvertimeTypeChange() {
         if (multiSection) multiSection.style.display = 'block';
         setDefaultMultiOvertimeNodes();
     }
-    
+
     calculateOvertimeDays();
 }
 
@@ -3393,17 +3435,17 @@ function setDefaultSingleOvertimeNodes() {
     const startSelect = document.getElementById('overtime-start-time-node');
     const endSelect = document.getElementById('overtime-end-time-node');
     let updated = false;
-    
+
     if (startSelect && !startSelect.value) {
         startSelect.value = '09:00';
         updated = true;
     }
-    
+
     if (endSelect && !endSelect.value) {
         endSelect.value = '17:30';
         updated = true;
     }
-    
+
     if (updated && document.getElementById('overtime-type')?.value === 'single') {
         calculateOvertimeDays();
     }
@@ -3413,17 +3455,17 @@ function setDefaultMultiOvertimeNodes() {
     const startSelect = document.getElementById('overtime-start-date-time-node');
     const endSelect = document.getElementById('overtime-end-date-time-node');
     let updated = false;
-    
+
     if (startSelect && !startSelect.value) {
         startSelect.value = '09:00';
         updated = true;
     }
-    
+
     if (endSelect && !endSelect.value) {
         endSelect.value = '17:30';
         updated = true;
     }
-    
+
     if (updated && document.getElementById('overtime-type')?.value === 'multi') {
         calculateOvertimeDays();
     }
@@ -3432,7 +3474,7 @@ function setDefaultMultiOvertimeNodes() {
 // 计算加班天数（mobile端）
 function calculateOvertimeDays() {
     const type = document.getElementById('overtime-type')?.value;
-    
+
     // 根据类型获取对应的显示元素（单日和多日各有一个）
     let calculatedDaysDiv = null;
     if (type === 'single') {
@@ -3446,28 +3488,28 @@ function calculateOvertimeDays() {
             calculatedDaysDiv = multiSection.querySelector('#overtime-calculated-days');
         }
     }
-    
+
     // 如果找不到，尝试直接获取（兼容旧代码）
     if (!calculatedDaysDiv) {
         calculatedDaysDiv = document.getElementById('overtime-calculated-days');
     }
-    
+
     if (!type || !calculatedDaysDiv) {
         return;
     }
-    
+
     let days = 0;
-    
+
     if (type === 'single') {
         const date = document.getElementById('overtime-date')?.value;
         const startTimeNode = document.getElementById('overtime-start-time-node')?.value;
         const endTimeNode = document.getElementById('overtime-end-time-node')?.value;
-        
+
         if (!date || !startTimeNode || !endTimeNode) {
             calculatedDaysDiv.textContent = '0 天';
             return;
         }
-        
+
         days = calculateOvertimeDaysByRules(date, startTimeNode, date, endTimeNode);
     } else if (type === 'multi') {
         const startDate = document.getElementById('overtime-start-date')?.value;
@@ -3476,24 +3518,24 @@ function calculateOvertimeDays() {
         const endDateTimeNode = document.getElementById('overtime-end-date-time-node')?.value;
         const useManualDays = document.getElementById('overtime-use-manual-days')?.checked;
         const manualDays = document.getElementById('overtime-manual-days')?.value;
-        
+
         if (!startDate || !startDateTimeNode || !endDate || !endDateTimeNode) {
             calculatedDaysDiv.textContent = '0 天';
             return;
         }
-        
+
         // 确保日期格式正确
         const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
         const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
-        
+
         const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
         const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
-        
+
         if (endDateObj < startDateObj) {
             calculatedDaysDiv.textContent = '0 天';
             return;
         }
-        
+
         // 如果使用手动调节的天数
         if (useManualDays && manualDays && parseFloat(manualDays) > 0) {
             days = parseFloat(manualDays);
@@ -3501,7 +3543,7 @@ function calculateOvertimeDays() {
             days = calculateOvertimeDaysByRules(normalizedStartDate, startDateTimeNode, normalizedEndDate, endDateTimeNode);
         }
     }
-    
+
     // 更新显示
     const displayText = days.toFixed(1) + ' 天';
     calculatedDaysDiv.textContent = displayText;
@@ -3511,20 +3553,20 @@ function calculateOvertimeDays() {
 function validateManualDays(input) {
     const value = input.value;
     const errorEl = document.getElementById('overtime-manual-days-error');
-    
+
     if (!value || value === '') {
         if (errorEl) errorEl.style.display = 'none';
         return true;
     }
-    
+
     const numValue = parseFloat(value);
-    
+
     // 检查是否为有效数字
     if (isNaN(numValue) || numValue <= 0) {
         if (errorEl) errorEl.style.display = 'block';
         return false;
     }
-    
+
     // 检查是否为整数或x.5（即0.5的倍数）
     const remainder = numValue % 0.5;
     if (remainder !== 0 && Math.abs(remainder - 0.5) > 0.001) {
@@ -3534,7 +3576,7 @@ function validateManualDays(input) {
         if (errorEl) errorEl.style.display = 'none';
         return true;
     }
-    
+
     if (errorEl) errorEl.style.display = 'none';
     return true;
 }
@@ -3544,7 +3586,7 @@ function handleManualDaysToggle() {
     const useManual = document.getElementById('overtime-use-manual-days')?.checked;
     const container = document.getElementById('overtime-manual-days-container');
     const manualDaysInput = document.getElementById('overtime-manual-days');
-    
+
     // 根据类型获取对应的显示元素
     const type = document.getElementById('overtime-type')?.value;
     let calculatedDaysDiv = null;
@@ -3557,11 +3599,11 @@ function handleManualDaysToggle() {
     if (!calculatedDaysDiv) {
         calculatedDaysDiv = document.getElementById('overtime-calculated-days');
     }
-    
+
     if (container) {
         container.style.display = useManual ? 'block' : 'none';
     }
-    
+
     if (useManual && manualDaysInput && calculatedDaysDiv) {
         // 如果启用手动调节，使用当前计算值作为初始值
         const currentDays = calculatedDaysDiv.textContent.replace(' 天', '');
@@ -3569,7 +3611,7 @@ function handleManualDaysToggle() {
         // 验证初始值
         validateManualDays(manualDaysInput);
     }
-    
+
     // 重新计算以应用手动值
     calculateOvertimeDays();
 }
@@ -3579,7 +3621,7 @@ function calculateOvertimeDaysByRules(startDate, startTime, endDate, endTime) {
     // 确保日期格式正确（YYYY-MM-DD）
     const normalizedStartDate = startDate.includes('T') ? startDate.split('T')[0] : startDate;
     const normalizedEndDate = endDate.includes('T') ? endDate.split('T')[0] : endDate;
-    
+
     const startDateTime = new Date(`${normalizedStartDate}T${startTime}:00`);
     const endDateTime = new Date(`${normalizedEndDate}T${endTime}:00`);
 
@@ -3594,12 +3636,12 @@ function calculateOvertimeDaysByRules(startDate, startTime, endDate, endTime) {
 
     // 跨天情况
     let totalDays = 0;
-    
+
     // 使用标准日期格式，避免时区问题
     const startDateObj = new Date(normalizedStartDate + 'T00:00:00');
     const endDateObj = new Date(normalizedEndDate + 'T00:00:00');
     const currentDate = new Date(startDateObj);
-    
+
     // 格式化日期字符串用于比较（YYYY-MM-DD格式）
     const formatDateStr = (date) => {
         const year = date.getFullYear();
@@ -3607,7 +3649,7 @@ function calculateOvertimeDaysByRules(startDate, startTime, endDate, endTime) {
         const day = String(date.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     };
-    
+
     const startDateStr = formatDateStr(startDateObj);
     const endDateStr = formatDateStr(endDateObj);
 
@@ -3617,7 +3659,7 @@ function calculateOvertimeDaysByRules(startDate, startTime, endDate, endTime) {
 
     while (currentDate <= endDateObj && loopCount < maxLoops) {
         const currentDateStr = formatDateStr(currentDate);
-        
+
         if (currentDateStr === startDateStr) {
             // 起始日：根据开始时间节点计算
             // 9点开始算加班的，起始日算一天
@@ -3741,7 +3783,7 @@ function getActualStartTime(startTime) {
     const [hour, minute] = startTime.split(':').map(Number);
     const startMinutes = hour * 60 + minute;
     const earliestMinutes = 9 * 60; // 09:00
-    
+
     if (startMinutes < earliestMinutes) {
         return '09:00';
     }
@@ -3750,18 +3792,18 @@ function getActualStartTime(startTime) {
 
 async function submitOvertimeForm(event) {
     event.preventDefault();
-    
+
     const nature = document.getElementById('overtime-nature').value;
     const type = document.getElementById('overtime-type').value;
     const reason = document.getElementById('overtime-reason').value;
-    
+
     if (!nature || !type || !reason) {
         await showToast('请填写所有必填项', 'warning');
         return;
     }
-    
+
     let startTime, endTime, hours, days;
-    
+
     // 根据类型获取对应的显示元素（单日和多日各有一个）
     let calculatedDaysDiv = null;
     if (type === 'single') {
@@ -3775,25 +3817,25 @@ async function submitOvertimeForm(event) {
             calculatedDaysDiv = multiSection.querySelector('#overtime-calculated-days');
         }
     }
-    
+
     // 如果找不到，尝试直接获取（兼容旧代码）
     if (!calculatedDaysDiv) {
         calculatedDaysDiv = document.getElementById('overtime-calculated-days');
     }
-    
+
     if (type === 'single') {
         const date = document.getElementById('overtime-date').value;
         const startTimeNode = document.getElementById('overtime-start-time-node').value;
         const endTimeNode = document.getElementById('overtime-end-time-node').value;
-        
+
         if (!date || !startTimeNode || !endTimeNode) {
             await showToast('请填写完整的单日加班信息', 'warning');
             return;
         }
-        
+
         startTime = `${date}T${startTimeNode}:00`;
         endTime = `${date}T${endTimeNode}:00`;
-        
+
         // 单日加班：获取计算出的天数
         const calculatedDaysText = calculatedDaysDiv?.textContent || '0 天';
         days = parseFloat(calculatedDaysText.replace(' 天', ''));
@@ -3802,20 +3844,20 @@ async function submitOvertimeForm(event) {
         const startDateTimeNode = document.getElementById('overtime-start-date-time-node').value;
         const endDate = document.getElementById('overtime-end-date').value;
         const endDateTimeNode = document.getElementById('overtime-end-date-time-node').value;
-        
+
         if (!startDate || !startDateTimeNode || !endDate || !endDateTimeNode) {
             await showToast('请填写完整的多日加班信息', 'warning');
             return;
         }
-        
+
         startTime = `${startDate}T${startDateTimeNode}:00`;
         endTime = `${endDate}T${endDateTimeNode}:00`;
-        
+
         // 确定最终使用的天数（手动调节或自动计算）
         const useManualDays = document.getElementById('overtime-use-manual-days')?.checked;
         const manualDaysInput = document.getElementById('overtime-manual-days');
         const manualDays = manualDaysInput?.value;
-        
+
         if (useManualDays && manualDays) {
             const manualDaysValue = parseFloat(manualDays);
             // 验证手动输入的天数是否符合规则（整数或x.5）
@@ -3834,38 +3876,38 @@ async function submitOvertimeForm(event) {
             days = parseFloat(calculatedDaysText.replace(' 天', ''));
         }
     }
-    
+
     // 计算小时数
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
+
     // 验证日期是否有效
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
         await showToast('日期时间格式错误，请重新选择', 'warning');
         return;
     }
-    
+
     hours = (end - start) / (1000 * 60 * 60);
-    
+
     // 验证小时数和天数
     if (isNaN(hours) || hours < 0) {
         await showToast('计算小时数失败，请检查时间节点', 'warning');
         return;
     }
-    
+
     if (isNaN(days) || days <= 0) {
         await showToast('请选择有效的时间节点', 'warning');
         return;
     }
-    
+
     // 验证原因
     if (!reason || reason.trim() === '') {
         await showToast('请填写加班原因', 'warning');
         return;
     }
-    
+
     const assignedApproverId = document.getElementById('overtime-assigned-approver')?.value || '';
-    
+
     // 确保日期时间格式正确（ISO 8601格式）
     const formatDateTime = (dateTimeStr) => {
         // 如果已经是正确的格式，直接返回
@@ -3880,7 +3922,7 @@ async function submitOvertimeForm(event) {
         // 格式化为 ISO 8601 格式
         return date.toISOString().slice(0, 19); // 移除毫秒和时区
     };
-    
+
     const requestData = {
         start_time: formatDateTime(startTime),
         end_time: formatDateTime(endTime),
@@ -3889,7 +3931,7 @@ async function submitOvertimeForm(event) {
         reason: reason.trim(),
         overtime_type: nature // 添加加班类型字段
     };
-    
+
     // 如果指定了审批人，添加到请求中
     if (assignedApproverId) {
         const approverId = parseInt(assignedApproverId);
@@ -3897,13 +3939,13 @@ async function submitOvertimeForm(event) {
             requestData.assigned_approver_id = approverId;
         }
     }
-    
+
     try {
         await apiRequest('/overtime/', {
             method: 'POST',
             body: JSON.stringify(requestData)
         });
-        
+
         await showToast('加班申请提交成功！', 'success', { timeout: 2000 });
         closeFormModal();
         loadMyOvertimeApplications();
@@ -3920,7 +3962,7 @@ function closeFormModal(event) {
 
 // ==================== 撤回申请 ====================
 async function cancelLeaveApplication(leaveId) {
-    const confirmed = await showToast('确定要撤回这个请假申请吗？', 'warning', { 
+    const confirmed = await showToast('确定要撤回这个请假申请吗？', 'warning', {
         confirm: true,
         confirmText: '确定撤回',
         cancelText: '取消'
@@ -3928,12 +3970,12 @@ async function cancelLeaveApplication(leaveId) {
     if (!confirmed) {
         return;
     }
-    
+
     try {
         await apiRequest(`/leave/${leaveId}/cancel`, {
             method: 'POST'
         });
-        
+
         await showToast('请假申请已撤回！', 'success', { timeout: 2000 });
         loadMyLeaveApplications();
         loadMyPendingCounts();  // 更新未完成申请数量徽章
@@ -3943,7 +3985,7 @@ async function cancelLeaveApplication(leaveId) {
 }
 
 async function deleteLeaveApplication(leaveId) {
-    const confirmed = await showToast('确定要删除这个已取消的请假申请吗？删除后无法恢复！', 'warning', { 
+    const confirmed = await showToast('确定要删除这个已取消的请假申请吗？删除后无法恢复！', 'warning', {
         confirm: true,
         confirmText: '确定删除',
         cancelText: '取消',
@@ -3952,12 +3994,12 @@ async function deleteLeaveApplication(leaveId) {
     if (!confirmed) {
         return;
     }
-    
+
     try {
         await apiRequest(`/leave/${leaveId}/delete`, {
             method: 'DELETE'
         });
-        
+
         await showToast('请假申请已删除！', 'success', { timeout: 2000 });
         loadMyLeaveApplications();
         loadMyPendingCounts();  // 更新未完成申请数量徽章
@@ -3967,7 +4009,7 @@ async function deleteLeaveApplication(leaveId) {
 }
 
 async function cancelOvertimeApplication(overtimeId) {
-    const confirmed = await showToast('确定要撤回这个加班申请吗？', 'warning', { 
+    const confirmed = await showToast('确定要撤回这个加班申请吗？', 'warning', {
         confirm: true,
         confirmText: '确定撤回',
         cancelText: '取消'
@@ -3975,12 +4017,12 @@ async function cancelOvertimeApplication(overtimeId) {
     if (!confirmed) {
         return;
     }
-    
+
     try {
         await apiRequest(`/overtime/${overtimeId}/cancel`, {
             method: 'POST'
         });
-        
+
         await showToast('加班申请已撤回！', 'success', { timeout: 2000 });
         loadMyOvertimeApplications();
         loadMyPendingCounts();  // 更新未完成申请数量徽章
@@ -3990,7 +4032,7 @@ async function cancelOvertimeApplication(overtimeId) {
 }
 
 async function deleteOvertimeApplication(overtimeId) {
-    const confirmed = await showToast('确定要删除这个已取消的加班申请吗？删除后无法恢复！', 'warning', { 
+    const confirmed = await showToast('确定要删除这个已取消的加班申请吗？删除后无法恢复！', 'warning', {
         confirm: true,
         confirmText: '确定删除',
         cancelText: '取消',
@@ -3999,12 +4041,12 @@ async function deleteOvertimeApplication(overtimeId) {
     if (!confirmed) {
         return;
     }
-    
+
     try {
         await apiRequest(`/overtime/${overtimeId}/delete`, {
             method: 'DELETE'
         });
-        
+
         await showToast('加班申请已删除！', 'success', { timeout: 2000 });
         loadMyOvertimeApplications();
         loadMyPendingCounts();  // 更新未完成申请数量徽章
@@ -4062,17 +4104,17 @@ function formatTime(dateStr) {
     if (!dateStr || dateStr === null || dateStr === '') {
         return '未打卡';
     }
-    
+
     try {
         // 尝试解析日期字符串
         const date = new Date(dateStr);
-        
+
         // 检查日期是否有效
         if (isNaN(date.getTime())) {
             console.warn('无效的日期字符串:', dateStr);
             return '未打卡';
         }
-        
+
         // 使用更兼容的方式格式化时间
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -4104,28 +4146,28 @@ function formatTimeRange(startStr, endStr) {
             }
             return dateStr + 'T00:00:00';
         };
-        
+
         const normalizedStartStr = normalizeDateStr(startStr);
         const normalizedEndStr = normalizeDateStr(endStr);
-        
+
         const startDate = new Date(normalizedStartStr);
         const endDate = new Date(normalizedEndStr);
-        
+
         const startYear = startDate.getFullYear();
         const startMonth = startDate.getMonth() + 1;
         const startDay = startDate.getDate();
         const startHours = String(startDate.getHours()).padStart(2, '0');
         const startMinutes = String(startDate.getMinutes()).padStart(2, '0');
-        
+
         const endYear = endDate.getFullYear();
         const endMonth = endDate.getMonth() + 1;
         const endDay = endDate.getDate();
         const endHours = String(endDate.getHours()).padStart(2, '0');
         const endMinutes = String(endDate.getMinutes()).padStart(2, '0');
-        
+
         let startPart = `${startYear}/${String(startMonth).padStart(2, '0')}/${String(startDay).padStart(2, '0')} ${startHours}:${startMinutes}`;
         let endPart = '';
-        
+
         // 如果年份相同
         if (startYear === endYear) {
             // 如果日期也相同
@@ -4140,7 +4182,7 @@ function formatTimeRange(startStr, endStr) {
             // 年份不同，显示完整日期时间
             endPart = `${endYear}/${String(endMonth).padStart(2, '0')}/${String(endDay).padStart(2, '0')} ${endHours}:${endMinutes}`;
         }
-        
+
         return `${startPart} ~ ${endPart}`;
     } catch (error) {
         console.error('格式化时间范围失败:', error, startStr, endStr);
@@ -4152,7 +4194,7 @@ function formatTimeRange(startStr, endStr) {
 async function viewLeaveDetail(leaveId) {
     try {
         const leave = await apiRequest(`/leave/${leaveId}`);
-        
+
         // 获取申请人姓名（从API返回或尝试获取用户信息）
         let applicantName = leave.applicant_name;
         if (!applicantName) {
@@ -4163,7 +4205,7 @@ async function viewLeaveDetail(leaveId) {
                 applicantName = `用户${leave.user_id}`;
             }
         }
-        
+
         // 构建详情内容
         let content = `
             <div style="line-height: 1.8; padding: 10px 0;">
@@ -4192,7 +4234,7 @@ async function viewLeaveDetail(leaveId) {
                     <span style="font-size: 1em;">${leave.reason}</span>
                 </div>
         `;
-        
+
         // 添加审批流程信息
         if (leave.dept_approver_id) {
             const deptApproverName = leave.dept_approver_name || `用户${leave.dept_approver_id}`;
@@ -4205,7 +4247,7 @@ async function viewLeaveDetail(leaveId) {
                 </div>
             `;
         }
-        
+
         if (leave.vp_approver_id) {
             const vpApproverName = leave.vp_approver_name || `用户${leave.vp_approver_id}`;
             content += `
@@ -4217,7 +4259,7 @@ async function viewLeaveDetail(leaveId) {
                 </div>
             `;
         }
-        
+
         if (leave.gm_approver_id) {
             const gmApproverName = leave.gm_approver_name || `用户${leave.gm_approver_id}`;
             content += `
@@ -4229,9 +4271,9 @@ async function viewLeaveDetail(leaveId) {
                 </div>
             `;
         }
-        
+
         content += `</div>`;
-        
+
         // 显示详情弹窗
         showDetailModal('请假详情', content);
     } catch (error) {
@@ -4244,7 +4286,7 @@ async function viewLeaveDetail(leaveId) {
 async function viewOvertimeDetail(overtimeId) {
     try {
         const overtime = await apiRequest(`/overtime/${overtimeId}`);
-        
+
         // 获取申请人姓名（从API返回或尝试获取用户信息）
         let applicantName = overtime.applicant_name;
         if (!applicantName) {
@@ -4255,10 +4297,10 @@ async function viewOvertimeDetail(overtimeId) {
                 applicantName = `用户${overtime.user_id}`;
             }
         }
-        
+
         // 获取加班类型显示
         const overtimeTypeText = overtime.overtime_type === 'passive' ? '被动加班' : '主动加班';
-        
+
         // 构建详情内容
         let content = `
             <div style="line-height: 1.8; padding: 10px 0;">
@@ -4291,7 +4333,7 @@ async function viewOvertimeDetail(overtimeId) {
                     <span style="font-size: 1em;">${overtime.reason}</span>
                 </div>
         `;
-        
+
         // 添加审批信息
         if (overtime.approver_id) {
             const approverName = overtime.approver_name || `用户${overtime.approver_id}`;
@@ -4304,9 +4346,9 @@ async function viewOvertimeDetail(overtimeId) {
                 </div>
             `;
         }
-        
+
         content += `</div>`;
-        
+
         // 显示详情弹窗
         showDetailModal('加班详情', content);
     } catch (error) {
@@ -4333,7 +4375,7 @@ function showDetailModal(title, content) {
             </div>
         </div>
     `;
-    
+
     // 创建或更新模态框容器
     let modalContainer = document.getElementById('modal-container');
     if (!modalContainer) {
@@ -4341,7 +4383,7 @@ function showDetailModal(title, content) {
         modalContainer.id = 'modal-container';
         document.body.appendChild(modalContainer);
     }
-    
+
     modalContainer.innerHTML = modalHtml;
     modalContainer.style.display = 'flex';
 }

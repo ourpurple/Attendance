@@ -735,12 +735,23 @@ def get_leave_status(
 def get_my_attendance(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    include_absent: bool = False,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取我的考勤记录"""
+    """获取我的考勤记录
+    
+    Args:
+        start_date: 开始日期
+        end_date: 结束日期
+        include_absent: 是否包含缺勤日期（没有打卡的工作日）
+        skip: 分页偏移
+        limit: 分页限制
+    """
+    from ..models import AttendanceStatus
+    
     query = db.query(Attendance).filter(Attendance.user_id == current_user.id)
     
     if start_date:
@@ -748,8 +759,74 @@ def get_my_attendance(
     if end_date:
         query = query.filter(func.date(Attendance.date) <= end_date)
     
-    attendances = query.order_by(Attendance.date.desc()).offset(skip).limit(limit).all()
-    return attendances
+    attendances = query.order_by(Attendance.date.desc()).all()
+    
+    # 如果需要包含缺勤日期
+    if include_absent and start_date and end_date:
+        # 获取已有打卡记录的日期集合
+        existing_dates = set()
+        for att in attendances:
+            att_date = att.date.date() if isinstance(att.date, datetime) else att.date
+            existing_dates.add(att_date)
+        
+        # 获取工作日列表
+        today = date.today()
+        current_date = start_date
+        absent_records = []
+        
+        while current_date <= end_date:
+            # 只处理今天及之前的日期，跳过未来日期
+            if current_date > today:
+                current_date += timedelta(days=1)
+                continue
+            
+            # 检查是否为工作日
+            workday_status = get_workday_status(db, current_date)
+            
+            if workday_status["is_workday"] and current_date not in existing_dates:
+                # 检查是否请假
+                leave_info = get_leave_period_for_date(current_user.id, current_date, db)
+                
+                # 如果全天请假，不算缺勤
+                if leave_info['full_day_leave']:
+                    current_date += timedelta(days=1)
+                    continue
+                
+                # 创建虚拟的缺勤记录
+                absent_record = Attendance(
+                    id=0,  # 虚拟ID
+                    user_id=current_user.id,
+                    date=datetime.combine(current_date, datetime.min.time()),
+                    checkin_time=None,
+                    checkout_time=None,
+                    checkin_location=None,
+                    checkout_location=None,
+                    checkin_latitude=None,
+                    checkin_longitude=None,
+                    checkout_latitude=None,
+                    checkout_longitude=None,
+                    is_late=False,
+                    is_early_leave=False,
+                    work_hours=None,
+                    checkin_status=None,
+                    morning_status=AttendanceStatus.LEAVE.value if leave_info['morning_leave'] else AttendanceStatus.ABSENT.value,
+                    afternoon_status=AttendanceStatus.LEAVE.value if leave_info['afternoon_leave'] else AttendanceStatus.ABSENT.value,
+                    morning_leave=leave_info['morning_leave'],
+                    afternoon_leave=leave_info['afternoon_leave'],
+                    created_at=datetime.now()
+                )
+                absent_records.append(absent_record)
+            
+            current_date += timedelta(days=1)
+        
+        # 合并记录并按日期降序排序
+        all_records = list(attendances) + absent_records
+        all_records.sort(key=lambda x: x.date if isinstance(x.date, datetime) else datetime.combine(x.date, datetime.min.time()), reverse=True)
+        
+        # 应用分页
+        return all_records[skip:skip + limit]
+    
+    return attendances[skip:skip + limit]
 
 
 @router.get("/user/{user_id}", response_model=List[AttendanceResponse])

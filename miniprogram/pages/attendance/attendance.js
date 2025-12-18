@@ -21,12 +21,12 @@ Page({
       });
       return;
     }
-    
+
     // 确保数据已初始化，避免渲染时出错
     this.setData({
       attendanceList: this.data.attendanceList || []
     });
-    
+
     this.loadAttendance();
   },
 
@@ -39,21 +39,24 @@ Page({
   // 加载考勤记录
   async loadAttendance() {
     wx.showLoading({ title: '加载中...' });
-    
+
     try {
       const { selectedMonth } = this.data;
       const [year, month] = selectedMonth.split('-');
       const startDate = `${year}-${month}-01`;
-      const endDate = new Date(year, month, 0).toISOString().split('T')[0];
+      // 修复时区问题，使用字符串拼接
+      const lastDay = new Date(year, month, 0).getDate();
+      const endDate = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
 
+      // 添加include_absent参数，获取包含缺勤日期的完整列表
       const data = await app.request({
-        url: `/attendance/my?start_date=${startDate}&end_date=${endDate}`
+        url: `/attendance/my?start_date=${startDate}&end_date=${endDate}&include_absent=true`
       });
 
       const formatTime = (dateStr) => {
         if (!dateStr) return null;
         try {
-        const date = new Date(dateStr);
+          const date = new Date(dateStr);
           // 手动格式化，避免安卓微信显示时区信息
           const hours = String(date.getHours()).padStart(2, '0');
           const minutes = String(date.getMinutes()).padStart(2, '0');
@@ -66,7 +69,7 @@ Page({
 
       const formatDate = (dateStr) => {
         try {
-        const date = new Date(dateStr);
+          const date = new Date(dateStr);
           // 手动格式化日期为中文格式，避免安卓微信显示英文
           const year = date.getFullYear();
           const month = date.getMonth() + 1;
@@ -82,9 +85,18 @@ Page({
 
       // 确保 data 是数组
       const safeData = Array.isArray(data) ? data : [];
-      
-      // 格式化打卡状态
-      const formatCheckinStatus = (status) => {
+
+      // 格式化打卡状态（支持缺勤和请假）
+      const formatCheckinStatus = (att) => {
+        // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+        if (!att.checkin_time && att.morning_status === 'absent') {
+          return { text: '缺勤', class: 'checkin-status-absent' };
+        }
+        // 检查是否为请假
+        if (!att.checkin_time && att.morning_status === 'leave') {
+          return { text: '请假', class: 'checkin-status-leave' };
+        }
+        const status = att.checkin_status;
         if (!status || status === 'normal') {
           return { text: '正常打卡', class: 'checkin-status-normal' };
         } else if (status === 'city_business') {
@@ -95,8 +107,16 @@ Page({
         return { text: '', class: '' };
       };
 
-      // 格式化签退状态
+      // 格式化签退状态（支持缺勤和请假）
       const formatCheckoutStatus = (att) => {
+        // 检查是否为缺勤记录
+        if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
+          return { text: '缺勤', class: 'checkout-status-absent' };
+        }
+        // 检查是否为请假
+        if (!att.checkout_time && att.afternoon_status === 'leave') {
+          return { text: '请假', class: 'checkout-status-leave' };
+        }
         if (!att.checkout_time) {
           return { text: '未签退', class: 'checkout-status-absent' };
         } else if (att.is_early_leave) {
@@ -105,14 +125,16 @@ Page({
           return { text: '正常签退', class: 'checkout-status-normal' };
         }
       };
-      
+
       const attendanceList = safeData.map(att => {
         // 确保 att 不是 null
         if (!att || typeof att !== 'object') {
           return null;
         }
-        const statusInfo = formatCheckinStatus(att.checkin_status);
+        const statusInfo = formatCheckinStatus(att);
         const checkoutStatusInfo = formatCheckoutStatus(att);
+        // 判断是否为缺勤或请假记录
+        const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
         return {
           id: att.id,
           date: formatDate(att.date),
@@ -123,10 +145,12 @@ Page({
           isEarlyLeave: att.is_early_leave,
           checkinLocation: att.checkin_location || null,
           checkoutLocation: att.checkout_location || null,
-          checkinStatusText: att.checkin_time ? statusInfo.text : '',
-          checkinStatusClass: att.checkin_time ? statusInfo.class : '',
+          // 对于缺勤和请假记录，始终显示状态
+          checkinStatusText: (att.checkin_time || isAbsentOrLeave) ? statusInfo.text : '',
+          checkinStatusClass: (att.checkin_time || isAbsentOrLeave) ? statusInfo.class : '',
           checkoutStatusText: checkoutStatusInfo.text,
-          checkoutStatusClass: checkoutStatusInfo.class
+          checkoutStatusClass: checkoutStatusInfo.class,
+          isAbsent: isAbsentOrLeave
         };
       }).filter(item => item !== null);
 

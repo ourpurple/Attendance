@@ -12,7 +12,7 @@
 
   <!-- 考勤列表 -->
   <view class="attendance-list" wx:if="{{attendanceList && attendanceList.length > 0}}">
-    <view class="list-item" wx:for="{{attendanceList}}" wx:key="id">
+    <view class="list-item {{item.isAbsent ? 'list-item-absent' : ''}}" wx:for="{{attendanceList}}" wx:key="id">
       <view class="list-item-header">
         <text class="list-item-title">{{item.date}}</text>
         <text wx:if="{{item.workHours}}">{{item.workHours}}小时</text>
