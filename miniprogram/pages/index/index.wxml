@@ -82,7 +82,7 @@
     </view>
 
     <view class="attendance-list" wx:if="{{recentAttendance && recentAttendance.length > 0}}">
-      <view class="attendance-item" wx:for="{{recentAttendance}}" wx:key="id">
+      <view class="attendance-item {{item.isAbsent ? 'attendance-item-absent' : ''}}" wx:for="{{recentAttendance}}" wx:key="id">
         <view class="attendance-date">
           <view class="attendance-day">{{item.day}}</view>
           <view class="attendance-month">{{item.month}}月</view>

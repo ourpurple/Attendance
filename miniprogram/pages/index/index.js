@@ -66,7 +66,7 @@ Page({
       }
       return;
     }
-    
+
     // 如果有 token 但没有用户信息，先获取用户信息
     if (!app.globalData.userInfo) {
       app.checkLoginStatus().then((isValid) => {
@@ -84,13 +84,13 @@ Page({
       });
       return;
     }
-    
+
     // 用户信息已存在，直接检查权限并加载数据
     this.checkApprovalPermission();
     this.checkOverviewPermission();
     this.loadData();
   },
-  
+
   // 加载页面数据（提取为独立方法，便于复用）
   loadData() {
     const attendanceEnabled = app.globalData.userInfo
@@ -103,7 +103,7 @@ Page({
       recentAttendance: this.data.recentAttendance || [],
       pendingCount: this.data.pendingCount || 0
     });
-    
+
     if (attendanceEnabled) {
       this.loadTodayAttendance();
     } else {
@@ -173,7 +173,7 @@ Page({
       checkinStatusIndex: parseInt(e.detail.value)
     });
   },
-  
+
   // 检查审批权限
   checkApprovalPermission() {
     const userInfo = app.globalData.userInfo;
@@ -205,13 +205,13 @@ Page({
   // 更新时钟
   updateClock() {
     const now = new Date();
-    
+
     // 手动格式化时间，确保24小时制（00-23）
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
     const time = `${hours}:${minutes}:${seconds}`;
-    
+
     // 手动格式化日期为中文格式，避免安卓微信显示英文
     const year = now.getFullYear();
     const month = now.getMonth() + 1;
@@ -238,12 +238,12 @@ Page({
         success: async (res) => {
           try {
             const { latitude, longitude, accuracy } = res;
-            
+
             // 验证坐标有效性
             if (!latitude || !longitude || isNaN(latitude) || isNaN(longitude)) {
               throw new Error('获取的位置坐标无效');
             }
-            
+
             // 调用地理编码API获取地址文本（不阻塞，失败时使用坐标）
             let address = null;
             try {
@@ -255,9 +255,9 @@ Page({
               console.warn('地理编码失败，使用坐标:', geocodeError);
               // 地理编码失败不影响打卡，使用坐标
             }
-            
+
             const location = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-            
+
             resolve({
               location,  // 保留坐标字符串用于兼容（必需字段）
               address: address || location,  // 地址文本，失败时使用坐标
@@ -272,7 +272,7 @@ Page({
         fail: (err) => {
           let errorMessage = '无法获取位置信息';
           let shouldRetry = false;
-          
+
           if (err.errMsg) {
             if (err.errMsg.includes('auth deny') || err.errMsg.includes('permission')) {
               errorMessage = '定位权限被拒绝\n\n解决方法：\n1. 点击右上角"..."菜单\n2. 选择"设置"\n3. 开启"位置信息"权限\n4. 重新打开小程序';
@@ -292,7 +292,7 @@ Page({
               }
             }
           }
-          
+
           // 如果应该重试且未超过重试次数
           if (shouldRetry && retryCount < 1) {
             console.log('定位失败，尝试降低精度重试...');
@@ -337,12 +337,12 @@ Page({
       if (!date) {
         date = this.getCSTDate();
       }
-      
+
       // 调用后端API检查（无需登录）
       const workdayCheck = await app.request({
         url: `/holidays/check/${date}`
       });
-      
+
       return workdayCheck;
     } catch (error) {
       console.error('检查工作日失败:', error);
@@ -356,7 +356,7 @@ Page({
     const date = new Date(dateStr);
     const dayOfWeek = date.getDay();
     const dayNames = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-    
+
     if (dayOfWeek >= 1 && dayOfWeek <= 5) {
       return {
         date: dateStr,
@@ -386,7 +386,7 @@ Page({
       try {
         // 使用东八区获取今天的日期
         const today = this.getCSTDate();
-        
+
         // 获取最近7天的数据，然后在前端过滤今天的记录（与H5保持一致，避免时区问题）
         const now = new Date();
         const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
@@ -396,11 +396,11 @@ Page({
         const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
         const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
         const startDate = `${startYear}-${startMonth}-${startDay}`;
-        
+
         const attendances = await app.request({
           url: `/attendance/my?start_date=${startDate}&end_date=${today}&limit=10`
         });
-        
+
         // 在前端过滤今天的记录，避免时区问题（与H5保持一致）
         if (attendances && attendances.length > 0) {
           const todayDateStr = today;
@@ -426,23 +426,23 @@ Page({
       } catch (error) {
         console.error('获取今日打卡状态失败:', error);
       }
-      
+
       // 检查今天是否为工作日
       let workdayCheck = await this.checkWorkday();
-      
+
       // 确保 workdayCheck 存在且 is_workday 是布尔值
       if (!workdayCheck || workdayCheck.is_workday === undefined) {
         console.error('工作日检查结果异常:', workdayCheck);
         // 如果API返回异常，使用本地判断
         workdayCheck = this.localWorkdayCheck(this.getCSTDate());
       }
-      
+
       if (!workdayCheck.is_workday) {
         // 非工作日，隐藏打卡状态区域，禁用打卡按钮
         let reasonText = '';
         const reason = workdayCheck.reason || '休息日';
         const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
-        
+
         if (reason === '周末') {
           reasonText = `今日${reason}，无需打卡`;
         } else if (reason === '公司节假日') {
@@ -452,7 +452,7 @@ Page({
         } else {
           reasonText = `今日${reason}，无需打卡${holidayName}`;
         }
-        
+
         this.setData({
           isWorkday: false,
           showClockStatus: false,  // 隐藏打卡状态区域
@@ -465,12 +465,12 @@ Page({
         // 工作日（包括调休工作日）- 获取打卡策略时间范围
         const isMakeupWorkday = workdayCheck.reason === '调休工作日';
         const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
-        
+
         let checkinStartTime = '08:00';
         let checkinEndTime = '11:30';
         let checkoutStartTime = '17:20';
         let checkoutEndTime = '20:00';
-        
+
         try {
           const policies = await app.request({
             url: '/attendance/policies'
@@ -487,40 +487,40 @@ Page({
         } catch (error) {
           console.warn('获取打卡策略失败，使用默认时间:', error);
         }
-        
+
         // 更严格地检查时间字段是否存在且有效（与H5保持一致）
-        const hasCheckin = todayAttendance && todayAttendance.checkin_time && 
-                          todayAttendance.checkin_time !== null && 
-                          todayAttendance.checkin_time !== '';
-        const hasCheckout = todayAttendance && todayAttendance.checkout_time && 
-                           todayAttendance.checkout_time !== null && 
-                           todayAttendance.checkout_time !== '';
-        
+        const hasCheckin = todayAttendance && todayAttendance.checkin_time &&
+          todayAttendance.checkin_time !== null &&
+          todayAttendance.checkin_time !== '';
+        const hasCheckout = todayAttendance && todayAttendance.checkout_time &&
+          todayAttendance.checkout_time !== null &&
+          todayAttendance.checkout_time !== '';
+
         // 判断是否在打卡时间内
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
         const currentTime = currentHour * 60 + currentMinute; // 转换为分钟数
-        
+
         // 解析打卡时间范围
         const parseTime = (timeStr) => {
           const [h, m] = timeStr.split(':').map(Number);
           return h * 60 + m;
         };
-        
+
         const checkinStart = parseTime(checkinStartTime);
         const checkinEnd = parseTime(checkinEndTime);
         const checkoutStart = parseTime(checkoutStartTime);
         const checkoutEnd = parseTime(checkoutEndTime);
-        
+
         // 判断是否在打卡时间内
         const isInCheckinTime = currentTime >= checkinStart && currentTime <= checkinEnd;
         const isInCheckoutTime = currentTime >= checkoutStart && currentTime <= checkoutEnd;
         const isInPunchTime = isInCheckinTime || isInCheckoutTime;
-        
+
         // 如果已打卡或是在打卡时间内且未打卡，显示打卡状态区域
         const showClockStatus = hasCheckin || hasCheckout || (isInPunchTime && !hasCheckin);
-        
+
         // 检查请假状态
         let leaveStatusInfo = null;
         try {
@@ -530,7 +530,7 @@ Page({
         } catch (error) {
           console.warn('获取请假状态失败:', error);
         }
-        
+
         let locationText = '';
         let locationColor = '#8E8E93';  // 默认灰色
         // 如果是调休工作日且未打卡，优先显示调休工作日提示
@@ -611,11 +611,11 @@ Page({
           locationText = `${workdayText}，已过打卡时间`;
           locationColor = '#999';  // 灰色
         }
-        
+
         // 设置按钮状态
         let checkinDisabled = false;
         let checkoutDisabled = true; // 未上班时，下班按钮禁用
-        
+
         if (!hasCheckin && !hasCheckout) {
           // 未打卡，根据打卡时间判断按钮状态
           checkinDisabled = !isInCheckinTime; // 不在签到时间内，禁用上班打卡按钮
@@ -624,10 +624,10 @@ Page({
           checkinDisabled = true; // 已打卡，禁用上班打卡按钮
           checkoutDisabled = hasCheckout; // 已下班打卡则禁用，否则可用
         }
-        
+
         // 显示状态选择器（如果未打卡且在打卡时间内）
         const showStatusSelector = !hasCheckin && isInPunchTime && !leaveStatusInfo?.full_day_leave;
-        
+
         this.setData({
           isWorkday: true,
           showClockStatus: showClockStatus,  // 根据状态显示/隐藏打卡状态区域
@@ -664,12 +664,12 @@ Page({
       });
       return;
     }
-    
+
     // 检查是否为工作日
     const workdayCheck = await this.checkWorkday();
     if (!workdayCheck.is_workday) {
-      const message = workdayCheck.holiday_name 
-        ? `今天是${workdayCheck.holiday_name}，无需打卡！` 
+      const message = workdayCheck.holiday_name
+        ? `今天是${workdayCheck.holiday_name}，无需打卡！`
         : '今天是休息日，无需打卡！';
       wx.showToast({
         title: message,
@@ -678,7 +678,7 @@ Page({
       });
       return;
     }
-    
+
     // 检查请假状态
     try {
       const leaveStatus = await app.request({
@@ -699,7 +699,7 @@ Page({
         const currentMinute = now.getMinutes();
         const currentTime = currentHour * 60 + currentMinute;
         const deadline = 14 * 60 + 10;  // 14:10
-        
+
         if (currentTime > deadline) {
           wx.showToast({
             title: '上午请假，签到时间已过（14:10后不可签到）',
@@ -724,7 +724,7 @@ Page({
       console.warn('检查请假状态失败:', error);
       // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     // 检查是否会迟到（只有在非上午请假的情况下才检查）
     try {
       const leaveStatus = await app.request({
@@ -760,16 +760,16 @@ Page({
       console.warn('检查迟到状态失败:', error);
       // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     wx.showLoading({ title: '获取位置中...' });
 
     try {
       const locationData = await this.getLocation();
-      
+
       // 获取选中的打卡状态
       const selectedStatus = this.data.checkinStatusList[this.data.checkinStatusIndex];
       locationData.checkin_status = selectedStatus ? selectedStatus.code : 'normal';
-      
+
       wx.showLoading({ title: '打卡中...' });
 
       await app.request({
@@ -788,7 +788,7 @@ Page({
       await this.loadTodayAttendance();
       await this.loadRecentAttendance();
       await this.loadPendingCount();
-      
+
       // 刷新页面以确保所有数据都是最新的
       setTimeout(() => {
         this.onShow();
@@ -824,7 +824,7 @@ Page({
       });
       return;
     }
-    
+
     // 检查请假状态
     try {
       const leaveStatus = await app.request({
@@ -842,12 +842,12 @@ Page({
       console.warn('检查请假状态失败:', error);
       // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     // 检查是否为工作日
     const workdayCheck = await this.checkWorkday();
     if (!workdayCheck.is_workday) {
-      const message = workdayCheck.holiday_name 
-        ? `今天是${workdayCheck.holiday_name}，无需打卡！` 
+      const message = workdayCheck.holiday_name
+        ? `今天是${workdayCheck.holiday_name}，无需打卡！`
         : '今天是休息日，无需打卡！';
       wx.showToast({
         title: message,
@@ -856,7 +856,7 @@ Page({
       });
       return;
     }
-    
+
     // 检查是否会早退
     try {
       const earlyLeaveCheck = await app.request({
@@ -887,12 +887,12 @@ Page({
       console.warn('检查早退状态失败:', error);
       // 如果检查失败，继续执行打卡（不影响正常流程）
     }
-    
+
     wx.showLoading({ title: '获取位置中...' });
 
     try {
       const locationData = await this.getLocation();
-      
+
       wx.showLoading({ title: '打卡中...' });
 
       await app.request({
@@ -911,7 +911,7 @@ Page({
       await this.loadTodayAttendance();
       await this.loadRecentAttendance();
       await this.loadPendingCount();
-      
+
       // 刷新页面以确保所有数据都是最新的
       setTimeout(() => {
         this.onShow();
@@ -964,10 +964,10 @@ Page({
         };
 
         const att = safeData[0];
-        
+
         const hasCheckin = !!att.checkin_time;
         const hasCheckout = !!att.checkout_time;
-        
+
         // 根据打卡状态显示相应信息
         let locationText = '';
         let locationColor = '#8E8E93';  // 默认灰色
@@ -994,7 +994,7 @@ Page({
           } catch (error) {
             console.warn('获取打卡策略失败，使用默认时间:', error);
           }
-          
+
           // 检查请假状态
           let leaveStatusInfo = null;
           try {
@@ -1004,7 +1004,7 @@ Page({
           } catch (error) {
             console.warn('获取请假状态失败:', error);
           }
-          
+
           if (leaveStatusInfo) {
             if (leaveStatusInfo.full_day_leave) {
               locationText = '今天全天请假';
@@ -1021,7 +1021,7 @@ Page({
             locationColor = '#999';  // 灰色
           }
         }
-        
+
         this.setData({
           isWorkday: isWorkday,  // 更新工作日状态
           todayAttendance: att,  // 保存今日打卡记录
@@ -1045,25 +1045,25 @@ Page({
           checkinDisabled: !isWorkday,  // 非工作日禁用
           checkoutDisabled: !isWorkday || true  // 非工作日或未上班时禁用
         });
-        
+
         // 工作日且未打卡，判断是否在打卡时间内
         if (isWorkday) {
           const now = new Date();
           const currentHour = now.getHours();
           const currentMinute = now.getMinutes();
           const currentTime = currentHour * 60 + currentMinute; // 转换为分钟数
-          
+
           // 默认打卡时间范围
           const checkinStart = 8 * 60;   // 08:00
           const checkinEnd = 10 * 60;    // 10:00
           const checkoutStart = 17 * 60; // 17:00
           const checkoutEnd = 20 * 60;   // 20:00
-          
+
           // 判断是否在打卡时间内
           const isInCheckinTime = currentTime >= checkinStart && currentTime <= checkinEnd;
           const isInCheckoutTime = currentTime >= checkoutStart && currentTime <= checkoutEnd;
           const isInPunchTime = isInCheckinTime || isInCheckoutTime;
-          
+
           // 如果不在打卡时间内，隐藏打卡状态区域，并禁用上班打卡按钮
           this.setData({
             showClockStatus: isInPunchTime,  // 只在打卡时间内显示
@@ -1081,10 +1081,22 @@ Page({
   // 加载最近考勤（只显示最新的3天）
   async loadRecentAttendance() {
     try {
-      const endDate = new Date().toISOString().split('T')[0];
-      const startDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      // 修复时区问题，使用字符串拼接
+      const now = new Date();
+      const endYear = now.getFullYear();
+      const endMonth = String(now.getMonth() + 1).padStart(2, '0');
+      const endDay = String(now.getDate()).padStart(2, '0');
+      const endDate = `${endYear}-${endMonth}-${endDay}`;
+
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const startYear = sevenDaysAgo.getFullYear();
+      const startMonth = String(sevenDaysAgo.getMonth() + 1).padStart(2, '0');
+      const startDay = String(sevenDaysAgo.getDate()).padStart(2, '0');
+      const startDate = `${startYear}-${startMonth}-${startDay}`;
+
+      // 添加include_absent参数，获取包含缺勤日期的完整列表
       const data = await app.request({
-        url: `/attendance/my?start_date=${startDate}&end_date=${endDate}&limit=10`
+        url: `/attendance/my?start_date=${startDate}&end_date=${endDate}&include_absent=true&limit=10`
       });
 
       const formatTime = (dateStr) => {
@@ -1104,7 +1116,7 @@ Page({
 
       // 确保 data 是数组
       const safeData = Array.isArray(data) ? data : [];
-      
+
       // 按日期排序（最新的在前），然后只取前3条
       const sortedData = safeData
         .filter(att => att && typeof att === 'object' && att.date)
@@ -1114,9 +1126,18 @@ Page({
           return dateB - dateA; // 降序，最新的在前
         })
         .slice(0, 3); // 只取最新的3条
-      
-      // 格式化打卡状态
-      const formatCheckinStatus = (status) => {
+
+      // 格式化打卡状态（支持缺勤和请假）
+      const formatCheckinStatus = (att) => {
+        // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+        if (!att.checkin_time && att.morning_status === 'absent') {
+          return { text: '缺勤', class: 'checkin-status-absent' };
+        }
+        // 检查是否为请假
+        if (!att.checkin_time && att.morning_status === 'leave') {
+          return { text: '请假', class: 'checkin-status-leave' };
+        }
+        const status = att.checkin_status;
         if (!status || status === 'normal') {
           return { text: '正常打卡', class: 'checkin-status-normal' };
         } else if (status === 'city_business') {
@@ -1127,8 +1148,16 @@ Page({
         return { text: '', class: '' };
       };
 
-      // 格式化签退状态
+      // 格式化签退状态（支持缺勤和请假）
       const formatCheckoutStatus = (att) => {
+        // 检查是否为缺勤记录
+        if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
+          return { text: '缺勤', class: 'checkout-status-absent' };
+        }
+        // 检查是否为请假
+        if (!att.checkout_time && att.afternoon_status === 'leave') {
+          return { text: '请假', class: 'checkout-status-leave' };
+        }
         if (!att.checkout_time) {
           return { text: '未签退', class: 'checkout-status-absent' };
         } else if (att.is_early_leave) {
@@ -1140,8 +1169,10 @@ Page({
 
       const recentAttendance = sortedData.map(att => {
         const date = new Date(att.date);
-        const statusInfo = formatCheckinStatus(att.checkin_status);
+        const statusInfo = formatCheckinStatus(att);
         const checkoutStatusInfo = formatCheckoutStatus(att);
+        // 判断是否为缺勤或请假记录
+        const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
         return {
           id: att.id,
           day: date.getDate(),
@@ -1152,10 +1183,12 @@ Page({
           isEarlyLeave: att.is_early_leave,
           checkinLocation: att.checkin_location || null,
           checkoutLocation: att.checkout_location || null,
-          checkinStatusText: att.checkin_time ? statusInfo.text : '',
-          checkinStatusClass: att.checkin_time ? statusInfo.class : '',
+          // 对于缺勤和请假记录，始终显示状态
+          checkinStatusText: (att.checkin_time || isAbsentOrLeave) ? statusInfo.text : '',
+          checkinStatusClass: (att.checkin_time || isAbsentOrLeave) ? statusInfo.class : '',
           checkoutStatusText: checkoutStatusInfo.text,
-          checkoutStatusClass: checkoutStatusInfo.class
+          checkoutStatusClass: checkoutStatusInfo.class,
+          isAbsent: isAbsentOrLeave
         };
       });
 
@@ -1173,17 +1206,17 @@ Page({
         app.request({ url: '/leave/my' }).catch(() => []),
         app.request({ url: '/overtime/my' }).catch(() => [])
       ]);
-      
+
       // 统计未完成的请假申请（pending, dept_approved, vp_approved）
-      const leavePendingCount = Array.isArray(leaves) 
-        ? leaves.filter(leave => ['pending', 'dept_approved', 'vp_approved'].includes(leave.status)).length 
+      const leavePendingCount = Array.isArray(leaves)
+        ? leaves.filter(leave => ['pending', 'dept_approved', 'vp_approved'].includes(leave.status)).length
         : 0;
-      
+
       // 统计未完成的加班申请（pending）
       const overtimePendingCount = Array.isArray(overtimes)
         ? overtimes.filter(ot => ot.status === 'pending').length
         : 0;
-      
+
       this.setData({
         leavePendingCount: leavePendingCount,
         overtimePendingCount: overtimePendingCount
@@ -1202,13 +1235,13 @@ Page({
     if (!this.data.hasApprovalPermission) {
       return;
     }
-    
+
     try {
       const [leaves, overtimes] = await Promise.all([
         app.request({ url: '/leave/pending' }),
         app.request({ url: '/overtime/pending' })
       ]);
-      
+
       const leaveCount = Array.isArray(leaves) ? leaves.length : 0;
       const overtimeCount = Array.isArray(overtimes) ? overtimes.length : 0;
       const count = leaveCount + overtimeCount;
