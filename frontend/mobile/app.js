@@ -2145,13 +2145,17 @@ async function loadRecentAttendance() {
 
         // 格式化打卡状态
         const formatCheckinStatus = (att) => {
-            // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+            // 检查是否为缺勤记录（后台已标记为absent）
             if (!att.checkin_time && att.morning_status === 'absent') {
                 return { text: '缺勤', class: 'checkin-status-absent' };
             }
             // 检查是否为请假
             if (!att.checkin_time && att.morning_status === 'leave') {
                 return { text: '请假', class: 'checkin-status-leave' };
+            }
+            // 未签到（后台未标记为缺勤）
+            if (!att.checkin_time) {
+                return { text: '未签到', class: 'checkin-status-absent' };
             }
             const status = att.checkin_status;
             if (!status || status === 'normal') {
@@ -2166,7 +2170,7 @@ async function loadRecentAttendance() {
 
         // 格式化签退状态
         const formatCheckoutStatus = (att) => {
-            // 检查是否为缺勤记录
+            // 检查是否为缺勤记录（后台已标记为absent）
             if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
                 return { text: '缺勤', class: 'checkout-status-absent' };
             }
@@ -2174,6 +2178,7 @@ async function loadRecentAttendance() {
             if (!att.checkout_time && att.afternoon_status === 'leave') {
                 return { text: '请假', class: 'checkout-status-leave' };
             }
+            // 未签退（后台未标记为缺勤）
             if (!att.checkout_time) {
                 return { text: '未签退', class: 'checkout-status-absent' };
             } else if (att.is_early_leave) {
@@ -2186,15 +2191,16 @@ async function loadRecentAttendance() {
         container.innerHTML = attendances.map(att => {
             const date = new Date(att.date);
             const statusInfo = formatCheckinStatus(att);
-            // 对于缺勤和请假记录，始终显示状态标签
+            // 对于缺勤、请假和未签到记录，始终显示状态标签
             const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
-            const statusBadge = (att.checkin_time && statusInfo.text) || isAbsentOrLeave
+            const isNotCheckedIn = !att.checkin_time && att.morning_status !== 'absent' && att.morning_status !== 'leave';
+            const statusBadge = (att.checkin_time && statusInfo.text) || isAbsentOrLeave || isNotCheckedIn
                 ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>`
                 : '';
             const checkoutStatusInfo = formatCheckoutStatus(att);
             const checkoutStatusBadge = `<span class="checkout-status-badge ${checkoutStatusInfo.class}">${checkoutStatusInfo.text}</span>`;
             return `
-                <div class="attendance-item${isAbsentOrLeave ? ' attendance-absent' : ''}">
+                <div class="attendance-item${isAbsentOrLeave ? ' attendance-absent' : ''}${isNotCheckedIn ? ' attendance-not-checked' : ''}">
                     <div class="attendance-date">
                         <div class="attendance-day">${date.getDate()}</div>
                         <div class="attendance-month">${date.getMonth() + 1}月</div>
@@ -2327,13 +2333,17 @@ async function loadAttendanceByMonth() {
 
         // 格式化打卡状态
         const formatCheckinStatus = (att) => {
-            // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+            // 检查是否为缺勤记录（后台已标记为absent）
             if (!att.checkin_time && att.morning_status === 'absent') {
                 return { text: '缺勤', class: 'checkin-status-absent' };
             }
             // 检查是否为请假
             if (!att.checkin_time && att.morning_status === 'leave') {
                 return { text: '请假', class: 'checkin-status-leave' };
+            }
+            // 未签到（后台未标记为缺勤）
+            if (!att.checkin_time) {
+                return { text: '未签到', class: 'checkin-status-absent' };
             }
             const status = att.checkin_status;
             if (!status || status === 'normal') {
@@ -2348,7 +2358,7 @@ async function loadAttendanceByMonth() {
 
         // 格式化签退状态
         const formatCheckoutStatus = (att) => {
-            // 检查是否为缺勤记录
+            // 检查是否为缺勤记录（后台已标记为absent）
             if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
                 return { text: '缺勤', class: 'checkout-status-absent' };
             }
@@ -2356,6 +2366,7 @@ async function loadAttendanceByMonth() {
             if (!att.checkout_time && att.afternoon_status === 'leave') {
                 return { text: '请假', class: 'checkout-status-leave' };
             }
+            // 未签退（后台未标记为缺勤）
             if (!att.checkout_time) {
                 return { text: '未签退', class: 'checkout-status-absent' };
             } else if (att.is_early_leave) {
@@ -2367,15 +2378,16 @@ async function loadAttendanceByMonth() {
 
         container.innerHTML = attendances.map(att => {
             const statusInfo = formatCheckinStatus(att);
-            // 对于缺勤和请假记录，始终显示状态标签
+            // 对于缺勤、请假和未签到记录，始终显示状态标签
             const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
-            const statusBadge = (att.checkin_time && statusInfo.text) || isAbsentOrLeave
+            const isNotCheckedIn = !att.checkin_time && att.morning_status !== 'absent' && att.morning_status !== 'leave';
+            const statusBadge = (att.checkin_time && statusInfo.text) || isAbsentOrLeave || isNotCheckedIn
                 ? `<span class="checkin-status-badge ${statusInfo.class}">${statusInfo.text}</span>`
                 : '';
             const checkoutStatusInfo = formatCheckoutStatus(att);
             const checkoutStatusBadge = `<span class="checkout-status-badge ${checkoutStatusInfo.class}">${checkoutStatusInfo.text}</span>`;
             return `
-            <div class="list-item${isAbsentOrLeave ? ' list-item-absent' : ''}">
+            <div class="list-item${isAbsentOrLeave ? ' list-item-absent' : ''}${isNotCheckedIn ? ' list-item-not-checked' : ''}">
                 <div class="list-item-header">
                     <span class="list-item-title">${formatDate(att.date)}</span>
                     ${att.work_hours ? `<span>${att.work_hours.toFixed(1)}小时</span>` : ''}

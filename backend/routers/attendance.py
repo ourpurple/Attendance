@@ -775,7 +775,7 @@ def get_my_attendance(
         absent_records = []
         
         while current_date <= end_date:
-            # 只处理今天及之前的日期，跳过未来日期
+            # 跳过未来日期
             if current_date > today:
                 current_date += timedelta(days=1)
                 continue
@@ -792,7 +792,10 @@ def get_my_attendance(
                     current_date += timedelta(days=1)
                     continue
                 
-                # 创建虚拟的缺勤记录
+                # 判断是否为今天：今天未打卡显示"未签到"，之前的日期显示"缺勤"
+                is_today = current_date == today
+                
+                # 创建虚拟记录（今天为未签到，之前为缺勤）
                 absent_record = Attendance(
                     id=0,  # 虚拟ID
                     user_id=current_user.id,
@@ -809,8 +812,9 @@ def get_my_attendance(
                     is_early_leave=False,
                     work_hours=None,
                     checkin_status=None,
-                    morning_status=AttendanceStatus.LEAVE.value if leave_info['morning_leave'] else AttendanceStatus.ABSENT.value,
-                    afternoon_status=AttendanceStatus.LEAVE.value if leave_info['afternoon_leave'] else AttendanceStatus.ABSENT.value,
+                    # 今天：morning_status为None（前端显示"未签到"），之前的日期：标记为absent（前端显示"缺勤"）
+                    morning_status=AttendanceStatus.LEAVE.value if leave_info['morning_leave'] else (None if is_today else AttendanceStatus.ABSENT.value),
+                    afternoon_status=AttendanceStatus.LEAVE.value if leave_info['afternoon_leave'] else (None if is_today else AttendanceStatus.ABSENT.value),
                     morning_leave=leave_info['morning_leave'],
                     afternoon_leave=leave_info['afternoon_leave'],
                     created_at=datetime.now()

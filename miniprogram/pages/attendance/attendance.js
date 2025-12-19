@@ -88,13 +88,17 @@ Page({
 
       // 格式化打卡状态（支持缺勤和请假）
       const formatCheckinStatus = (att) => {
-        // 检查是否为缺勤记录（没有打卡时间且上午状态为absent）
+        // 检查是否为缺勤记录（后台已标记为absent）
         if (!att.checkin_time && att.morning_status === 'absent') {
           return { text: '缺勤', class: 'checkin-status-absent' };
         }
         // 检查是否为请假
         if (!att.checkin_time && att.morning_status === 'leave') {
           return { text: '请假', class: 'checkin-status-leave' };
+        }
+        // 未签到（后台未标记为缺勤）
+        if (!att.checkin_time) {
+          return { text: '未签到', class: 'checkin-status-absent' };
         }
         const status = att.checkin_status;
         if (!status || status === 'normal') {
@@ -109,7 +113,7 @@ Page({
 
       // 格式化签退状态（支持缺勤和请假）
       const formatCheckoutStatus = (att) => {
-        // 检查是否为缺勤记录
+        // 检查是否为缺勤记录（后台已标记为absent）
         if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
           return { text: '缺勤', class: 'checkout-status-absent' };
         }
@@ -117,6 +121,7 @@ Page({
         if (!att.checkout_time && att.afternoon_status === 'leave') {
           return { text: '请假', class: 'checkout-status-leave' };
         }
+        // 未签退（后台未标记为缺勤）
         if (!att.checkout_time) {
           return { text: '未签退', class: 'checkout-status-absent' };
         } else if (att.is_early_leave) {
@@ -133,8 +138,10 @@ Page({
         }
         const statusInfo = formatCheckinStatus(att);
         const checkoutStatusInfo = formatCheckoutStatus(att);
-        // 判断是否为缺勤或请假记录
+        // 判断是否为缺勤或请假记录（后台已标记）
         const isAbsentOrLeave = !att.checkin_time && (att.morning_status === 'absent' || att.morning_status === 'leave');
+        // 判断是否为未签到记录（后台未标记为缺勤）
+        const isNotCheckedIn = !att.checkin_time && att.morning_status !== 'absent' && att.morning_status !== 'leave';
         return {
           id: att.id,
           date: formatDate(att.date),
@@ -145,12 +152,13 @@ Page({
           isEarlyLeave: att.is_early_leave,
           checkinLocation: att.checkin_location || null,
           checkoutLocation: att.checkout_location || null,
-          // 对于缺勤和请假记录，始终显示状态
-          checkinStatusText: (att.checkin_time || isAbsentOrLeave) ? statusInfo.text : '',
-          checkinStatusClass: (att.checkin_time || isAbsentOrLeave) ? statusInfo.class : '',
+          // 对于缺勤、请假和未签到记录，始终显示状态
+          checkinStatusText: (att.checkin_time || isAbsentOrLeave || isNotCheckedIn) ? statusInfo.text : '',
+          checkinStatusClass: (att.checkin_time || isAbsentOrLeave || isNotCheckedIn) ? statusInfo.class : '',
           checkoutStatusText: checkoutStatusInfo.text,
           checkoutStatusClass: checkoutStatusInfo.class,
-          isAbsent: isAbsentOrLeave
+          isAbsent: isAbsentOrLeave,
+          isNotCheckedIn: isNotCheckedIn
         };
       }).filter(item => item !== null);
 
