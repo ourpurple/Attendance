@@ -1252,15 +1252,9 @@ def get_attendance_overview(
             "start": format_datetime_for_frontend(start),
             "end": format_datetime_for_frontend(end)
         }
-        # 计算天数时仍使用日期部分
-        start_date = start.date() if isinstance(start, datetime) else start
-        end_date = end.date() if isinstance(end, datetime) else end
-        if start_date == end_date:
-            leave_dict[leave.user_id] += leave.days
-        elif start_date == target_date or end_date == target_date:
-            leave_dict[leave.user_id] += 0.5
-        elif start_date < target_date < end_date:
-            leave_dict[leave.user_id] += 1.0
+        # 使用请假记录的总天数，而不是当天占用的天数
+        # 这样前端显示"请假中"时，能看到完整的请假时长
+        leave_dict[leave.user_id] = leave.days
     
     # 获取目标日期的加班记录（已批准的，只查询已过滤用户的记录）
     if user_ids:
