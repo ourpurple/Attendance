@@ -185,17 +185,25 @@ def get_leave_period_for_date(user_id: int, target_date: date, db: Session) -> D
             else:  # 中午开始
                 result['afternoon_leave'] = True
         elif start_date_only == target_date:
-            # 请假开始日期是目标日期
+            # 请假开始日期是目标日期（跨天请假的第一天）
             if start_time.hour < 12:
+                # 从上午开始请假，且跨天，则当天全天请假
                 result['morning_leave'] = True
+                result['afternoon_leave'] = True
+                result['full_day_leave'] = True
             else:
+                # 从下午开始请假
                 result['afternoon_leave'] = True
         elif end_date_only == target_date:
-            # 请假结束日期是目标日期
-            if end_time.hour < 14:
+            # 请假结束日期是目标日期（跨天请假的最后一天）
+            if end_time.hour >= 14:
+                # 请假到下午结束，则当天全天请假
                 result['morning_leave'] = True
-            else:
                 result['afternoon_leave'] = True
+                result['full_day_leave'] = True
+            else:
+                # 请假到上午结束（12点前）
+                result['morning_leave'] = True
     
     # 如果上午和下午都请假，则全天请假
     if result['morning_leave'] and result['afternoon_leave']:
