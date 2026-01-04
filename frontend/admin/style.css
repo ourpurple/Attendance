@@ -1472,6 +1472,10 @@ tr:hover {
     padding: 10px;
     font-size: 13px;
     transition: all 0.2s;
+    min-width: 70px;
+    width: 70px;
+    max-width: 70px;
+    white-space: nowrap;
 }
 
 /* 正常状态 - 绿色背景 */
