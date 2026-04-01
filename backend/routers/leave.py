@@ -180,6 +180,48 @@ def create_leave_application(
         if not leave.assigned_gm_id:
             leave.assigned_gm_id = current_user.id
     
+
+    # Auto-approve when applicant and current approver are the same person.
+    first_approver = None
+    if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+        if current_user.department_id:
+            dept = db.query(Department).filter(Department.id == current_user.department_id).first()
+            if dept and dept.head_id:
+                first_approver = db.query(User).filter(
+                    User.id == dept.head_id,
+                    User.is_active == True
+                ).first()
+            if not first_approver:
+                first_approver = db.query(User).filter(
+                    User.department_id == current_user.department_id,
+                    User.role == UserRole.DEPARTMENT_HEAD,
+                    User.is_active == True
+                ).first()
+    elif current_user.role == UserRole.VICE_PRESIDENT:
+        if leave.assigned_vp_id:
+            first_approver = db.query(User).filter(User.id == leave.assigned_vp_id).first()
+    elif current_user.role == UserRole.GENERAL_MANAGER:
+        if leave.assigned_gm_id:
+            first_approver = db.query(User).filter(User.id == leave.assigned_gm_id).first()
+
+    if first_approver and first_approver.id == current_user.id:
+        now = datetime.now()
+        auto_approve_comment = '系统自动审批（申请人与审批人相同）'
+        if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD]:
+            leave.dept_approver_id = current_user.id
+            leave.dept_approved_at = now
+            leave.dept_comment = auto_approve_comment
+            leave.status = LeaveStatus.APPROVED if leave.days <= 1 else LeaveStatus.DEPT_APPROVED
+        elif current_user.role == UserRole.VICE_PRESIDENT:
+            leave.vp_approver_id = current_user.id
+            leave.vp_approved_at = now
+            leave.vp_comment = auto_approve_comment
+            leave.status = LeaveStatus.APPROVED if leave.days <= 3 else LeaveStatus.VP_APPROVED
+        elif current_user.role == UserRole.GENERAL_MANAGER:
+            leave.gm_approver_id = current_user.id
+            leave.gm_approved_at = now
+            leave.gm_comment = auto_approve_comment
+            leave.status = LeaveStatus.APPROVED
     db.add(leave)
     db.commit()
     db.refresh(leave)
@@ -216,9 +258,17 @@ def create_leave_application(
             if leave.assigned_gm_id:
                 first_approver = db.query(User).filter(User.id == leave.assigned_gm_id).first()
         
-        if first_approver and first_approver.wechat_openid:
+        next_approver = None
+        if leave.status == LeaveStatus.PENDING:
+            next_approver = first_approver
+        elif leave.status == LeaveStatus.DEPT_APPROVED and leave.assigned_vp_id:
+            next_approver = db.query(User).filter(User.id == leave.assigned_vp_id).first()
+        elif leave.status == LeaveStatus.VP_APPROVED and leave.assigned_gm_id:
+            next_approver = db.query(User).filter(User.id == leave.assigned_gm_id).first()
+
+        if next_approver and next_approver.id != current_user.id and next_approver.wechat_openid:
             send_approval_notification(
-                approver_openid=first_approver.wechat_openid,
+                approver_openid=next_approver.wechat_openid,
                 application_type="leave",
                 application_id=leave.id,
                 applicant_name=current_user.real_name,

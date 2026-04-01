@@ -114,15 +114,29 @@ def create_overtime_application(
         # 这里保持pending状态，由审批接口处理
         pass
     
+
+    # Auto-approve when applicant and current approver are the same person.
+    first_approver = None
+    if current_user.role in [UserRole.EMPLOYEE, UserRole.DEPARTMENT_HEAD, UserRole.VICE_PRESIDENT]:
+        if overtime.assigned_approver_id:
+            first_approver = db.query(User).filter(User.id == overtime.assigned_approver_id).first()
+    elif current_user.role == UserRole.GENERAL_MANAGER:
+        first_approver = current_user
+
+    if first_approver and first_approver.id == current_user.id:
+        overtime.approver_id = current_user.id
+        overtime.approved_at = datetime.now()
+        overtime.comment = 'System auto-approved: applicant is the current approver'
+        overtime.status = OvertimeStatus.APPROVED
     db.add(overtime)
     db.commit()
     db.refresh(overtime)
     
     # 发送审批提醒消息给审批人
     try:
-        if overtime.assigned_approver_id:
+        if overtime.status == OvertimeStatus.PENDING and overtime.assigned_approver_id:
             approver = db.query(User).filter(User.id == overtime.assigned_approver_id).first()
-            if approver and approver.wechat_openid:
+            if approver and approver.id != current_user.id and approver.wechat_openid:
                 send_approval_notification(
                     approver_openid=approver.wechat_openid,
                     application_type="overtime",
