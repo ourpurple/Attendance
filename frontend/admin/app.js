@@ -401,6 +401,21 @@ function parseLocation(locationStr) {
 }
 
 // 异步加载地址信息
+// Attendance table column indexes for async address backfill.
+const ATTENDANCE_TABLE_COL_INDEX = Object.freeze({
+    DATE: 0,
+    USER: 1,
+    CHECKIN_TIME: 2,
+    CHECKIN_STATUS: 3,
+    CHECKIN_LOCATION: 4,
+    CHECKOUT_TIME: 5,
+    CHECKOUT_LOCATION: 6,
+    WORK_HOURS: 7,
+    IS_LATE: 8,
+    IS_EARLY_LEAVE: 9,
+    ACTIONS: 10
+});
+
 async function loadAddressesAsync(attendances) {
     // 收集所有需要转换的坐标
     const locationsToConvert = [];
@@ -467,12 +482,12 @@ async function loadAddressesAsync(attendances) {
                     positions.forEach(({ type, index }) => {
                         if (rows[index]) {
                             const cells = rows[index].querySelectorAll('td');
-                            if (type === 'checkin' && cells[3]) {
-                                cells[3].textContent = address;
-                                cells[3].style.color = '#333';
-                            } else if (type === 'checkout' && cells[5]) {
-                                cells[5].textContent = address;
-                                cells[5].style.color = '#333';
+                            if (type === 'checkin' && cells[ATTENDANCE_TABLE_COL_INDEX.CHECKIN_LOCATION]) {
+                                cells[ATTENDANCE_TABLE_COL_INDEX.CHECKIN_LOCATION].textContent = address;
+                                cells[ATTENDANCE_TABLE_COL_INDEX.CHECKIN_LOCATION].style.color = '#333';
+                            } else if (type === 'checkout' && cells[ATTENDANCE_TABLE_COL_INDEX.CHECKOUT_LOCATION]) {
+                                cells[ATTENDANCE_TABLE_COL_INDEX.CHECKOUT_LOCATION].textContent = address;
+                                cells[ATTENDANCE_TABLE_COL_INDEX.CHECKOUT_LOCATION].style.color = '#333';
                             }
                         }
                     });
