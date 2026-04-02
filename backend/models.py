@@ -110,6 +110,7 @@ class AttendanceStatus(str, enum.Enum):
     NORMAL = "normal"  # 正常签到
     CITY_BUSINESS = "city_business"  # 市区办事
     BUSINESS_TRIP = "business_trip"  # 出差
+    OVERTIME_PUNCH = "overtime_punch"  # 非工作日加班打卡
     LEAVE = "leave"  # 请假
     ABSENT = "absent"  # 缺勤
 
@@ -299,5 +300,6 @@ class CheckinStatusConfig(Base):
     sort_order = Column(Integer, default=0, comment="排序顺序")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
 
 

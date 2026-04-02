@@ -333,3 +333,8 @@
 
 
 
+
+.checkin-status-overtime {
+  background: #FF9500;
+  color: #ffffff;
+}

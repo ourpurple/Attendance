@@ -870,6 +870,11 @@ tr:hover {
     background: #007AFF;
     color: #ffffff;
 }
+.checkin-status-overtime {
+    background: #ff9500;
+    color: #ffffff;
+}
+
 
 /* 操作按钮组 */
 .action-buttons {
@@ -1528,4 +1533,10 @@ tr:hover {
     width: 80px;
     max-width: 80px;
     min-width: 80px;
+}
+/* 加班打卡 - 橙色背景 */
+.status-cell.status-overtime {
+    background-color: #fff3e0;
+    color: #e65100;
+    font-weight: 500;
 }

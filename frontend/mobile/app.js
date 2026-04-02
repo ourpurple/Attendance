@@ -1214,6 +1214,72 @@ async function getCurrentLocation(retryCount = 0) {
 }
 
 // 上班打卡
+// non-workday overtime punch
+async function overtimePunch() {
+    const btn = document.getElementById('overtime-punch-btn');
+    if (!btn) return;
+
+    const workdayCheck = await checkWorkday();
+    if (workdayCheck.is_workday) {
+        await showToast('工作日请使用正常打卡按钮', 'warning');
+        return;
+    }
+
+    let todayAttendance = null;
+    try {
+        const today = getCSTDate();
+        const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}&limit=10`);
+        if (attendances && attendances.length > 0) {
+            for (const att of attendances) {
+                if (att.date && typeof att.date === 'string' && att.date.split('T')[0] === today) {
+                    todayAttendance = att;
+                    break;
+                }
+            }
+        }
+    } catch (error) {
+        console.warn('获取当日打卡状态失败:', error);
+    }
+
+    const hasCheckin = !!(todayAttendance && todayAttendance.checkin_time);
+    const hasCheckout = !!(todayAttendance && todayAttendance.checkout_time);
+
+    if (hasCheckin && hasCheckout) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>OT</span><span>加班打卡已完成</span>';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span>OT</span><span>定位中...</span>';
+
+    try {
+        const locationData = await getCurrentLocation();
+        locationData.is_overtime_punch = true;
+
+        if (!hasCheckin) {
+            locationData.checkin_status = 'normal';
+            await apiRequest('/attendance/checkin', {
+                method: 'POST',
+                body: JSON.stringify(locationData)
+            });
+        } else {
+            await apiRequest('/attendance/checkout', {
+                method: 'POST',
+                body: JSON.stringify(locationData)
+            });
+        }
+
+        await loadHomeData();
+    } catch (error) {
+        await showToast('加班打卡失败: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = hasCheckin
+            ? '<span>OT</span><span>加班下班打卡</span>'
+            : '<span>OT</span><span>加班上班打卡</span>';
+    }
+}
+
 async function checkin() {
     const btn = document.getElementById('checkin-btn');
 
@@ -1316,6 +1382,7 @@ async function checkin() {
         const locationData = await getCurrentLocation();
         // 添加打卡状态
         locationData.checkin_status = checkinStatus;
+        locationData.is_overtime_punch = false;
 
         const result = await apiRequest('/attendance/checkin', {
             method: 'POST',
@@ -1408,6 +1475,7 @@ async function checkout() {
         await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
 
         const locationData = await getCurrentLocation();
+        locationData.is_overtime_punch = false;
 
         const result = await apiRequest('/attendance/checkout', {
             method: 'POST',
@@ -1496,6 +1564,7 @@ function localWorkdayCheck(dateStr) {
 async function checkAndSetAttendanceButtons() {
     const checkinBtn = document.getElementById('checkin-btn');
     const checkoutBtn = document.getElementById('checkout-btn');
+    const overtimePunchBtn = document.getElementById('overtime-punch-btn');
     const clockLocation = document.getElementById('clock-location');
     const clockStatus = document.getElementById('clock-status'); // 打卡状态区域（红框区域）
 
@@ -1545,7 +1614,7 @@ async function checkAndSetAttendanceButtons() {
     }
 
     // 检查今天是否为工作日
-    const workdayCheck = await checkWorkday();
+    let workdayCheck = await checkWorkday();
 
     // 确保 workdayCheck 存在且 is_workday 是布尔值
     if (!workdayCheck || workdayCheck.is_workday === undefined) {
@@ -1556,41 +1625,65 @@ async function checkAndSetAttendanceButtons() {
     }
 
     if (!workdayCheck.is_workday) {
-        // 非工作日，隐藏打卡状态区域
+        const hasCheckin = !!(todayAttendance && todayAttendance.checkin_time);
+        const hasCheckout = !!(todayAttendance && todayAttendance.checkout_time);
+
         if (clockStatus) {
-            clockStatus.style.display = 'none';
+            clockStatus.style.display = 'flex';
         }
 
-        // 禁用打卡按钮
-        checkinBtn.disabled = true;
-        checkoutBtn.disabled = true;
-        checkinBtn.style.opacity = '0.5';
-        checkoutBtn.style.opacity = '0.5';
-        checkinBtn.style.cursor = 'not-allowed';
-        checkoutBtn.style.cursor = 'not-allowed';
+        if (checkinBtn) {
+            checkinBtn.style.display = 'none';
+        }
+        if (checkoutBtn) {
+            checkoutBtn.style.display = 'none';
+        }
 
-        // 显示提示信息：休息日（详细说明原因）
+        if (overtimePunchBtn) {
+            overtimePunchBtn.style.display = 'inline-flex';
+            overtimePunchBtn.style.opacity = '1';
+            overtimePunchBtn.style.cursor = 'pointer';
+            overtimePunchBtn.title = '';
+
+            if (hasCheckin && hasCheckout) {
+                overtimePunchBtn.disabled = true;
+                overtimePunchBtn.innerHTML = '<span>OT</span><span>加班打卡已完成</span>';
+            } else if (hasCheckin) {
+                overtimePunchBtn.disabled = false;
+                overtimePunchBtn.innerHTML = '<span>OT</span><span>加班下班打卡</span>';
+            } else {
+                overtimePunchBtn.disabled = false;
+                overtimePunchBtn.innerHTML = '<span>OT</span><span>加班上班打卡</span>';
+            }
+        }
+
+        const statusSelector = document.getElementById('checkin-status-selector');
+        if (statusSelector) {
+            statusSelector.style.display = 'none';
+        }
+
         if (clockLocation) {
-            let reasonText = '';
             const reason = workdayCheck.reason || '休息日';
             const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
-
-            if (reason === '周末') {
-                reasonText = `今日${reason}，无需打卡`;
-            } else if (reason === '公司节假日') {
-                reasonText = `今日公司节假日${holidayName}，无需打卡`;
-            } else if (reason === '法定节假日') {
-                reasonText = `今日法定节假日${holidayName}，无需打卡`;
-            } else {
-                reasonText = `今日${reason}，无需打卡${holidayName}`;
-            }
-
-            clockLocation.textContent = reasonText;
+            clockLocation.textContent = `今日${reason}${holidayName}，可使用加班打卡`;
             clockLocation.style.color = '#ff9500';
             clockLocation.style.fontWeight = 'bold';
             clockLocation.style.display = 'block';
         }
+
+        return;
     } else {
+        if (checkinBtn) {
+            checkinBtn.style.display = '';
+        }
+        if (checkoutBtn) {
+            checkoutBtn.style.display = '';
+        }
+        if (overtimePunchBtn) {
+            overtimePunchBtn.style.display = 'none';
+            overtimePunchBtn.disabled = false;
+            overtimePunchBtn.innerHTML = '<span>OT</span><span>Overtime Punch</span>';
+        }
         // 工作日（包括调休工作日）
         // 如果是调休工作日，特别显示
         if (clockLocation && workdayCheck.reason === '调休工作日') {

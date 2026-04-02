@@ -151,9 +151,10 @@ Page({
       if (statuses && statuses.length > 0) {
         // 过滤掉id为0的默认虚拟数据
         const realStatuses = statuses.filter(s => s.id !== 0);
-        if (realStatuses.length > 0) {
+        const selectableStatuses = realStatuses.filter(s => s.code !== 'overtime_punch');
+        if (selectableStatuses.length > 0) {
           this.setData({
-            checkinStatusList: realStatuses.map(s => ({
+            checkinStatusList: selectableStatuses.map(s => ({
               name: s.name,
               code: s.code
             })),
@@ -438,28 +439,33 @@ Page({
       }
 
       if (!workdayCheck.is_workday) {
-        // 非工作日，隐藏打卡状态区域，禁用打卡按钮
-        let reasonText = '';
+        // 非工作日允许加班打卡
         const reason = workdayCheck.reason || '休息日';
         const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
 
-        if (reason === '周末') {
-          reasonText = `今日${reason}，无需打卡`;
-        } else if (reason === '公司节假日') {
-          reasonText = `今日公司节假日${holidayName}，无需打卡`;
-        } else if (reason === '法定节假日') {
-          reasonText = `今日法定节假日${holidayName}，无需打卡`;
-        } else {
-          reasonText = `今日${reason}，无需打卡${holidayName}`;
+        const hasCheckin = todayAttendance && !!todayAttendance.checkin_time;
+        const hasCheckout = todayAttendance && !!todayAttendance.checkout_time;
+
+        let reasonText = `今日${reason}${holidayName}，可进行加班打卡`;
+        let locationColor = '#ff9500';
+
+        if (hasCheckin && hasCheckout) {
+          reasonText = '今日加班打卡已完成';
+          locationColor = '#34c759';
+        } else if (hasCheckin && !hasCheckout) {
+          reasonText = '已完成加班上班打卡，请完成下班打卡';
+          locationColor = '#007aff';
         }
 
         this.setData({
           isWorkday: false,
-          showClockStatus: false,  // 隐藏打卡状态区域
-          checkinDisabled: true,
-          checkoutDisabled: true,
+          showClockStatus: hasCheckin || hasCheckout,
+          checkinDisabled: hasCheckin,
+          checkoutDisabled: !hasCheckin || hasCheckout,
+          showStatusSelector: false,
+          todayAttendance: todayAttendance,
           location: reasonText,
-          locationColor: '#ff9500'  // 橙色（与H5保持一致）
+          locationColor: locationColor
         });
       } else {
         // 工作日（包括调休工作日）- 获取打卡策略时间范围
@@ -655,7 +661,6 @@ Page({
       return;
     }
 
-    // 如果按钮已禁用（已打卡），直接返回
     if (this.data.checkinDisabled) {
       wx.showToast({
         title: '今天已经打过上班卡',
@@ -665,21 +670,25 @@ Page({
       return;
     }
 
-    // 检查是否为工作日
+    // 检查是否为工作日（非工作日允许加班打卡）
     const workdayCheck = await this.checkWorkday();
-    if (!workdayCheck.is_workday) {
-      const message = workdayCheck.holiday_name
-        ? `今天是${workdayCheck.holiday_name}，无需打卡！`
-        : '今天是休息日，无需打卡！';
-      wx.showToast({
-        title: message,
-        icon: 'none',
-        duration: 2000
+    const isOvertimePunch = !workdayCheck.is_workday;
+
+    if (isOvertimePunch) {
+      const reason = workdayCheck.reason || '休息日';
+      const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
+      const confirmResult = await wx.showModal({
+        title: '加班打卡确认',
+        content: `今日${reason}${holidayName}，本次将记录为加班打卡。\n\n确定继续吗？`,
+        confirmText: '确定',
+        cancelText: '取消',
+        confirmColor: '#ff9500'
       });
-      return;
+      if (!confirmResult.confirm) {
+        return;
+      }
     }
 
-    // 检查请假状态
     try {
       const leaveStatus = await app.request({
         url: '/attendance/leave-status'
@@ -693,12 +702,11 @@ Page({
         return;
       }
       if (leaveStatus.morning_leave) {
-        // 检查是否在14:10前
         const now = new Date();
         const currentHour = now.getHours();
         const currentMinute = now.getMinutes();
         const currentTime = currentHour * 60 + currentMinute;
-        const deadline = 14 * 60 + 10;  // 14:10
+        const deadline = 14 * 60 + 10;
 
         if (currentTime > deadline) {
           wx.showToast({
@@ -708,7 +716,6 @@ Page({
           });
           return;
         }
-        // 在14:10前，显示确认对话框
         const res = await wx.showModal({
           title: '提示',
           content: '您今天上午请假，可以在14:10前签到。\n\n确定要继续打卡吗？',
@@ -717,15 +724,13 @@ Page({
           confirmColor: '#ff9500'
         });
         if (!res.confirm) {
-          return;  // 用户取消，不执行打卡
+          return;
         }
       }
     } catch (error) {
       console.warn('检查请假状态失败:', error);
-      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
 
-    // 检查是否会迟到（只有在非上午请假的情况下才检查）
     try {
       const leaveStatus = await app.request({
         url: '/attendance/leave-status'
@@ -735,7 +740,6 @@ Page({
           url: '/attendance/check-late'
         });
         if (lateCheck.will_be_late) {
-          // 手动格式化时间，避免安卓微信显示时区信息
           let currentTime = lateCheck.current_time;
           if (!currentTime) {
             const now = new Date();
@@ -752,13 +756,12 @@ Page({
             confirmColor: '#ff9500'
           });
           if (!res.confirm) {
-            return;  // 用户取消，不执行打卡
+            return;
           }
         }
       }
     } catch (error) {
       console.warn('检查迟到状态失败:', error);
-      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
 
     wx.showLoading({ title: '获取位置中...' });
@@ -766,9 +769,9 @@ Page({
     try {
       const locationData = await this.getLocation();
 
-      // 获取选中的打卡状态
       const selectedStatus = this.data.checkinStatusList[this.data.checkinStatusIndex];
       locationData.checkin_status = selectedStatus ? selectedStatus.code : 'normal';
+      locationData.is_overtime_punch = !workdayCheck.is_workday;
 
       wx.showLoading({ title: '打卡中...' });
 
@@ -784,12 +787,10 @@ Page({
         duration: 2000
       });
 
-      // 重新加载页面数据
       await this.loadTodayAttendance();
       await this.loadRecentAttendance();
       await this.loadPendingCount();
 
-      // 刷新页面以确保所有数据都是最新的
       setTimeout(() => {
         this.onShow();
       }, 500);
@@ -815,7 +816,6 @@ Page({
       return;
     }
 
-    // 如果按钮已禁用（已打卡），直接返回
     if (this.data.checkoutDisabled) {
       wx.showToast({
         title: '今天已经打过下班卡',
@@ -825,7 +825,6 @@ Page({
       return;
     }
 
-    // 检查请假状态
     try {
       const leaveStatus = await app.request({
         url: '/attendance/leave-status'
@@ -840,30 +839,32 @@ Page({
       }
     } catch (error) {
       console.warn('检查请假状态失败:', error);
-      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
 
-    // 检查是否为工作日
+    // 检查是否为工作日（非工作日允许加班签退）
     const workdayCheck = await this.checkWorkday();
-    if (!workdayCheck.is_workday) {
-      const message = workdayCheck.holiday_name
-        ? `今天是${workdayCheck.holiday_name}，无需打卡！`
-        : '今天是休息日，无需打卡！';
-      wx.showToast({
-        title: message,
-        icon: 'none',
-        duration: 2000
+    const isOvertimePunch = !workdayCheck.is_workday;
+
+    if (isOvertimePunch) {
+      const reason = workdayCheck.reason || '休息日';
+      const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
+      const confirmResult = await wx.showModal({
+        title: '加班签退确认',
+        content: `今日${reason}${holidayName}，本次将记录为加班打卡。\n\n确定继续吗？`,
+        confirmText: '确定',
+        cancelText: '取消',
+        confirmColor: '#ff9500'
       });
-      return;
+      if (!confirmResult.confirm) {
+        return;
+      }
     }
 
-    // 检查是否会早退
     try {
       const earlyLeaveCheck = await app.request({
         url: '/attendance/check-early-leave'
       });
       if (earlyLeaveCheck.will_be_early_leave) {
-        // 手动格式化时间，避免安卓微信显示时区信息
         let currentTime = earlyLeaveCheck.current_time;
         if (!currentTime) {
           const now = new Date();
@@ -880,12 +881,11 @@ Page({
           confirmColor: '#ff9500'
         });
         if (!res.confirm) {
-          return;  // 用户取消，不执行打卡
+          return;
         }
       }
     } catch (error) {
       console.warn('检查早退状态失败:', error);
-      // 如果检查失败，继续执行打卡（不影响正常流程）
     }
 
     wx.showLoading({ title: '获取位置中...' });
@@ -894,6 +894,7 @@ Page({
       const locationData = await this.getLocation();
 
       wx.showLoading({ title: '打卡中...' });
+      locationData.is_overtime_punch = !workdayCheck.is_workday;
 
       await app.request({
         url: '/attendance/checkout',
@@ -907,12 +908,10 @@ Page({
         duration: 2000
       });
 
-      // 重新加载页面数据
       await this.loadTodayAttendance();
       await this.loadRecentAttendance();
       await this.loadPendingCount();
 
-      // 刷新页面以确保所有数据都是最新的
       setTimeout(() => {
         this.onShow();
       }, 500);
@@ -1148,8 +1147,10 @@ Page({
           return { text: '市区办事', class: 'checkin-status-business' };
         } else if (status === 'business_trip') {
           return { text: '出差', class: 'checkin-status-business' };
+        } else if (status === 'overtime_punch') {
+          return { text: '加班打卡', class: 'checkin-status-overtime' };
         }
-        return { text: '', class: '' };
+        return { text: status || '', class: 'checkin-status-normal' };
       };
 
       // 格式化签退状态（支持缺勤和请假）

@@ -150,13 +150,14 @@ class AttendanceCheckin(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     checkin_status: Optional[str] = "normal"  # 签到状态: normal/city_business/business_trip
-
+    is_overtime_punch: Optional[bool] = False  # non-workday overtime punch
 
 class AttendanceCheckout(BaseModel):
     location: str  # 坐标字符串（兼容旧版本）
     address: Optional[str] = None  # 地址文本
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    is_overtime_punch: Optional[bool] = False  # non-workday overtime punch
 
 
 class LocationPoint(BaseModel):
@@ -587,8 +588,10 @@ class DailyAttendanceItem(BaseModel):
     """每日上下午考勤记录项"""
     date: str  # YYYY-MM-DD
     weekday: str  # 星期几（一、二、三...）
+    day_type: str = "workday"  # 日期类型: workday/overtime_non_workday
     morning_status: Optional[str] = None  # 上午状态: normal/city_business/business_trip/leave/absent
     afternoon_status: Optional[str] = None  # 下午状态: normal/city_business/business_trip/leave/absent
+    has_overtime_punch: Optional[bool] = False  # 是否存在非工作日加班打卡
     is_late: Optional[bool] = False  # 是否迟到
     is_early_leave: Optional[bool] = False  # 是否早退
 

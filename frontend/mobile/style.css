@@ -204,6 +204,20 @@ body {
     transform: scale(0.98);
 }
 
+.btn-warning {
+    background: #ff9500;
+    color: white;
+}
+
+.btn-warning:active {
+    background: #e68600;
+    transform: scale(0.98);
+}
+
+.btn-warning:disabled {
+    background: #8E8E93 !important;
+}
+
 .btn-danger {
     background: var(--danger-color);
     color: white;

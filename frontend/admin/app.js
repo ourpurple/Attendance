@@ -1515,22 +1515,25 @@ async function loadCheckinStatuses() {
             return;
         }
 
-        tbody.innerHTML = realStatuses.map(status => `
+        tbody.innerHTML = realStatuses.map(status => {
+            const isReserved = status.code === 'overtime_punch';
+            return `
             <tr>
                 <td>${status.name}</td>
                 <td>${status.code}</td>
                 <td>${status.description || '-'}</td>
                 <td>${status.sort_order}</td>
                 <td><span class="status-badge ${status.is_active ? 'status-active' : 'status-inactive'}">
-                    ${status.is_active ? '启用' : '禁用'}</span></td>
+                    ${isReserved ? '系统保留' : (status.is_active ? '启用' : '禁用')}</span></td>
                 <td>
                     <div class="action-buttons">
                         <button class="btn btn-small btn-primary" onclick="editCheckinStatus(${status.id})">编辑</button>
-                        <button class="btn btn-small btn-danger" onclick="deleteCheckinStatus(${status.id})">删除</button>
+                        ${isReserved ? '' : `<button class="btn btn-small btn-danger" onclick="deleteCheckinStatus(${status.id})">删除</button>`}
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `;
+        }).join('');
     } catch (error) {
         console.error('加载打卡状态配置失败:', error);
         const tbody = document.getElementById('checkin-status-tbody');
@@ -1622,7 +1625,7 @@ async function editCheckinStatus(id) {
             </div>
             <div class="form-group">
                 <label>状态代码 *</label>
-                <input type="text" id="modal-status-code" class="form-input" value="${currentStatus.code}" required>
+                <input type="text" id="modal-status-code" class="form-input" value="${currentStatus.code}" ${currentStatus.code === 'overtime_punch' ? 'readonly' : ''} required>
             </div>
             <div class="form-group">
                 <label>描述</label>
@@ -1634,7 +1637,7 @@ async function editCheckinStatus(id) {
             </div>
             <div class="form-group">
                 <label>
-                    <input type="checkbox" id="modal-status-active" ${currentStatus.is_active ? 'checked' : ''}>
+                    <input type="checkbox" id="modal-status-active" ${currentStatus.is_active ? 'checked' : ''} ${currentStatus.code === 'overtime_punch' ? 'disabled' : ''}>
                     启用该状态
                 </label>
             </div>
@@ -1856,64 +1859,75 @@ async function loadDailyStats(startDate, endDate) {
             return;
         }
 
-        // 获取所有日期（工作日）并按时间顺序排序
-        const dates = [];
-        if (dailyData.statistics.length > 0 && dailyData.statistics[0].items) {
-            dates.push(...dailyData.statistics[0].items.map(item => item.date));
-        }
+        const headerItems = (dailyData.statistics[0] && dailyData.statistics[0].items) ? [...dailyData.statistics[0].items] : [];
+        headerItems.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        // 按日期排序，确保按1号、2号...31号顺序显示
-        dates.sort((a, b) => new Date(a) - new Date(b));
-
-        // 检查是否跨月（用于决定是否显示月份）
-        const months = [...new Set(dates.map(d => new Date(d).getMonth()))];
+        const months = [...new Set(headerItems.map(i => new Date(i.date).getMonth()))];
         const showMonth = months.length > 1;
 
-        // 构建表头 - 只有一行，不显示上午/下午
-        const thead = document.getElementById('daily-stats-thead');
-        let headerHtml = '<tr><th>姓名</th><th></th>';
-
-        // 日期和星期
-        dates.forEach(date => {
+        const getDateDisplay = (date) => {
             const dateObj = new Date(date);
             const month = dateObj.getMonth() + 1;
             const day = dateObj.getDate();
-
-            // 如果跨月，显示"月/日"格式；否则只显示日期
-            const dateDisplay = showMonth
+            return showMonth
                 ? `${String(month).padStart(2, '0')}/${String(day).padStart(2, '0')}`
                 : String(day).padStart(2, '0');
+        };
 
-            // 获取星期
-            let weekday = '';
-            if (dailyData.statistics.length > 0 && dailyData.statistics[0].items) {
-                const item = dailyData.statistics[0].items.find(i => i.date === date);
-                if (item) weekday = item.weekday;
-            }
-            headerHtml += `<th colspan="2">${dateDisplay}<br><small>${weekday}</small></th>`;
+        const getColSpan = (item) => {
+            if (item.day_type === 'overtime_non_workday') return 1;
+            return item.has_overtime_punch ? 3 : 2;
+        };
+
+        const thead = document.getElementById('daily-stats-thead');
+        let headerHtml = '<tr><th>姓名</th><th></th>';
+        headerItems.forEach(item => {
+            headerHtml += `<th colspan="${getColSpan(item)}">${getDateDisplay(item.date)}<br><small>${item.weekday}</small></th>`;
         });
         headerHtml += '</tr>';
-
         thead.innerHTML = headerHtml;
 
-        // 构建表体 - 每个员工占两行
         const tbody = document.getElementById('daily-stats-tbody');
         let bodyHtml = '';
 
         dailyData.statistics.forEach(stat => {
-            // 上午行
+            const sortedItems = [...(stat.items || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+
             let morningRowHtml = `<tr><td rowspan="2" style="vertical-align: middle; border-right: 2px solid #ddd; font-weight: 500; text-align: center; padding: 10px;">${stat.real_name || stat.user_name}</td><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">上午</td>`;
-            stat.items.forEach(item => {
+            sortedItems.forEach(item => {
+                if (item.day_type === 'overtime_non_workday') {
+                    morningRowHtml += `<td class="status-cell status-overtime">${item.has_overtime_punch ? '加班打卡' : ''}</td>`;
+                    return;
+                }
+
                 const morningStatus = getStatusDisplay(item.morning_status, item.date, 'morning', item.is_late);
-                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning', item.is_late)}" colspan="2">${morningStatus}</td>`;
+                morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning', item.is_late)}">${morningStatus}</td>`;
+
+                const afternoonStatusPreview = getStatusDisplay(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave);
+                morningRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}">${afternoonStatusPreview}</td>`;
+
+                if (item.has_overtime_punch) {
+                    morningRowHtml += '<td class="status-cell status-overtime">加班打卡</td>';
+                }
             });
             morningRowHtml += '</tr>';
 
-            // 下午行
             let afternoonRowHtml = '<tr><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">下午</td>';
-            stat.items.forEach(item => {
+            sortedItems.forEach(item => {
+                if (item.day_type === 'overtime_non_workday') {
+                    afternoonRowHtml += '<td class="status-cell">-</td>';
+                    return;
+                }
+
+                const morningStatusPreview = getStatusDisplay(item.morning_status, item.date, 'morning', item.is_late);
+                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning', item.is_late)}">${morningStatusPreview}</td>`;
+
                 const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave);
-                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}" colspan="2">${afternoonStatus}</td>`;
+                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}">${afternoonStatus}</td>`;
+
+                if (item.has_overtime_punch) {
+                    afternoonRowHtml += '<td class="status-cell">-</td>';
+                }
             });
             afternoonRowHtml += '</tr>';
 
@@ -1927,7 +1941,6 @@ async function loadDailyStats(startDate, endDate) {
         document.getElementById('daily-stats-tbody').innerHTML = '<tr><td colspan="100">加载失败</td></tr>';
     }
 }
-
 // 获取状态显示文本
 // period: 'morning' 或 'afternoon'
 // isLate: 是否迟到（仅用于上午）
@@ -1985,7 +1998,8 @@ function getStatusDisplay(status, date, period, isLate = false, isEarlyLeave = f
         'city_business': '市区办事',
         'business_trip': '出差',
         'leave': '请假',
-        'absent': '缺勤'
+        'absent': '缺勤',
+        'overtime_punch': '加班打卡'
     };
     return statusMap[status] || status;
 }
@@ -2047,7 +2061,8 @@ function getStatusClass(status, date, period, isLate = false, isEarlyLeave = fal
         'city_business': 'status-city',
         'business_trip': 'status-trip',
         'leave': 'status-leave',
-        'absent': 'status-absent'
+        'absent': 'status-absent',
+        'overtime_punch': 'status-overtime'
     };
     return classMap[status] || '';
 }
@@ -2443,6 +2458,8 @@ function formatCheckinStatus(status) {
         return '<span class="checkin-status-badge checkin-status-business">市区办事</span>';
     } else if (status === 'business_trip') {
         return '<span class="checkin-status-badge checkin-status-business">出差</span>';
+    } else if (status === 'overtime_punch') {
+        return '<span class="checkin-status-badge checkin-status-overtime">加班打卡</span>';
     } else {
         return `<span class="checkin-status-badge checkin-status-normal">${status}</span>`;
     }

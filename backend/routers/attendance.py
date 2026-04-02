@@ -6,7 +6,7 @@ from datetime import datetime, date, timedelta
 import json
 import httpx
 from ..database import get_db
-from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday, LeaveStatus, CheckinStatusConfig
+from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday, LeaveStatus, CheckinStatusConfig, AttendanceStatus
 from ..schemas import (
     AttendanceCheckin, AttendanceCheckout, AttendanceResponse, AttendanceUpdate, 
     AttendancePolicyResponse, AttendancePolicyCreate, AttendancePolicyUpdate,
@@ -19,6 +19,45 @@ from ..config import settings
 from ..geocode_cache import get_cached_address, set_cached_address
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
+SYSTEM_RESERVED_CHECKIN_STATUS_CODES = {AttendanceStatus.OVERTIME_PUNCH.value}
+SYSTEM_RESERVED_CHECKIN_STATUS_META = {
+    AttendanceStatus.OVERTIME_PUNCH.value: {
+        "name": "加班打卡",
+        "description": "非工作日加班打卡（系统保留）",
+        "sort_order": 99,
+    }
+}
+
+
+def ensure_system_reserved_checkin_statuses(db: Session) -> None:
+    """确保系统保留打卡状态存在且不可被禁用。"""
+    for code, meta in SYSTEM_RESERVED_CHECKIN_STATUS_META.items():
+        status_config = db.query(CheckinStatusConfig).filter(CheckinStatusConfig.code == code).first()
+        if status_config:
+            changed = False
+            if status_config.name != meta["name"]:
+                status_config.name = meta["name"]
+                changed = True
+            if status_config.description != meta["description"]:
+                status_config.description = meta["description"]
+                changed = True
+            if status_config.sort_order != meta["sort_order"]:
+                status_config.sort_order = meta["sort_order"]
+                changed = True
+            if not status_config.is_active:
+                status_config.is_active = True
+                changed = True
+            if changed:
+                db.flush()
+        else:
+            db.add(CheckinStatusConfig(
+                name=meta["name"],
+                code=code,
+                description=meta["description"],
+                is_active=True,
+                sort_order=meta["sort_order"]
+            ))
+            db.flush()
 
 
 def get_policy_for_date(policy: AttendancePolicy, check_date: datetime) -> Dict[str, Any]:
@@ -219,7 +258,7 @@ def checkin(
     current_user: User = Depends(get_current_user)
 ):
     """上班打卡"""
-    from ..models import AttendanceStatus
+    
     
     # 获取当前日期和时间
     today = datetime.now().date()
@@ -242,6 +281,14 @@ def checkin(
     
     # 获取活跃的打卡策略
     policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
+
+    # 非工作日仅允许加班打卡
+    workday_status = get_workday_status(db, today)
+    if not workday_status["is_workday"] and not checkin_data.is_overtime_punch:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="非工作日请使用加班打卡"
+        )
     
     # 检查请假情况
     leave_info = get_leave_period_for_date(current_user.id, today, db)
@@ -270,7 +317,7 @@ def checkin(
         checkin_end = datetime.strptime(rules['checkin_end_time'], "%H:%M").time()
         
         # 如果上午请假，允许在14:10前签到，否则按正常时间范围检查
-        if not leave_info['morning_leave']:
+        if workday_status["is_workday"] and not leave_info['morning_leave']:
             if checkin_time_only < checkin_start or checkin_time_only > checkin_end:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -282,8 +329,12 @@ def checkin(
     if not leave_info['morning_leave'] and policy:
         late = is_late(checkin_time, policy)
     
-    # 获取签到状态，默认为normal
-    checkin_status = checkin_data.checkin_status or AttendanceStatus.NORMAL.value
+    # 仅非工作日加班打卡标记为系统保留状态
+    if not workday_status["is_workday"] and checkin_data.is_overtime_punch:
+        checkin_status = AttendanceStatus.OVERTIME_PUNCH.value
+    else:
+        # 工作日保持原有签到状态逻辑
+        checkin_status = checkin_data.checkin_status or AttendanceStatus.NORMAL.value
     
     # 根据打卡时间和请假情况确定上下午状态
     morning_status = None
@@ -346,7 +397,7 @@ def checkout(
     current_user: User = Depends(get_current_user)
 ):
     """下班打卡"""
-    from ..models import AttendanceStatus
+    
     
     # 获取当前日期和时间
     today = datetime.now().date()
@@ -384,6 +435,15 @@ def checkout(
     
     # 获取活跃的打卡策略
     policy = db.query(AttendancePolicy).filter(AttendancePolicy.is_active == True).first()
+    workday_status = get_workday_status(db, today)
+
+    # 非工作日仅允许加班打卡
+    if not workday_status["is_workday"] and not checkout_data.is_overtime_punch:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="非工作日请使用加班打卡"
+        )
+
     
     checkout_time_only = checkout_time.time()
     
@@ -393,7 +453,7 @@ def checkout(
         checkout_start = datetime.strptime(rules['checkout_start_time'], "%H:%M").time()
         checkout_end = datetime.strptime(rules['checkout_end_time'], "%H:%M").time()
         
-        if checkout_time_only < checkout_start or checkout_time_only > checkout_end:
+        if workday_status["is_workday"] and (checkout_time_only < checkout_start or checkout_time_only > checkout_end):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"当前时间不在下班打卡时间范围内（{rules['checkout_start_time']} - {rules['checkout_end_time']}）"
@@ -407,7 +467,11 @@ def checkout(
     attendance.checkout_latitude = checkout_data.latitude
     attendance.checkout_longitude = checkout_data.longitude
     attendance.is_early_leave = early
-    
+
+    # 仅非工作日加班打卡标记为系统保留状态
+    if not workday_status["is_workday"] and checkout_data.is_overtime_punch:
+        attendance.checkin_status = AttendanceStatus.OVERTIME_PUNCH.value
+
     # 更新下午状态（如果还没有设置）
     if not attendance.afternoon_status:
         # 使用签到时的状态，如果没有则使用normal
@@ -486,11 +550,12 @@ def get_checkin_statuses(
     current_user: User = Depends(get_current_user)
 ):
     """获取打卡状态列表"""
-    from ..models import AttendanceStatus
     from datetime import datetime
     from sqlalchemy.exc import OperationalError
-    
+
     try:
+        ensure_system_reserved_checkin_statuses(db)
+
         default_status_configs = [
             {
                 "name": "正常签到",
@@ -512,67 +577,66 @@ def get_checkin_statuses(
                 "description": "出差",
                 "is_active": True,
                 "sort_order": 2
+            },
+            {
+                "name": "加班打卡",
+                "code": AttendanceStatus.OVERTIME_PUNCH.value,
+                "description": "非工作日加班打卡（系统保留）",
+                "is_active": True,
+                "sort_order": 99
             }
         ]
 
-        # 如果是管理员且要求包含非激活状态，或者用于管理后台，返回所有记录
         query = db.query(CheckinStatusConfig)
         if not include_inactive:
-            # 普通用户只获取激活的状态
             query = query.filter(CheckinStatusConfig.is_active == True)
-        
+
         statuses = query.order_by(CheckinStatusConfig.sort_order, CheckinStatusConfig.id).all()
-        
-        # 将SQLAlchemy对象转换为Pydantic模型
+
         if statuses:
             result = []
-            for status in statuses:
+            for status_obj in statuses:
                 try:
-                    # 使用 model_validate 将 SQLAlchemy 对象转换为 Pydantic 模型
-                    result.append(CheckinStatusConfigResponse.model_validate(status))
+                    result.append(CheckinStatusConfigResponse.model_validate(status_obj))
                 except Exception as e:
-                    # 如果转换失败，手动构建响应对象
                     import logging
                     logger = logging.getLogger(__name__)
                     logger.warning(f"转换状态配置失败，使用手动构建: {e}")
                     result.append(CheckinStatusConfigResponse(
-                        id=status.id,
-                        name=status.name,
-                        code=status.code,
-                        description=status.description,
-                        is_active=status.is_active,
-                        sort_order=status.sort_order,
-                        created_at=status.created_at or datetime.now(),
-                        updated_at=status.updated_at or datetime.now()
+                        id=status_obj.id,
+                        name=status_obj.name,
+                        code=status_obj.code,
+                        description=status_obj.description,
+                        is_active=status_obj.is_active,
+                        sort_order=status_obj.sort_order,
+                        created_at=status_obj.created_at or datetime.now(),
+                        updated_at=status_obj.updated_at or datetime.now()
                     ))
             return result
-        
-        # 如果没有配置，尝试自动补全默认配置（避免管理后台为空）
-        if not statuses:
-            inserted = False
-            try:
-                for config in default_status_configs:
-                    exists = db.query(CheckinStatusConfig).filter(CheckinStatusConfig.code == config["code"]).first()
-                    if not exists:
-                        status_config = CheckinStatusConfig(**config)
-                        db.add(status_config)
-                        inserted = True
-                if inserted:
-                    db.commit()
-                    query = db.query(CheckinStatusConfig)
-                    if not include_inactive:
-                        query = query.filter(CheckinStatusConfig.is_active == True)
-                    statuses = query.order_by(CheckinStatusConfig.sort_order, CheckinStatusConfig.id).all()
-            except Exception as seed_error:
-                db.rollback()
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"自动补全默认打卡状态失败: {seed_error}", exc_info=True)
 
-        # 如果没有配置且是普通用户，返回默认状态（使用Pydantic模型）
+        inserted = False
+        try:
+            for config in default_status_configs:
+                exists = db.query(CheckinStatusConfig).filter(CheckinStatusConfig.code == config["code"]).first()
+                if not exists:
+                    db.add(CheckinStatusConfig(**config))
+                    inserted = True
+            if inserted:
+                db.commit()
+                query = db.query(CheckinStatusConfig)
+                if not include_inactive:
+                    query = query.filter(CheckinStatusConfig.is_active == True)
+                statuses = query.order_by(CheckinStatusConfig.sort_order, CheckinStatusConfig.id).all()
+                return [CheckinStatusConfigResponse.model_validate(s) for s in statuses]
+        except Exception as seed_error:
+            db.rollback()
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"自动补全默认打卡状态失败: {seed_error}", exc_info=True)
+
         if not include_inactive:
             now = datetime.now()
-            default_statuses = [
+            return [
                 CheckinStatusConfigResponse(
                     id=0,
                     name=config["name"],
@@ -585,18 +649,15 @@ def get_checkin_statuses(
                 )
                 for config in default_status_configs
             ]
-            return default_statuses
-        
-        # 如果没有数据且包含非激活状态，返回空列表
+
         return []
     except OperationalError as e:
-        # 表不存在，返回默认状态
         import logging
         logger = logging.getLogger(__name__)
         logger.warning(f"CheckinStatusConfig表不存在，返回默认状态: {e}")
-        
+
         now = datetime.now()
-        default_statuses = [
+        return [
             CheckinStatusConfigResponse(
                 id=0,
                 name="正常签到",
@@ -626,9 +687,18 @@ def get_checkin_statuses(
                 sort_order=2,
                 created_at=now,
                 updated_at=now
+            ),
+            CheckinStatusConfigResponse(
+                id=0,
+                name="加班打卡",
+                code=AttendanceStatus.OVERTIME_PUNCH.value,
+                description="非工作日加班打卡（系统保留）",
+                is_active=True,
+                sort_order=99,
+                created_at=now,
+                updated_at=now
             )
         ]
-        return default_statuses
     except Exception as e:
         import logging
         logger = logging.getLogger(__name__)
@@ -638,7 +708,6 @@ def get_checkin_statuses(
             detail=f"获取打卡状态列表失败: {str(e)}"
         )
 
-
 # ==================== 打卡状态配置管理 ====================
 @router.post("/checkin-statuses", response_model=CheckinStatusConfigResponse, status_code=status.HTTP_201_CREATED)
 def create_checkin_status(
@@ -647,12 +716,17 @@ def create_checkin_status(
     current_user: User = Depends(get_current_active_admin)
 ):
     """创建打卡状态配置（管理员）"""
+    if status_create.code in SYSTEM_RESERVED_CHECKIN_STATUS_CODES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="系统保留状态代码不可手动创建"
+        )
+
     try:
         status_config = CheckinStatusConfig(**status_create.model_dump())
         db.add(status_config)
         db.commit()
         db.refresh(status_config)
-        # 转换为Pydantic模型
         return CheckinStatusConfigResponse.model_validate(status_config)
     except Exception as e:
         db.rollback()
@@ -679,16 +753,30 @@ def update_checkin_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="状态配置不存在"
         )
-    
+
     try:
         update_data = status_update.model_dump(exclude_unset=True)
+
+        if status_config.code in SYSTEM_RESERVED_CHECKIN_STATUS_CODES:
+            if "code" in update_data and update_data["code"] != status_config.code:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="系统保留状态代码不可修改"
+                )
+            if "is_active" in update_data and update_data["is_active"] is False:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="系统保留状态不可禁用"
+                )
+
         for field, value in update_data.items():
             setattr(status_config, field, value)
-        
+
         db.commit()
         db.refresh(status_config)
-        # 转换为Pydantic模型
         return CheckinStatusConfigResponse.model_validate(status_config)
+    except HTTPException:
+        raise
     except Exception as e:
         db.rollback()
         import logging
@@ -713,7 +801,13 @@ def delete_checkin_status(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="状态配置不存在"
         )
-    
+
+    if status_config.code in SYSTEM_RESERVED_CHECKIN_STATUS_CODES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="系统保留状态不可删除"
+        )
+
     db.delete(status_config)
     db.commit()
     return None
@@ -758,7 +852,7 @@ def get_my_attendance(
         skip: 分页偏移
         limit: 分页限制
     """
-    from ..models import AttendanceStatus
+    
     
     query = db.query(Attendance).filter(Attendance.user_id == current_user.id)
     

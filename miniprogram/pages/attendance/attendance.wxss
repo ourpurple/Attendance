@@ -108,3 +108,8 @@
   border-left: 6rpx solid #FF3B30;
 }
 
+
+.checkin-status-overtime {
+  background: #FF9500;
+  color: #ffffff;
+}

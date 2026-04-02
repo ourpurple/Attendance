@@ -487,73 +487,90 @@ def get_daily_attendance_statistics(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """获取每日上下午考勤详细统计（只统计工作日）"""
-    # 权限检查
+    """获取每日上下午考勤详细统计（默认工作日；非工作日仅在有加班打卡时显示）"""
     if current_user.role not in [UserRole.ADMIN, UserRole.DEPARTMENT_HEAD, UserRole.VICE_PRESIDENT, UserRole.GENERAL_MANAGER]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="权限不足"
         )
-    
-    # 构建查询（排除admin账户、排除关闭考勤管理的用户）
+
     query = db.query(User).filter(
         User.username != "admin",
         User.is_active == True,
         User.enable_attendance == True
     )
-    
-    # 如果是部门主任，只能查看本部门
+
     if current_user.role == UserRole.DEPARTMENT_HEAD:
         query = query.filter(User.department_id == current_user.department_id)
     elif department_id:
         query = query.filter(User.department_id == department_id)
-    
+
     users = query.all()
-    
-    # 获取所有工作日
+    user_ids = [u.id for u in users]
+
     workdays = []
     current_date = start_date
     while current_date <= end_date:
         if is_workday(current_date, db):
             workdays.append(current_date)
         current_date += timedelta(days=1)
-    
-    # 获取所有考勤记录
-    attendances = db.query(Attendance).filter(
+
+    attendances_query = db.query(Attendance).filter(
         and_(
             func.date(Attendance.date) >= start_date,
             func.date(Attendance.date) <= end_date
         )
-    ).all()
-    
-    # 构建考勤记录字典 {(user_id, date): attendance}
+    )
+    if user_ids:
+        attendances_query = attendances_query.filter(Attendance.user_id.in_(user_ids))
+
+    attendances = attendances_query.all()
+
     attendance_dict = {}
+    non_workday_overtime_dates = set()
     for att in attendances:
         att_date = att.date.date() if isinstance(att.date, datetime) else att.date
         key = (att.user_id, att_date)
         attendance_dict[key] = att
-    
-    # 构建统计结果
+
+        if (
+            att.checkin_status == AttendanceStatus.OVERTIME_PUNCH.value
+            and not is_workday(att_date, db)
+        ):
+            non_workday_overtime_dates.add(att_date)
+
+    display_dates = sorted(set(workdays) | non_workday_overtime_dates)
+
     statistics_list = []
-    
+
     for user in users:
         items = []
-        
-        for workday in workdays:
-            # 获取该日期的考勤记录
-            att = attendance_dict.get((user.id, workday))
-            
-            # 获取请假信息
-            leave_info = get_leave_period_for_date(user.id, workday, db)
-            
-            # 确定上午状态（优先级：请假 > 打卡记录 > 缺勤）
+
+        for target_day in display_dates:
+            att = attendance_dict.get((user.id, target_day))
+            has_overtime_punch = bool(att and att.checkin_status == AttendanceStatus.OVERTIME_PUNCH.value)
+
+            if target_day in non_workday_overtime_dates:
+                items.append(DailyAttendanceItem(
+                    date=target_day.isoformat(),
+                    weekday=get_weekday_name(target_day),
+                    day_type="overtime_non_workday",
+                    morning_status=None,
+                    afternoon_status=None,
+                    has_overtime_punch=has_overtime_punch,
+                    is_late=False,
+                    is_early_leave=False
+                ))
+                continue
+
+            leave_info = get_leave_period_for_date(user.id, target_day, db)
+
             morning_status = None
             if leave_info['morning_leave'] or leave_info['full_day_leave']:
                 morning_status = AttendanceStatus.LEAVE.value
             elif att and att.morning_status:
                 morning_status = att.morning_status
             elif att and att.checkin_time:
-                # 如果有打卡记录但没有设置morning_status，使用checkin_status
                 checkin_time_only = att.checkin_time.time() if att.checkin_time else None
                 if checkin_time_only and (checkin_time_only.hour < 14 or (checkin_time_only.hour == 14 and checkin_time_only.minute < 10)):
                     morning_status = att.checkin_status or AttendanceStatus.NORMAL.value
@@ -561,28 +578,28 @@ def get_daily_attendance_statistics(
                     morning_status = AttendanceStatus.ABSENT.value
             else:
                 morning_status = AttendanceStatus.ABSENT.value
-            
-            # 确定下午状态（优先级：请假 > 打卡记录 > 缺勤）
+
             afternoon_status = None
             if leave_info['afternoon_leave'] or leave_info['full_day_leave']:
                 afternoon_status = AttendanceStatus.LEAVE.value
             elif att and att.afternoon_status:
                 afternoon_status = att.afternoon_status
             elif att and att.checkout_time:
-                # 如果有签退记录但没有设置afternoon_status，使用checkin_status
                 afternoon_status = att.checkin_status or AttendanceStatus.NORMAL.value
             else:
                 afternoon_status = AttendanceStatus.ABSENT.value
-            
+
             items.append(DailyAttendanceItem(
-                date=workday.isoformat(),
-                weekday=get_weekday_name(workday),
+                date=target_day.isoformat(),
+                weekday=get_weekday_name(target_day),
+                day_type="workday",
                 morning_status=morning_status,
                 afternoon_status=afternoon_status,
+                has_overtime_punch=has_overtime_punch,
                 is_late=att.is_late if att else False,
                 is_early_leave=att.is_early_leave if att else False
             ))
-        
+
         statistics_list.append(DailyAttendanceStatistics(
             user_id=user.id,
             user_name=user.username,
@@ -590,11 +607,9 @@ def get_daily_attendance_statistics(
             department=user.department.name if user.department else None,
             items=items
         ))
-    
+
     return DailyAttendanceStatisticsResponse(
         start_date=start_date.isoformat(),
         end_date=end_date.isoformat(),
         statistics=statistics_list
     )
-
-
