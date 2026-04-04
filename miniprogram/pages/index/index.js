@@ -1039,9 +1039,9 @@ Page({
           showClockStatus: true,  // 已打卡，显示打卡状态区域
           checkinStatus: formatTime(att.checkin_time),
           checkoutStatus: formatTime(att.checkout_time),
-          // 如果是工作日，根据打卡状态设置按钮；如果不是工作日，保持禁用
-          checkinDisabled: !isWorkday || hasCheckin,
-          checkoutDisabled: !isWorkday || !hasCheckin || hasCheckout,
+          // 工作日按时间规则；非工作日允许已上班后进行加班下班打卡
+          checkinDisabled: hasCheckin,
+          checkoutDisabled: !hasCheckin || hasCheckout,
           location: locationText,
           locationColor: locationColor  // 设置文字颜色
         });
