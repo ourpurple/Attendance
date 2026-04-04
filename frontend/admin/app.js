@@ -2452,13 +2452,15 @@ function formatTime(dateStr) {
 
 // 格式化打卡状态
 function formatCheckinStatus(status) {
-    if (!status || status === 'normal') {
+    const normalizedStatus = typeof status === 'string' ? status.trim().toLowerCase() : status;
+
+    if (!normalizedStatus || normalizedStatus === 'normal') {
         return '<span class="checkin-status-badge checkin-status-normal">正常打卡</span>';
-    } else if (status === 'city_business') {
+    } else if (normalizedStatus === 'city_business') {
         return '<span class="checkin-status-badge checkin-status-business">市区办事</span>';
-    } else if (status === 'business_trip') {
+    } else if (normalizedStatus === 'business_trip') {
         return '<span class="checkin-status-badge checkin-status-business">出差</span>';
-    } else if (status === 'overtime_punch') {
+    } else if (normalizedStatus === 'overtime_punch') {
         return '<span class="checkin-status-badge checkin-status-overtime">加班打卡</span>';
     } else {
         return `<span class="checkin-status-badge checkin-status-normal">${status}</span>`;
