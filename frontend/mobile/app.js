@@ -1665,7 +1665,13 @@ async function checkAndSetAttendanceButtons() {
         if (clockLocation) {
             const reason = workdayCheck.reason || '休息日';
             const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
-            clockLocation.textContent = `今日${reason}${holidayName}，可使用加班打卡`;
+            if (hasCheckin && !hasCheckout) {
+                clockLocation.textContent = `今日${reason}${holidayName}，加班签退不限时间`;
+            } else if (hasCheckin && hasCheckout) {
+                clockLocation.textContent = `今日${reason}${holidayName}，加班打卡已完成`;
+            } else {
+                clockLocation.textContent = `今日${reason}${holidayName}，可使用加班打卡`;
+            }
             clockLocation.style.color = '#ff9500';
             clockLocation.style.fontWeight = 'bold';
             clockLocation.style.display = 'block';
@@ -2037,6 +2043,9 @@ async function loadHomeData() {
 // 加载今日打卡状态
 async function loadTodayAttendance() {
     try {
+        const workdayCheck = await checkWorkday();
+        const isOvertimePunchDay = workdayCheck && workdayCheck.is_workday === false;
+
         // 使用东八区获取今天的日期
         const today = getCSTDate();
 
@@ -2163,13 +2172,13 @@ async function loadTodayAttendance() {
                             clockLocation.style.fontWeight = 'bold';
                             clockLocation.style.display = 'block';
                         } else {
-                            clockLocation.textContent = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+                            clockLocation.textContent = isOvertimePunchDay ? '加班签退不限时间，请及时签退' : `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
                             clockLocation.style.color = '#999';
                             clockLocation.style.fontWeight = 'bold';
                             clockLocation.style.display = 'block';
                         }
                     } else {
-                        clockLocation.textContent = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+                        clockLocation.textContent = isOvertimePunchDay ? '加班签退不限时间，请及时签退' : `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
                         clockLocation.style.color = '#999';
                         clockLocation.style.fontWeight = 'bold';
                         clockLocation.style.display = 'block';
@@ -4532,6 +4541,4 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-
-
 

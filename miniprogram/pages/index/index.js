@@ -463,7 +463,7 @@ Page({
           reasonText = '今日加班打卡已完成';
           locationColor = '#34c759';
         } else if (hasCheckin && !hasCheckout) {
-          reasonText = '已完成加班上班打卡，请完成下班打卡';
+          reasonText = '已完成加班上班打卡，加班签退不限时间';
           locationColor = '#007aff';
         }
 
@@ -1024,11 +1024,11 @@ Page({
               locationText = '下午请假，无需签退';
               locationColor = '#ff9500';  // 橙色
             } else {
-              locationText = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+              locationText = isWorkday ? `签退时间：${checkoutStartTime}-${checkoutEndTime}` : '加班签退不限时间，请及时签退';
               locationColor = '#999';  // 灰色
             }
           } else {
-            locationText = `签退时间：${checkoutStartTime}-${checkoutEndTime}`;
+            locationText = isWorkday ? `签退时间：${checkoutStartTime}-${checkoutEndTime}` : '加班签退不限时间，请及时签退';
             locationColor = '#999';  // 灰色
           }
         }
@@ -1308,7 +1308,4 @@ Page({
     wx.navigateTo({ url: '/pages/overview/overview' });
   }
 });
-
-
-
 
