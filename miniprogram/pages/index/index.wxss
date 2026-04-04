@@ -251,6 +251,11 @@
   color: #ffffff;
 }
 
+.checkout-status-overtime {
+  background: #FF9500;
+  color: #ffffff;
+}
+
 .checkout-status-absent {
   background: #FF3B30;
   color: #ffffff;

@@ -19,11 +19,11 @@
     <view class="clock-actions" wx:if="{{attendanceEnabled}}">
       <button class="btn btn-primary" bindtap="checkin" disabled="{{checkinDisabled}}">
         <text>📍</text>
-        <text>上班打卡</text>
+        <text>{{checkinButtonText}}</text>
       </button>
       <button class="btn btn-success" bindtap="checkout" disabled="{{checkoutDisabled}}">
         <text>📍</text>
-        <text>下班打卡</text>
+        <text>{{checkoutButtonText}}</text>
       </button>
     </view>
 
@@ -118,6 +118,7 @@
     <text>© 2025 河南新盟科教有限公司 All Rights Reserved</text>
   </view>
 </view>
+
 
 
 

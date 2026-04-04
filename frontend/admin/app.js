@@ -1896,7 +1896,7 @@ async function loadDailyStats(startDate, endDate) {
             let morningRowHtml = `<tr><td rowspan="2" style="vertical-align: middle; border-right: 2px solid #ddd; font-weight: 500; text-align: center; padding: 10px;">${stat.real_name || stat.user_name}</td><td style="border-right: 2px solid #ddd; text-align: center; background-color: #f8f9fa; font-size: 12px; color: #666; padding: 10px;">上午</td>`;
             sortedItems.forEach(item => {
                 if (item.day_type === 'overtime_non_workday') {
-                    morningRowHtml += `<td class="status-cell status-overtime">${item.has_overtime_punch ? '加班打卡' : ''}</td>`;
+                    morningRowHtml += `<td class="status-cell status-overtime">${item.has_overtime_punch ? '加班' : ''}</td>`;
                     return;
                 }
 
@@ -1907,7 +1907,7 @@ async function loadDailyStats(startDate, endDate) {
                 morningRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}">${afternoonStatusPreview}</td>`;
 
                 if (item.has_overtime_punch) {
-                    morningRowHtml += '<td class="status-cell status-overtime">加班打卡</td>';
+                    morningRowHtml += '<td class="status-cell status-overtime">加班</td>';
                 }
             });
             morningRowHtml += '</tr>';
@@ -1999,7 +1999,7 @@ function getStatusDisplay(status, date, period, isLate = false, isEarlyLeave = f
         'business_trip': '出差',
         'leave': '请假',
         'absent': '缺勤',
-        'overtime_punch': '加班打卡'
+        'overtime_punch': '加班'
     };
     return statusMap[status] || status;
 }

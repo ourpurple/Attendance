@@ -637,6 +637,11 @@ button:disabled {
     color: #ffffff;
 }
 
+.checkin-status-overtime {
+    background: #FF9500;
+    color: #ffffff;
+}
+
 /* 签退状态标签 */
 .checkout-status-badge {
     padding: 4px 8px;
@@ -653,6 +658,11 @@ button:disabled {
 }
 
 .checkout-status-early {
+    background: #FF9500;
+    color: #ffffff;
+}
+
+.checkout-status-overtime {
     background: #FF9500;
     color: #ffffff;
 }
@@ -1479,5 +1489,6 @@ button:disabled {
         padding-bottom: env(safe-area-inset-bottom);
     }
 }
+
 
 

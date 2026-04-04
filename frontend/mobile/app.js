@@ -2257,12 +2257,15 @@ async function loadRecentAttendance() {
                 return { text: '市区办事', class: 'checkin-status-business' };
             } else if (status === 'business_trip') {
                 return { text: '出差', class: 'checkin-status-business' };
+            } else if (status === 'overtime_punch') {
+                return { text: '加班打卡', class: 'checkin-status-overtime' };
             }
             return { text: '', class: '' };
         };
 
         // 格式化签退状态
         const formatCheckoutStatus = (att) => {
+            const isOvertimePunch = att.checkin_status === 'overtime_punch' || att.afternoon_status === 'overtime_punch';
             // 检查是否为缺勤记录（后台已标记为absent）
             if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
                 return { text: '缺勤', class: 'checkout-status-absent' };
@@ -2274,6 +2277,8 @@ async function loadRecentAttendance() {
             // 未签退（后台未标记为缺勤）
             if (!att.checkout_time) {
                 return { text: '未签退', class: 'checkout-status-absent' };
+            } else if (isOvertimePunch) {
+                return { text: '加班签退', class: 'checkout-status-overtime' };
             } else if (att.is_early_leave) {
                 return { text: '早退', class: 'checkout-status-early' };
             } else {
@@ -2445,12 +2450,15 @@ async function loadAttendanceByMonth() {
                 return { text: '市区办事', class: 'checkin-status-business' };
             } else if (status === 'business_trip') {
                 return { text: '出差', class: 'checkin-status-business' };
+            } else if (status === 'overtime_punch') {
+                return { text: '加班打卡', class: 'checkin-status-overtime' };
             }
             return { text: '', class: '' };
         };
 
         // 格式化签退状态
         const formatCheckoutStatus = (att) => {
+            const isOvertimePunch = att.checkin_status === 'overtime_punch' || att.afternoon_status === 'overtime_punch';
             // 检查是否为缺勤记录（后台已标记为absent）
             if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
                 return { text: '缺勤', class: 'checkout-status-absent' };
@@ -2462,6 +2470,8 @@ async function loadAttendanceByMonth() {
             // 未签退（后台未标记为缺勤）
             if (!att.checkout_time) {
                 return { text: '未签退', class: 'checkout-status-absent' };
+            } else if (isOvertimePunch) {
+                return { text: '加班签退', class: 'checkout-status-overtime' };
             } else if (att.is_early_leave) {
                 return { text: '早退', class: 'checkout-status-early' };
             } else {

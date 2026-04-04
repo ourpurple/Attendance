@@ -27,7 +27,16 @@ Page({
     ],
     checkinStatusIndex: 0,  // 当前选中的状态索引
     showStatusSelector: false,  // 是否显示状态选择器
-    attendanceEnabled: true
+    attendanceEnabled: true,
+    checkinButtonText: '上班打卡',
+    checkoutButtonText: '下班打卡'
+  },
+
+  updatePunchButtonTexts(isWorkday) {
+    this.setData({
+      checkinButtonText: isWorkday ? '上班打卡' : '加班上班打卡',
+      checkoutButtonText: isWorkday ? '下班打卡' : '加班下班打卡'
+    });
   },
 
   onLoad() {
@@ -439,6 +448,7 @@ Page({
       }
 
       if (!workdayCheck.is_workday) {
+        this.updatePunchButtonTexts(false);
         // 非工作日允许加班打卡
         const reason = workdayCheck.reason || '休息日';
         const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
@@ -446,7 +456,7 @@ Page({
         const hasCheckin = todayAttendance && !!todayAttendance.checkin_time;
         const hasCheckout = todayAttendance && !!todayAttendance.checkout_time;
 
-        let reasonText = `今日${reason}${holidayName}，可进行加班打卡`;
+        let reasonText = `今日${reason}${holidayName}，可使用加班打卡`;
         let locationColor = '#ff9500';
 
         if (hasCheckin && hasCheckout) {
@@ -468,6 +478,7 @@ Page({
           locationColor: locationColor
         });
       } else {
+        this.updatePunchButtonTexts(true);
         // 工作日（包括调休工作日）- 获取打卡策略时间范围
         const isMakeupWorkday = workdayCheck.reason === '调休工作日';
         const holidayName = workdayCheck.holiday_name ? `（${workdayCheck.holiday_name}）` : '';
@@ -782,7 +793,7 @@ Page({
       });
 
       wx.showToast({
-        title: '上班打卡成功',
+        title: isOvertimePunch ? '加班上班打卡成功' : '上班打卡成功',
         icon: 'success',
         duration: 2000
       });
@@ -903,7 +914,7 @@ Page({
       });
 
       wx.showToast({
-        title: '下班打卡成功',
+        title: isOvertimePunch ? '加班下班打卡成功' : '下班打卡成功',
         icon: 'success',
         duration: 2000
       });
@@ -945,6 +956,7 @@ Page({
       // 检查是否为工作日
       const workdayCheck = await this.checkWorkday();
       const isWorkday = workdayCheck.is_workday;
+      this.updatePunchButtonTexts(isWorkday);
 
       if (safeData.length > 0) {
         const formatTime = (dateStr) => {
@@ -1155,6 +1167,7 @@ Page({
 
       // 格式化签退状态（支持缺勤和请假）
       const formatCheckoutStatus = (att) => {
+        const isOvertimePunch = att.checkin_status === 'overtime_punch' || att.afternoon_status === 'overtime_punch';
         // 检查是否为缺勤记录（后台已标记为absent）
         if (!att.checkin_time && !att.checkout_time && att.afternoon_status === 'absent') {
           return { text: '缺勤', class: 'checkout-status-absent' };
@@ -1166,6 +1179,8 @@ Page({
         // 未签退（后台未标记为缺勤）
         if (!att.checkout_time) {
           return { text: '未签退', class: 'checkout-status-absent' };
+        } else if (isOvertimePunch) {
+          return { text: '加班签退', class: 'checkout-status-overtime' };
         } else if (att.is_early_leave) {
           return { text: '早退', class: 'checkout-status-early' };
         } else {
@@ -1293,6 +1308,7 @@ Page({
     wx.navigateTo({ url: '/pages/overview/overview' });
   }
 });
+
 
 
 
