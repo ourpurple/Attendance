@@ -5079,3 +5079,124 @@ async function deleteOvertimeApplication(overtimeId) {
         'danger'
     );
 }
+
+// ==================== Excel导出 ====================
+async function downloadExcel(endpoint, filenamePrefix) {
+    const url = `${API_BASE_URL}${endpoint}`;
+    const headers = {};
+    const authToken = getToken();
+    if (authToken) {
+        headers['Authorization'] = `Bearer ${authToken}`;
+    }
+
+    const response = await fetch(url, { method: 'GET', headers });
+
+    if (response.status === 401) {
+        clearToken();
+        showPage('login');
+        throw new Error('未授权，请重新登录');
+    }
+
+    if (!response.ok) {
+        let message = `请求失败 (${response.status})`;
+        try {
+            const err = await response.json();
+            message = err.detail || message;
+        } catch (_) {
+            // ignore
+        }
+        throw new Error(message);
+    }
+
+    const blob = await response.blob();
+    const disposition = response.headers.get('Content-Disposition') || '';
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    const plainMatch = disposition.match(/filename="?([^";]+)"?/i);
+    const decodedName = utf8Match ? decodeURIComponent(utf8Match[1]) : (plainMatch ? plainMatch[1] : '');
+    const filename = decodedName || `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.xlsx`;
+
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+}
+
+function getCurrentAttendanceFilterParams() {
+    const queryType = document.querySelector('input[name="attendance-query-type"]:checked').value;
+    let userId = '';
+    let startDate = '';
+    let endDate = '';
+
+    if (queryType === 'day') {
+        userId = document.getElementById('attendance-user-filter-day').value;
+        const day = document.getElementById('attendance-day').value;
+        if (!day) throw new Error('请选择日期');
+        startDate = day;
+        endDate = day;
+    } else if (queryType === 'month') {
+        userId = document.getElementById('attendance-user-filter').value;
+        const monthStr = document.getElementById('attendance-month').value;
+        if (!monthStr) throw new Error('请选择月份');
+        const range = getMonthDateRange(monthStr);
+        startDate = range.start;
+        endDate = range.end;
+    } else {
+        userId = document.getElementById('attendance-user-filter-custom').value;
+        startDate = document.getElementById('attendance-start-date').value;
+        endDate = document.getElementById('attendance-end-date').value;
+        if (!startDate || !endDate) throw new Error('请选择开始日期和结束日期');
+    }
+
+    const params = new URLSearchParams();
+    params.set('start_date', startDate);
+    params.set('end_date', endDate);
+    if (userId) params.set('user_id', userId);
+    return params.toString();
+}
+
+async function exportAttendanceExcel() {
+    try {
+        const query = getCurrentAttendanceFilterParams();
+        await downloadExcel(`/attendance/export?${query}`, '考勤记录');
+        showToast('导出成功', 'success');
+    } catch (error) {
+        console.error('导出考勤记录失败:', error);
+        showToast(error.message || '导出失败', 'error');
+    }
+}
+
+function getCurrentStatsDateRangeForExport() {
+    const dateType = document.querySelector('input[name="date-type"]:checked').value;
+    let startDate = '';
+    let endDate = '';
+
+    if (dateType === 'month') {
+        const monthValue = document.getElementById('stats-month').value;
+        if (!monthValue) throw new Error('请选择月份');
+        const range = getMonthDateRange(monthValue);
+        startDate = range.start;
+        endDate = range.end;
+    } else {
+        startDate = document.getElementById('stats-start-date').value;
+        endDate = document.getElementById('stats-end-date').value;
+        if (!startDate || !endDate) throw new Error('请选择开始日期和结束日期');
+    }
+
+    return { startDate, endDate };
+}
+
+async function exportDailyStatsExcel() {
+    try {
+        const { startDate, endDate } = getCurrentStatsDateRangeForExport();
+        const params = new URLSearchParams({ start_date: startDate, end_date: endDate });
+        await downloadExcel(`/statistics/attendance/daily/export?${params.toString()}`, '每日详细');
+        showToast('导出成功', 'success');
+    } catch (error) {
+        console.error('导出每日详细失败:', error);
+        showToast(error.message || '导出失败', 'error');
+    }
+}

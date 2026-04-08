@@ -15,6 +15,7 @@ def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationRespons
     data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
     return LeaveApplicationResponse(**data)
 from ..security import get_current_user, get_current_active_admin
+from ..services.excel_export import build_excel_stream
 
 router = APIRouter(prefix="/statistics", tags=["统计分析"])
 
@@ -458,6 +459,42 @@ def get_user_overtime_details(
     return overtimes
 
 
+
+def _daily_status_display(status: Optional[str], target_date_str: str, period: str, is_late: bool = False, is_early_leave: bool = False) -> str:
+    """与前端 getStatusDisplay 保持一致的导出文案。"""
+    today = date.today()
+    item_date = datetime.fromisoformat(target_date_str).date()
+
+    if item_date == today and status == AttendanceStatus.ABSENT.value:
+        if period == 'afternoon':
+            now = datetime.now().time()
+            if now >= datetime.strptime('17:00', '%H:%M').time():
+                return '缺勤'
+            return ''
+        return ''
+
+    if item_date > today and status == AttendanceStatus.ABSENT.value:
+        return ''
+
+    if not status:
+        return '/'
+
+    if status == AttendanceStatus.NORMAL.value and period == 'morning' and is_late:
+        return '迟到'
+
+    if status == AttendanceStatus.NORMAL.value and period == 'afternoon' and is_early_leave:
+        return '早退'
+
+    status_map = {
+        AttendanceStatus.NORMAL.value: '正常',
+        AttendanceStatus.CITY_BUSINESS.value: '市区办事',
+        AttendanceStatus.BUSINESS_TRIP.value: '出差',
+        AttendanceStatus.LEAVE.value: '请假',
+        AttendanceStatus.ABSENT.value: '缺勤',
+        AttendanceStatus.OVERTIME_PUNCH.value: '加班',
+    }
+    return status_map.get(status, status)
+
 def is_workday(target_date: date, db: Session) -> bool:
     """判断指定日期是否为工作日"""
     date_str = target_date.isoformat()
@@ -613,3 +650,69 @@ def get_daily_attendance_statistics(
         end_date=end_date.isoformat(),
         statistics=statistics_list
     )
+
+@router.get("/attendance/daily/export")
+def export_daily_attendance_statistics(
+    start_date: date,
+    end_date: date,
+    department_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """导出每日详细统计（Excel，扁平格式，仅管理员）。"""
+    daily_data = get_daily_attendance_statistics(
+        start_date=start_date,
+        end_date=end_date,
+        department_id=department_id,
+        db=db,
+        current_user=current_user,
+    )
+
+    headers = [
+        '姓名', '用户名', '部门', '日期', '星期', '日期类型',
+        '上午状态', '下午状态', '是否迟到', '是否早退', '是否加班打卡'
+    ]
+
+    rows = []
+    for stat in daily_data.statistics:
+        for item in stat.items:
+            if item.day_type == 'overtime_non_workday':
+                morning_text = '加班' if item.has_overtime_punch else ''
+                afternoon_text = '-'
+                day_type_text = '非工作日'
+            else:
+                morning_text = _daily_status_display(
+                    item.morning_status,
+                    item.date,
+                    'morning',
+                    bool(item.is_late),
+                    bool(item.is_early_leave),
+                )
+                afternoon_text = _daily_status_display(
+                    item.afternoon_status,
+                    item.date,
+                    'afternoon',
+                    bool(item.is_late),
+                    bool(item.is_early_leave),
+                )
+                day_type_text = '工作日'
+
+            rows.append([
+                stat.real_name or stat.user_name,
+                stat.user_name,
+                stat.department or '-',
+                item.date,
+                item.weekday,
+                day_type_text,
+                morning_text,
+                afternoon_text,
+                '是' if item.is_late else '否',
+                '是' if item.is_early_leave else '否',
+                '是' if item.has_overtime_punch else '否',
+            ])
+
+    filename = f"每日详细_{start_date.isoformat()}_{end_date.isoformat()}.xlsx"
+    return build_excel_stream('每日详细', headers, rows, filename)
+
+
+

@@ -319,6 +319,7 @@
                                         <option value="">全部员工</option>
                                     </select>
                                     <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                                    <button class="btn btn-secondary" onclick="exportAttendanceExcel()">导出Excel</button>
                                 </div>
                                 <div id="attendance-month-filter" style="display: none; gap: 10px; align-items: center;">
                                     <input type="month" id="attendance-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
@@ -326,6 +327,7 @@
                                         <option value="">全部员工</option>
                                     </select>
                                     <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                                    <button class="btn btn-secondary" onclick="exportAttendanceExcel()">导出Excel</button>
                                 </div>
                                 <div id="attendance-date-filter" style="display: none; gap: 10px; align-items: center;">
                                     <input type="date" id="attendance-start-date" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
@@ -334,6 +336,7 @@
                                         <option value="">全部员工</option>
                                     </select>
                                     <button class="btn btn-primary" onclick="loadAttendanceRecords()">查询</button>
+                                    <button class="btn btn-secondary" onclick="exportAttendanceExcel()">导出Excel</button>
                                 </div>
                             </div>
                         </div>
@@ -598,11 +601,13 @@
                             <div id="month-selector" style="display: flex; gap: 10px;">
                                 <input type="month" id="stats-month" style="padding: 8px; border: 1px solid #ddd; border-radius: 6px;">
                                 <button class="btn btn-primary" onclick="loadAllStatistics()">查询</button>
+                                <button class="btn btn-secondary" onclick="exportDailyStatsExcel()">导出Excel</button>
                             </div>
                             <div id="date-selector" style="display: none; gap: 10px;">
                                 <input type="date" id="stats-start-date">
                                 <input type="date" id="stats-end-date">
                                 <button class="btn btn-primary" onclick="loadAllStatistics()">查询</button>
+                                <button class="btn btn-secondary" onclick="exportDailyStatsExcel()">导出Excel</button>
                             </div>
                         </div>
                     </div>

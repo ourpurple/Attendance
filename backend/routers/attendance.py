@@ -17,6 +17,7 @@ from ..schemas import (
 from ..security import get_current_user, get_current_active_admin
 from ..config import settings
 from ..geocode_cache import get_cached_address, set_cached_address
+from ..services.excel_export import build_excel_stream, fmt_date, fmt_dt
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
 SYSTEM_RESERVED_CHECKIN_STATUS_CODES = {AttendanceStatus.OVERTIME_PUNCH.value}
@@ -28,6 +29,19 @@ SYSTEM_RESERVED_CHECKIN_STATUS_META = {
     }
 }
 
+
+
+def _format_checkin_status_text(status: Optional[str]) -> str:
+    normalized = status.strip().lower() if isinstance(status, str) else status
+    if not normalized or normalized == AttendanceStatus.NORMAL.value:
+        return '正常打卡'
+    if normalized == AttendanceStatus.CITY_BUSINESS.value:
+        return '市区办事'
+    if normalized == AttendanceStatus.BUSINESS_TRIP.value:
+        return '出差'
+    if normalized == AttendanceStatus.OVERTIME_PUNCH.value:
+        return '加班打卡'
+    return str(status) if status is not None else ''
 
 def ensure_system_reserved_checkin_statuses(db: Session) -> None:
     """确保系统保留打卡状态存在且不可被禁用。"""
@@ -963,6 +977,58 @@ def get_user_attendance(
     attendances = query.order_by(Attendance.date.desc()).offset(skip).limit(limit).all()
     return attendances
 
+@router.get("/export")
+def export_attendance(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    user_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin)
+):
+    """导出考勤记录（Excel，仅管理员）。"""
+    query = db.query(Attendance)
+
+    if start_date:
+        query = query.filter(func.date(Attendance.date) >= start_date)
+    if end_date:
+        query = query.filter(func.date(Attendance.date) <= end_date)
+    if user_id:
+        query = query.filter(Attendance.user_id == user_id)
+
+    attendances = query.order_by(Attendance.date.desc()).all()
+
+    users = db.query(User).all()
+    user_map = {u.id: u.real_name or u.username for u in users}
+
+    headers = [
+        '日期', '员工', '上班打卡', '打卡状态', '上班位置', '下班打卡', '下班位置', '工时(h)', '迟到', '早退'
+    ]
+
+    rows = []
+    for att in attendances:
+        rows.append([
+            fmt_date(att.date),
+            user_map.get(att.user_id, '-'),
+            fmt_dt(att.checkin_time),
+            _format_checkin_status_text(att.checkin_status),
+            att.checkin_location or '-',
+            fmt_dt(att.checkout_time),
+            att.checkout_location or '-',
+            f"{att.work_hours:.1f}" if att.work_hours is not None else '-',
+            '是' if att.is_late else '否',
+            '是' if att.is_early_leave else '否',
+        ])
+
+    filename_parts = ['考勤记录']
+    if start_date:
+        filename_parts.append(start_date.isoformat())
+    if end_date:
+        filename_parts.append(end_date.isoformat())
+    filename = '_'.join(filename_parts) + '.xlsx'
+
+    return build_excel_stream('考勤记录', headers, rows, filename)
+
+
 
 @router.get("/", response_model=List[AttendanceResponse])
 def list_attendance(
@@ -1488,4 +1554,5 @@ def delete_attendance(
     db.delete(attendance)
     db.commit()
     return None
+
 
