@@ -1874,15 +1874,10 @@ async function loadDailyStats(startDate, endDate) {
                 : String(day).padStart(2, '0');
         };
 
-        const getColSpan = (item) => {
-            if (item.day_type === 'overtime_non_workday') return 1;
-            return item.has_overtime_punch ? 3 : 2;
-        };
-
         const thead = document.getElementById('daily-stats-thead');
         let headerHtml = '<tr><th>姓名</th><th></th>';
         headerItems.forEach(item => {
-            headerHtml += `<th colspan="${getColSpan(item)}">${getDateDisplay(item.date)}<br><small>${item.weekday}</small></th>`;
+            headerHtml += `<th>${getDateDisplay(item.date)}<br><small>${item.weekday}</small></th>`;
         });
         headerHtml += '</tr>';
         thead.innerHTML = headerHtml;
@@ -1902,13 +1897,6 @@ async function loadDailyStats(startDate, endDate) {
 
                 const morningStatus = getStatusDisplay(item.morning_status, item.date, 'morning', item.is_late);
                 morningRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning', item.is_late)}">${morningStatus}</td>`;
-
-                const afternoonStatusPreview = getStatusDisplay(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave);
-                morningRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}">${afternoonStatusPreview}</td>`;
-
-                if (item.has_overtime_punch) {
-                    morningRowHtml += '<td class="status-cell status-overtime">加班</td>';
-                }
             });
             morningRowHtml += '</tr>';
 
@@ -1919,15 +1907,8 @@ async function loadDailyStats(startDate, endDate) {
                     return;
                 }
 
-                const morningStatusPreview = getStatusDisplay(item.morning_status, item.date, 'morning', item.is_late);
-                afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.morning_status, item.date, 'morning', item.is_late)}">${morningStatusPreview}</td>`;
-
                 const afternoonStatus = getStatusDisplay(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave);
                 afternoonRowHtml += `<td class="status-cell ${getStatusClass(item.afternoon_status, item.date, 'afternoon', false, item.is_early_leave)}">${afternoonStatus}</td>`;
-
-                if (item.has_overtime_punch) {
-                    afternoonRowHtml += '<td class="status-cell">-</td>';
-                }
             });
             afternoonRowHtml += '</tr>';
 
@@ -5098,5 +5079,3 @@ async function deleteOvertimeApplication(overtimeId) {
         'danger'
     );
 }
-
-
