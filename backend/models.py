@@ -300,6 +300,15 @@ class CheckinStatusConfig(Base):
     sort_order = Column(Integer, default=0, comment="排序顺序")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+class SystemSetting(Base):
+    """系统设置表"""
+    __tablename__ = "system_settings"
 
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, nullable=False, index=True, comment="设置键")
+    value = Column(String(255), nullable=False, comment="设置值")
+    description = Column(Text, comment="设置描述")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 

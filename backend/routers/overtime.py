@@ -9,6 +9,7 @@ from ..schemas import OvertimeApplicationCreate, OvertimeApplicationUpdate, Over
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import assign_approver_for_overtime, can_approve_overtime
 from ..services.wechat_message import send_approval_notification, send_approval_result_notification
+from .system_settings import is_gm_auto_approve_enabled
 
 router = APIRouter(prefix="/overtime", tags=["加班管理"])
 
@@ -48,6 +49,56 @@ def get_overtime_application_time(overtime: OvertimeApplication) -> str:
 def get_overtime_reason(overtime: OvertimeApplication) -> str:
     return overtime.reason or "无"
 
+
+
+def _auto_approve_overtime_at_gm_stage(overtime: OvertimeApplication, db: Session) -> bool:
+    """当开启系统开关时，分配到总经理审批节点的加班自动通过。"""
+    if not is_gm_auto_approve_enabled(db):
+        return False
+    if overtime.status != OvertimeStatus.PENDING:
+        return False
+
+    gm = db.query(User).filter(
+        User.role == UserRole.GENERAL_MANAGER,
+        User.is_active == True
+    ).order_by(User.id).first()
+
+    # 仅处理“到总经理审批”的场景：指定审批人为总经理
+    if overtime.assigned_approver_id:
+        assigned = db.query(User).filter(User.id == overtime.assigned_approver_id).first()
+        if not assigned or assigned.role != UserRole.GENERAL_MANAGER:
+            return False
+        approver_id = assigned.id
+        approver_name = assigned.real_name
+    else:
+        if not gm:
+            return False
+        approver_id = gm.id
+        approver_name = gm.real_name
+
+    now = datetime.now()
+    overtime.approver_id = approver_id
+    overtime.approved_at = now
+    overtime.comment = "系统自动审批（开启总经理审批自动通过）"
+    overtime.status = OvertimeStatus.APPROVED
+
+    try:
+        applicant = db.query(User).filter(User.id == overtime.user_id).first()
+        if applicant and applicant.wechat_openid:
+            send_approval_result_notification(
+                applicant_openid=applicant.wechat_openid,
+                application_type="overtime",
+                application_id=overtime.id,
+                applicant_name=applicant.real_name,
+                application_item=get_overtime_application_item(overtime),
+                approved=True,
+                approver_name=approver_name,
+                approval_date=now.strftime("%Y-%m-%d")
+            )
+    except Exception:
+        pass
+
+    return True
 
 @router.post("/", response_model=OvertimeApplicationResponse, status_code=status.HTTP_201_CREATED)
 def create_overtime_application(
@@ -128,6 +179,8 @@ def create_overtime_application(
         overtime.approved_at = datetime.now()
         overtime.comment = 'System auto-approved: applicant is the current approver'
         overtime.status = OvertimeStatus.APPROVED
+    _auto_approve_overtime_at_gm_stage(overtime, db)
+
     db.add(overtime)
     db.commit()
     db.refresh(overtime)
@@ -411,11 +464,19 @@ def approve_overtime_application(
             detail=reason
         )
     
+
+    # 开启开关时，分配到总经理节点的申请直接自动通过
+    if approval.approved and _auto_approve_overtime_at_gm_stage(overtime, db):
+        db.commit()
+        db.refresh(overtime)
+        return overtime
+
     # 审批
     overtime.approver_id = current_user.id
     overtime.approved_at = datetime.now()
     overtime.comment = approval.comment
     overtime.status = OvertimeStatus.APPROVED if approval.approved else OvertimeStatus.REJECTED
+
     
     db.commit()
     db.refresh(overtime)
@@ -559,5 +620,17 @@ def list_overtime_applications(
         responses.append(OvertimeApplicationResponse(**data))
     
     return responses
+
+
+
+
+
+
+
+
+
+
+
+
 
 

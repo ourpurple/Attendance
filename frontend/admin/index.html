@@ -93,6 +93,9 @@
                             <a href="#holidays" class="nav-sub-item nav-link" data-page="holidays">
                                 <span>节假日配置</span>
                             </a>
+                            <a href="#system-settings" class="nav-sub-item nav-link" data-page="system-settings">
+                                <span>系统设置</span>
+                            </a>
                         </div>
                     </div>
                 </nav>
@@ -583,6 +586,27 @@
                     </div>
                 </div>
 
+
+                <!-- 系统设置 -->
+                <div id="system-settings-content" class="content-section">
+                    <div class="section-header">
+                        <h2>系统设置</h2>
+                    </div>
+                    <div class="system-settings-card">
+                        <div class="system-setting-item">
+                            <label class="system-setting-label" for="auto-approve-gm-level">
+                                <input type="checkbox" id="auto-approve-gm-level" class="system-setting-checkbox">
+                                <span>开启“总经理审批自动通过”</span>
+                            </label>
+                            <p class="system-setting-desc">
+                                开启后，任何流转到总经理审批节点的请假/加班申请将由系统自动批准。
+                            </p>
+                        </div>
+                        <div class="system-settings-actions">
+                            <button class="btn btn-primary" onclick="saveSystemSettings()">保存设置</button>
+                        </div>
+                    </div>
+                </div>
                 <!-- 统计分析 -->
                 <div id="statistics-content" class="content-section">
                     <div class="section-header">
@@ -727,5 +751,9 @@
     <script src="app.js"></script>
 </body>
 </html>
+
+
+
+
 
 

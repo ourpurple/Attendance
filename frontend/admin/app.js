@@ -273,6 +273,9 @@ function loadPageData(page) {
         case 'holidays':
             loadHolidays();
             break;
+        case 'system-settings':
+            loadSystemSettings();
+            break;
         case 'statistics':
             // 初始化日期选择器
             toggleDateType();
@@ -5200,3 +5203,38 @@ async function exportDailyStatsExcel() {
         showToast(error.message || '导出失败', 'error');
     }
 }
+
+// 加载系统设置
+async function loadSystemSettings() {
+    try {
+        const settings = await apiRequest('/system-settings/');
+        const checkbox = document.getElementById('auto-approve-gm-level');
+        if (checkbox) {
+            checkbox.checked = !!settings.auto_approve_gm_level;
+        }
+    } catch (error) {
+        console.error('加载系统设置失败:', error);
+        showToast('加载系统设置失败: ' + error.message, 'error');
+    }
+}
+
+// 保存系统设置
+async function saveSystemSettings() {
+    try {
+        const checkbox = document.getElementById('auto-approve-gm-level');
+        const payload = {
+            auto_approve_gm_level: !!(checkbox && checkbox.checked)
+        };
+
+        await apiRequest('/system-settings/', {
+            method: 'PUT',
+            body: JSON.stringify(payload)
+        });
+
+        showToast('系统设置已保存', 'success');
+    } catch (error) {
+        console.error('保存系统设置失败:', error);
+        showToast('保存系统设置失败: ' + error.message, 'error');
+    }
+}
+

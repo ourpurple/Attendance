@@ -610,5 +610,13 @@ class DailyAttendanceStatisticsResponse(BaseModel):
     start_date: str  # YYYY-MM-DD
     end_date: str  # YYYY-MM-DD
     statistics: List[DailyAttendanceStatistics]
+# ==================== 系统设置相关 ====================
+class SystemSettingItem(BaseModel):
+    key: str
+    value: str
+    description: Optional[str] = None
 
+
+class SystemSettingUpdate(BaseModel):
+    auto_approve_gm_level: bool
 

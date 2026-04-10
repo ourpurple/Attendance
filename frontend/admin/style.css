@@ -1540,3 +1540,47 @@ tr:hover {
     color: #e65100;
     font-weight: 500;
 }
+
+/* 系统设置 */
+.system-settings-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 20px 24px;
+}
+
+.system-setting-item {
+    max-width: 760px;
+}
+
+.system-setting-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-primary);
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 6px;
+}
+
+.system-setting-checkbox {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    accent-color: var(--primary-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    flex: 0 0 auto;
+}
+
+.system-setting-desc {
+    margin: 0;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+.system-settings-actions {
+    margin-top: 16px;
+}
+

@@ -13,6 +13,7 @@ from ..approval_assigner import (
     can_approve_leave
 )
 from ..services.wechat_message import send_approval_notification, send_approval_result_notification
+from .system_settings import is_gm_auto_approve_enabled
 
 router = APIRouter(prefix="/leave", tags=["请假管理"])
 
@@ -98,6 +99,56 @@ def get_required_approval_level(days: float) -> List[str]:
     else:
         return ["department_head", "vice_president", "general_manager"]
 
+
+
+
+def _auto_approve_leave_at_gm_stage(leave: LeaveApplication, db: Session) -> bool:
+    """当开启系统开关时，流转到总经理审批节点的请假自动通过。"""
+    if not is_gm_auto_approve_enabled(db):
+        return False
+    if leave.status != LeaveStatus.VP_APPROVED:
+        return False
+
+    now = datetime.now()
+    approver_name = "系统自动审批"
+    gm_approver_id = None
+
+    if leave.assigned_gm_id:
+        gm = db.query(User).filter(User.id == leave.assigned_gm_id).first()
+        if gm:
+            gm_approver_id = gm.id
+            approver_name = gm.real_name
+    else:
+        gm = db.query(User).filter(
+            User.role == UserRole.GENERAL_MANAGER,
+            User.is_active == True
+        ).order_by(User.id).first()
+        if gm:
+            gm_approver_id = gm.id
+            approver_name = gm.real_name
+
+    leave.gm_approver_id = gm_approver_id
+    leave.gm_approved_at = now
+    leave.gm_comment = "系统自动审批（开启总经理审批自动通过）"
+    leave.status = LeaveStatus.APPROVED
+
+    try:
+        applicant = db.query(User).filter(User.id == leave.user_id).first()
+        if applicant and applicant.wechat_openid:
+            send_approval_result_notification(
+                applicant_openid=applicant.wechat_openid,
+                application_type="leave",
+                application_id=leave.id,
+                applicant_name=applicant.real_name,
+                application_item=get_leave_type_name(leave, db),
+                approved=True,
+                approver_name=approver_name,
+                approval_date=now.strftime("%Y-%m-%d")
+            )
+    except Exception:
+        pass
+
+    return True
 
 @router.post("/", response_model=LeaveApplicationResponse, status_code=status.HTTP_201_CREATED)
 def create_leave_application(
@@ -217,6 +268,8 @@ def create_leave_application(
             leave.vp_approved_at = now
             leave.vp_comment = auto_approve_comment
             leave.status = LeaveStatus.APPROVED if leave.days <= 3 else LeaveStatus.VP_APPROVED
+            if leave.status == LeaveStatus.VP_APPROVED:
+                _auto_approve_leave_at_gm_stage(leave, db)
         elif current_user.role == UserRole.GENERAL_MANAGER:
             leave.gm_approver_id = current_user.id
             leave.gm_approved_at = now
@@ -748,6 +801,7 @@ def approve_leave_application(
                 else:
                     # 需要总经理审批
                     leave.status = LeaveStatus.VP_APPROVED
+                    _auto_approve_leave_at_gm_stage(leave, db)
             else:
                 leave.status = LeaveStatus.REJECTED
         # 情况2：副总审批其他副总的申请（pending状态，assigned_vp_id是当前审批人）
@@ -764,6 +818,7 @@ def approve_leave_application(
                 else:
                     # 需要总经理审批
                     leave.status = LeaveStatus.VP_APPROVED
+                    _auto_approve_leave_at_gm_stage(leave, db)
             else:
                 leave.status = LeaveStatus.REJECTED
         # 情况3：副总作为部门head审批pending状态的申请（走部门主任流程）
@@ -806,6 +861,7 @@ def approve_leave_application(
                     leave.status = LeaveStatus.APPROVED
                 else:
                     leave.status = LeaveStatus.VP_APPROVED
+                    _auto_approve_leave_at_gm_stage(leave, db)
             else:
                 leave.status = LeaveStatus.REJECTED
     
@@ -1112,5 +1168,13 @@ def list_leave_applications(
         responses.append(to_leave_response(leave, data))
 
     return responses
+
+
+
+
+
+
+
+
 
 

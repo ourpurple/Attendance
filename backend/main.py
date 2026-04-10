@@ -5,7 +5,7 @@ import logging
 import sys
 from .config import settings
 from .database import init_db
-from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types
+from .routers import auth, users, departments, attendance, leave, overtime, statistics, holidays, vp_departments, attendance_viewers, leave_types, system_settings
 
 # 配置日志，确保输出到标准输出（systemd journal）
 logging.basicConfig(
@@ -44,6 +44,7 @@ app.include_router(holidays.router, prefix="/api")
 app.include_router(vp_departments.router, prefix="/api")
 app.include_router(attendance_viewers.router, prefix="/api")
 app.include_router(leave_types.router, prefix="/api")
+app.include_router(system_settings.router, prefix="/api")
 
 # 静态文件服务（用于前端）
 import os
@@ -84,5 +85,7 @@ async def root():
 async def health_check():
     """健康检查"""
     return {"status": "healthy"}
+
+
 
 
