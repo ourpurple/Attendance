@@ -177,7 +177,7 @@ def create_overtime_application(
     if first_approver and first_approver.id == current_user.id:
         overtime.approver_id = current_user.id
         overtime.approved_at = datetime.now()
-        overtime.comment = 'System auto-approved: applicant is the current approver'
+        overtime.comment = '系统自动审批（申请人与当前审批人相同）'
         overtime.status = OvertimeStatus.APPROVED
     _auto_approve_overtime_at_gm_stage(overtime, db)
 
