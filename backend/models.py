@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
@@ -118,7 +118,10 @@ class AttendanceStatus(str, enum.Enum):
 class Attendance(Base):
     """考勤打卡表"""
     __tablename__ = "attendances"
-    
+    __table_args__ = (
+        UniqueConstraint("user_id", "date", name="uq_attendances_user_date"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     checkin_time = Column(DateTime, comment="上班打卡时间")
@@ -310,5 +313,3 @@ class SystemSetting(Base):
     description = Column(Text, comment="设置描述")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
-
-

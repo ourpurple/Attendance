@@ -15,6 +15,11 @@ let currentUser = null;
 let token = null;
 let currentLocation = null;
 let leaveTypesCache = [];
+let attendanceRequestInFlight = {
+    checkin: false,
+    checkout: false,
+    overtimePunch: false
+};
 
 // ==================== 自定义弹窗工具函数 ====================
 // 自定义输入对话框
@@ -1219,137 +1224,261 @@ async function overtimePunch() {
     const btn = document.getElementById('overtime-punch-btn');
     if (!btn) return;
 
-    const workdayCheck = await checkWorkday();
-    if (workdayCheck.is_workday) {
-        await showToast('工作日请使用正常打卡按钮', 'warning');
+    if (attendanceRequestInFlight.overtimePunch) {
         return;
     }
+    attendanceRequestInFlight.overtimePunch = true;
 
-    let todayAttendance = null;
     try {
-        const today = getCSTDate();
-        const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}&limit=10`);
-        if (attendances && attendances.length > 0) {
-            for (const att of attendances) {
-                if (att.date && typeof att.date === 'string' && att.date.split('T')[0] === today) {
-                    todayAttendance = att;
-                    break;
+        const workdayCheck = await checkWorkday();
+        if (workdayCheck.is_workday) {
+            await showToast('工作日请使用正常打卡按钮', 'warning');
+            return;
+        }
+
+        let todayAttendance = null;
+        try {
+            const today = getCSTDate();
+            const attendances = await apiRequest(`/attendance/my?start_date=${today}&end_date=${today}&limit=10`);
+            if (attendances && attendances.length > 0) {
+                for (const att of attendances) {
+                    if (att.date && typeof att.date === 'string' && att.date.split('T')[0] === today) {
+                        todayAttendance = att;
+                        break;
+                    }
                 }
             }
+        } catch (error) {
+            console.warn('获取当日打卡状态失败:', error);
         }
-    } catch (error) {
-        console.warn('获取当日打卡状态失败:', error);
-    }
 
-    const hasCheckin = !!(todayAttendance && todayAttendance.checkin_time);
-    const hasCheckout = !!(todayAttendance && todayAttendance.checkout_time);
+        const hasCheckin = !!(todayAttendance && todayAttendance.checkin_time);
+        const hasCheckout = !!(todayAttendance && todayAttendance.checkout_time);
 
-    if (hasCheckin && hasCheckout) {
+        if (hasCheckin && hasCheckout) {
+            btn.disabled = true;
+            btn.innerHTML = '<span>OT</span><span>加班打卡已完成</span>';
+            return;
+        }
+
         btn.disabled = true;
-        btn.innerHTML = '<span>OT</span><span>加班打卡已完成</span>';
-        return;
-    }
+        btn.innerHTML = '<span>OT</span><span>定位中...</span>';
 
-    btn.disabled = true;
-    btn.innerHTML = '<span>OT</span><span>定位中...</span>';
+        try {
+            const locationData = await getCurrentLocation();
+            locationData.is_overtime_punch = true;
 
-    try {
-        const locationData = await getCurrentLocation();
-        locationData.is_overtime_punch = true;
+            if (!hasCheckin) {
+                locationData.checkin_status = 'normal';
+                await apiRequest('/attendance/checkin', {
+                    method: 'POST',
+                    body: JSON.stringify(locationData)
+                });
+            } else {
+                await apiRequest('/attendance/checkout', {
+                    method: 'POST',
+                    body: JSON.stringify(locationData)
+                });
+            }
 
-        if (!hasCheckin) {
-            locationData.checkin_status = 'normal';
-            await apiRequest('/attendance/checkin', {
-                method: 'POST',
-                body: JSON.stringify(locationData)
-            });
-        } else {
-            await apiRequest('/attendance/checkout', {
-                method: 'POST',
-                body: JSON.stringify(locationData)
-            });
+            await loadHomeData();
+        } catch (error) {
+            await showToast('加班打卡失败: ' + error.message, 'error');
+            btn.disabled = false;
+            btn.innerHTML = hasCheckin
+                ? '<span>OT</span><span>加班下班打卡</span>'
+                : '<span>OT</span><span>加班上班打卡</span>';
         }
-
-        await loadHomeData();
-    } catch (error) {
-        await showToast('加班打卡失败: ' + error.message, 'error');
-        btn.disabled = false;
-        btn.innerHTML = hasCheckin
-            ? '<span>OT</span><span>加班下班打卡</span>'
-            : '<span>OT</span><span>加班上班打卡</span>';
+    } finally {
+        attendanceRequestInFlight.overtimePunch = false;
     }
 }
 
 async function checkin() {
     const btn = document.getElementById('checkin-btn');
 
-    if (currentUser?.enable_attendance === false) {
-        await showToast('您不用打卡!', 'info');
+    if (attendanceRequestInFlight.checkin) {
         return;
     }
+    attendanceRequestInFlight.checkin = true;
 
-    // 如果按钮已禁用（已打卡），直接返回
-    if (btn.disabled) {
-        await showToast('今天已经打过上班卡', 'warning');
-        return;
-    }
-
-    // 检查是否为工作日
-    const workdayCheck = await checkWorkday();
-    if (!workdayCheck.is_workday) {
-        const message = workdayCheck.holiday_name
-            ? `今天是${workdayCheck.holiday_name}，无需打卡！`
-            : '今天是休息日，无需打卡！';
-        await showToast(message, 'info');
-        return;
-    }
-
-    // 检查请假状态
     try {
-        const leaveStatus = await apiRequest('/attendance/leave-status');
-        if (leaveStatus.full_day_leave) {
-            await showToast('今天全天请假，无需打卡', 'info');
+        if (currentUser?.enable_attendance === false) {
+            await showToast('您不用打卡!', 'info');
             return;
         }
-        if (leaveStatus.morning_leave) {
-            const now = new Date();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            // 检查是否在14:10之前
-            if (currentHour > 14 || (currentHour === 14 && currentMinute >= 10)) {
-                await showToast('上午请假，签到时间已过（14:10后不可签到）', 'warning');
-                return;
-            }
-            // 显示提示：上午请假，可以在14:10前签到
-            const confirmed = await showToast(
-                '您今天上午请假，可以在14:10前签到。\n\n确定要继续打卡吗？',
-                'warning',
-                {
-                    confirm: true,
-                    confirmText: '确定打卡',
-                    cancelText: '取消',
-                    timeout: 0
-                }
-            );
-            if (!confirmed) {
-                return;
-            }
-        }
-    } catch (error) {
-        console.warn('检查请假状态失败:', error);
-        // 如果检查失败，继续执行打卡（不影响正常流程）
-    }
 
-    // 检查是否会迟到（只有在非上午请假的情况下才检查）
-    try {
-        const leaveStatus = await apiRequest('/attendance/leave-status').catch(() => ({ morning_leave: false }));
-        if (!leaveStatus.morning_leave) {
-            const lateCheck = await apiRequest('/attendance/check-late');
-            if (lateCheck.will_be_late) {
-                const currentTime = lateCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-                const workStartTime = lateCheck.work_start_time || '09:00';
+        // 如果按钮已禁用（已打卡），直接返回
+        if (btn.disabled) {
+            await showToast('今天已经打过上班卡', 'warning');
+            return;
+        }
+
+        // 检查是否为工作日
+        const workdayCheck = await checkWorkday();
+        if (!workdayCheck.is_workday) {
+            const message = workdayCheck.holiday_name
+                ? `今天是${workdayCheck.holiday_name}，无需打卡！`
+                : '今天是休息日，无需打卡！';
+            await showToast(message, 'info');
+            return;
+        }
+
+        // 检查请假状态
+        try {
+            const leaveStatus = await apiRequest('/attendance/leave-status');
+            if (leaveStatus.full_day_leave) {
+                await showToast('今天全天请假，无需打卡', 'info');
+                return;
+            }
+            if (leaveStatus.morning_leave) {
+                const now = new Date();
+                const currentHour = now.getHours();
+                const currentMinute = now.getMinutes();
+                // 检查是否在14:10之前
+                if (currentHour > 14 || (currentHour === 14 && currentMinute >= 10)) {
+                    await showToast('上午请假，签到时间已过（14:10后不可签到）', 'warning');
+                    return;
+                }
+                // 显示提示：上午请假，可以在14:10前签到
                 const confirmed = await showToast(
-                    `当前时间 ${currentTime}，已超过上班时间 ${workStartTime}，打卡后将记录为迟到。\n\n确定要继续打卡吗？`,
+                    '您今天上午请假，可以在14:10前签到。\n\n确定要继续打卡吗？',
+                    'warning',
+                    {
+                        confirm: true,
+                        confirmText: '确定打卡',
+                        cancelText: '取消',
+                        timeout: 0
+                    }
+                );
+                if (!confirmed) {
+                    return;
+                }
+            }
+        } catch (error) {
+            console.warn('检查请假状态失败:', error);
+            // 如果检查失败，继续执行打卡（不影响正常流程）
+        }
+
+        // 检查是否会迟到（只有在非上午请假的情况下才检查）
+        try {
+            const leaveStatus = await apiRequest('/attendance/leave-status').catch(() => ({ morning_leave: false }));
+            if (!leaveStatus.morning_leave) {
+                const lateCheck = await apiRequest('/attendance/check-late');
+                if (lateCheck.will_be_late) {
+                    const currentTime = lateCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                    const workStartTime = lateCheck.work_start_time || '09:00';
+                    const confirmed = await showToast(
+                        `当前时间 ${currentTime}，已超过上班时间 ${workStartTime}，打卡后将记录为迟到。\n\n确定要继续打卡吗？`,
+                        'warning',
+                        {
+                            confirm: true,
+                            confirmText: '确定打卡',
+                            cancelText: '取消',
+                            timeout: 0  // 不自动关闭
+                        }
+                    );
+                    if (!confirmed) {
+                        return;  // 用户取消，不执行打卡
+                    }
+                }
+            }
+        } catch (error) {
+            console.warn('检查迟到状态失败:', error);
+            // 如果检查失败，继续执行打卡（不影响正常流程）
+        }
+
+        // 获取打卡状态选择（单选按钮）
+        const selectedRadio = document.querySelector('input[name="checkin-status"]:checked');
+        const checkinStatus = selectedRadio ? selectedRadio.value : 'normal';
+
+        btn.disabled = true;
+        btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
+
+        try {
+            // 显示获取位置提示
+            await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
+
+            const locationData = await getCurrentLocation();
+            // 添加打卡状态
+            locationData.checkin_status = checkinStatus;
+            locationData.is_overtime_punch = false;
+
+            await apiRequest('/attendance/checkin', {
+                method: 'POST',
+                body: JSON.stringify(locationData)
+            });
+
+            await showToast('上班打卡成功！', 'success', { timeout: 2000 });
+            loadMyPendingCounts();  // 更新未完成申请数量徽章
+            // 刷新整个首页数据（会自动设置按钮状态）
+            await loadHomeData();
+            // 刷新页面以确保所有数据都是最新的
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } catch (error) {
+            await showToast('打卡失败: ' + error.message, 'error');
+            // 只有失败时才恢复按钮状态
+            btn.disabled = false;
+            btn.innerHTML = '<span>📍</span><span>上班打卡</span>';
+        }
+    } finally {
+        attendanceRequestInFlight.checkin = false;
+    }
+}
+
+// 下班打卡
+async function checkout() {
+    const btn = document.getElementById('checkout-btn');
+
+    if (attendanceRequestInFlight.checkout) {
+        return;
+    }
+    attendanceRequestInFlight.checkout = true;
+
+    try {
+        if (currentUser?.enable_attendance === false) {
+            await showToast('您不用打卡!', 'info');
+            return;
+        }
+
+        // 如果按钮已禁用（已打卡），直接返回
+        if (btn.disabled) {
+            await showToast('今天已经打过下班卡', 'warning');
+            return;
+        }
+
+        // 检查请假状态
+        try {
+            const leaveStatus = await apiRequest('/attendance/leave-status');
+            if (leaveStatus.afternoon_leave) {
+                await showToast('下午请假，无需签退', 'info');
+                return;
+            }
+        } catch (error) {
+            console.warn('检查请假状态失败:', error);
+            // 如果检查失败，继续执行打卡（不影响正常流程）
+        }
+
+        // 检查是否为工作日
+        const workdayCheck = await checkWorkday();
+        if (!workdayCheck.is_workday) {
+            const message = workdayCheck.holiday_name
+                ? `今天是${workdayCheck.holiday_name}，无需打卡！`
+                : '今天是休息日，无需打卡！';
+            await showToast(message, 'info');
+            return;
+        }
+
+        // 检查是否会早退
+        try {
+            const earlyLeaveCheck = await apiRequest('/attendance/check-early-leave');
+            if (earlyLeaveCheck.will_be_early_leave) {
+                const currentTime = earlyLeaveCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+                const workEndTime = earlyLeaveCheck.work_end_time || '18:00';
+                const confirmed = await showToast(
+                    `当前时间 ${currentTime}，早于下班时间 ${workEndTime}，打卡后将记录为早退。\n\n确定要继续打卡吗？`,
                     'warning',
                     {
                         confirm: true,
@@ -1362,138 +1491,41 @@ async function checkin() {
                     return;  // 用户取消，不执行打卡
                 }
             }
+        } catch (error) {
+            console.warn('检查早退状态失败:', error);
+            // 如果检查失败，继续执行打卡（不影响正常流程）
         }
-    } catch (error) {
-        console.warn('检查迟到状态失败:', error);
-        // 如果检查失败，继续执行打卡（不影响正常流程）
-    }
 
-    // 获取打卡状态选择（单选按钮）
-    const selectedRadio = document.querySelector('input[name="checkin-status"]:checked');
-    const checkinStatus = selectedRadio ? selectedRadio.value : 'normal';
+        btn.disabled = true;
+        btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
 
-    btn.disabled = true;
-    btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
+        try {
+            // 显示获取位置提示
+            await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
 
-    try {
-        // 显示获取位置提示
-        await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
+            const locationData = await getCurrentLocation();
+            locationData.is_overtime_punch = false;
 
-        const locationData = await getCurrentLocation();
-        // 添加打卡状态
-        locationData.checkin_status = checkinStatus;
-        locationData.is_overtime_punch = false;
+            await apiRequest('/attendance/checkout', {
+                method: 'POST',
+                body: JSON.stringify(locationData)
+            });
 
-        const result = await apiRequest('/attendance/checkin', {
-            method: 'POST',
-            body: JSON.stringify(locationData)
-        });
-
-        await showToast('上班打卡成功！', 'success', { timeout: 2000 });
-        loadMyPendingCounts();  // 更新未完成申请数量徽章
-        // 刷新整个首页数据（会自动设置按钮状态）
-        await loadHomeData();
-        // 刷新页面以确保所有数据都是最新的
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
-    } catch (error) {
-        await showToast('打卡失败: ' + error.message, 'error');
-        // 只有失败时才恢复按钮状态
-        btn.disabled = false;
-        btn.innerHTML = '<span>📍</span><span>上班打卡</span>';
-    }
-}
-
-// 下班打卡
-async function checkout() {
-    const btn = document.getElementById('checkout-btn');
-
-    if (currentUser?.enable_attendance === false) {
-        await showToast('您不用打卡!', 'info');
-        return;
-    }
-
-    // 如果按钮已禁用（已打卡），直接返回
-    if (btn.disabled) {
-        await showToast('今天已经打过下班卡', 'warning');
-        return;
-    }
-
-    // 检查请假状态
-    try {
-        const leaveStatus = await apiRequest('/attendance/leave-status');
-        if (leaveStatus.afternoon_leave) {
-            await showToast('下午请假，无需签退', 'info');
-            return;
+            await showToast('下班打卡成功！', 'success', { timeout: 2000 });
+            // 刷新整个首页数据（会自动设置按钮状态）
+            await loadHomeData();
+            // 刷新页面以确保所有数据都是最新的
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } catch (error) {
+            await showToast('打卡失败: ' + error.message, 'error');
+            // 只有失败时才恢复按钮状态
+            btn.disabled = false;
+            btn.innerHTML = '<span>📍</span><span>下班打卡</span>';
         }
-    } catch (error) {
-        console.warn('检查请假状态失败:', error);
-        // 如果检查失败，继续执行打卡（不影响正常流程）
-    }
-
-    // 检查是否为工作日
-    const workdayCheck = await checkWorkday();
-    if (!workdayCheck.is_workday) {
-        const message = workdayCheck.holiday_name
-            ? `今天是${workdayCheck.holiday_name}，无需打卡！`
-            : '今天是休息日，无需打卡！';
-        await showToast(message, 'info');
-        return;
-    }
-
-    // 检查是否会早退
-    try {
-        const earlyLeaveCheck = await apiRequest('/attendance/check-early-leave');
-        if (earlyLeaveCheck.will_be_early_leave) {
-            const currentTime = earlyLeaveCheck.current_time || new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-            const workEndTime = earlyLeaveCheck.work_end_time || '18:00';
-            const confirmed = await showToast(
-                `当前时间 ${currentTime}，早于下班时间 ${workEndTime}，打卡后将记录为早退。\n\n确定要继续打卡吗？`,
-                'warning',
-                {
-                    confirm: true,
-                    confirmText: '确定打卡',
-                    cancelText: '取消',
-                    timeout: 0  // 不自动关闭
-                }
-            );
-            if (!confirmed) {
-                return;  // 用户取消，不执行打卡
-            }
-        }
-    } catch (error) {
-        console.warn('检查早退状态失败:', error);
-        // 如果检查失败，继续执行打卡（不影响正常流程）
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<span>📍</span><span>获取位置中...</span>';
-
-    try {
-        // 显示获取位置提示
-        await showToast('正在获取位置信息，请稍候...', 'info', { timeout: 3000 });
-
-        const locationData = await getCurrentLocation();
-        locationData.is_overtime_punch = false;
-
-        const result = await apiRequest('/attendance/checkout', {
-            method: 'POST',
-            body: JSON.stringify(locationData)
-        });
-
-        await showToast('下班打卡成功！', 'success', { timeout: 2000 });
-        // 刷新整个首页数据（会自动设置按钮状态）
-        await loadHomeData();
-        // 刷新页面以确保所有数据都是最新的
-        setTimeout(() => {
-            window.location.reload();
-        }, 500);
-    } catch (error) {
-        await showToast('打卡失败: ' + error.message, 'error');
-        // 只有失败时才恢复按钮状态
-        btn.disabled = false;
-        btn.innerHTML = '<span>📍</span><span>下班打卡</span>';
+    } finally {
+        attendanceRequestInFlight.checkout = false;
     }
 }
 
@@ -4541,4 +4573,3 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 });
-

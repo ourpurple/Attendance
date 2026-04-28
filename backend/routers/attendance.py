@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
 from datetime import datetime, date, timedelta
 import json
@@ -20,6 +21,31 @@ from ..geocode_cache import get_cached_address, set_cached_address
 from ..services.excel_export import build_excel_stream, fmt_date, fmt_dt
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
+
+def _is_duplicate_attendance_integrity_error(exc: IntegrityError) -> bool:
+    """仅识别 user_id + date 唯一约束冲突，避免误报其他完整性错误。"""
+    # sqlite 常见报错：UNIQUE constraint failed: attendances.user_id, attendances.date
+    # postgres 常见报错：duplicate key value violates unique constraint "uq_attendances_user_date"
+    message = str(getattr(exc, "orig", exc)).lower()
+    if (
+        "unique constraint failed" in message
+        and "attendances.user_id" in message
+        and "attendances.date" in message
+    ):
+        return True
+
+    duplicate_markers = (
+        "duplicate key value violates unique constraint",
+        "duplicate entry",
+    )
+    constraint_markers = (
+        "uq_attendances_user_date",
+        "idx_attendances_user_date_unique",
+    )
+    return any(dm in message for dm in duplicate_markers) and any(
+        cm in message for cm in constraint_markers
+    )
+
 SYSTEM_RESERVED_CHECKIN_STATUS_CODES = {AttendanceStatus.OVERTIME_PUNCH.value}
 SYSTEM_RESERVED_CHECKIN_STATUS_META = {
     AttendanceStatus.OVERTIME_PUNCH.value: {
@@ -398,9 +424,28 @@ def checkin(
         )
         db.add(attendance)
     
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if _is_duplicate_attendance_integrity_error(exc):
+            # user_id + date 唯一约束冲突：并发重复签到，按既有语义返回400
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="今天已经打过上班卡"
+            )
+
+        # 其他完整性错误不应伪装成重复打卡
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"签到提交失败（非重复打卡约束）: {exc}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="签到提交失败，请稍后重试"
+        )
+
     db.refresh(attendance)
-    
+
     return attendance
 
 
@@ -1554,5 +1599,3 @@ def delete_attendance(
     db.delete(attendance)
     db.commit()
     return None
-
-

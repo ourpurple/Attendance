@@ -38,6 +38,7 @@ MD/
 *.db
 *.sqlite
 *.sqlite3
+*.db.backup.*
 
 # Environment variables
 .env

@@ -1059,9 +1059,9 @@ def list_leave_applications(
     
     # 按日期范围筛选（检查请假日期是否与查询范围有重叠）
     if start_date:
-        query = query.filter(LeaveApplication.end_date >= start_date)
+        query = query.filter(func.date(LeaveApplication.end_date) >= start_date)
     if end_date:
-        query = query.filter(LeaveApplication.start_date <= end_date)
+        query = query.filter(func.date(LeaveApplication.start_date) <= end_date)
     
     # 按员工筛选
     if user_id:
