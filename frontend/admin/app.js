@@ -2123,15 +2123,20 @@ function loadOvertimeStats() {
 
     // 过滤出有加班记录的员工（只统计已批准的）
     const overtimeData = statisticsData
-        .filter(stat => stat.overtime_days > 0)
         .map(stat => ({
             ...stat,
-            overtime_count: stat.overtime_count || 0, // 使用后端返回的真实次数
-            active_overtime_days: stat.active_overtime_days || 0,
-            passive_overtime_days: stat.passive_overtime_days || 0,
-            active_overtime_count: stat.active_overtime_count || 0,
-            passive_overtime_count: stat.passive_overtime_count || 0
+            active_overtime_days: Number(stat.active_overtime_days || 0),
+            passive_overtime_days: Number(stat.passive_overtime_days || 0),
+            overtime_count: Number(stat.overtime_count || 0), // 使用后端返回的真实次数
+            active_overtime_count: Number(stat.active_overtime_count || 0),
+            passive_overtime_count: Number(stat.passive_overtime_count || 0)
         }))
+        .map(stat => ({
+            ...stat,
+            // 总加班天数以前端主动+被动汇总为准，避免字段错位导致显示不一致
+            overtime_days: stat.active_overtime_days + stat.passive_overtime_days
+        }))
+        .filter(stat => stat.overtime_days > 0)
         .sort((a, b) => b.overtime_days - a.overtime_days);
 
     if (overtimeData.length === 0) {
@@ -2143,9 +2148,9 @@ function loadOvertimeStats() {
         <tr>
             <td>${stat.user_name}</td>
             <td>${stat.department || '-'}</td>
-            <td>${stat.overtime_days.toFixed(1)}</td>
             <td>${stat.active_overtime_days.toFixed(1)}</td>
             <td>${stat.passive_overtime_days.toFixed(1)}</td>
+            <td>${stat.overtime_days.toFixed(1)}</td>
             <td>${stat.overtime_count}</td>
             <td>
                 <button class="btn btn-small btn-primary" data-user-id="${stat.user_id}" data-user-name="${stat.user_name.replace(/"/g, '&quot;')}" data-action="overtime-details">详情</button>
@@ -2270,6 +2275,7 @@ window.showOvertimeDetails = async function (userId, userName) {
                                 <tr>
                                     <th>加班时间</th>
                                     <th>天数</th>
+                                    <th>加班类型</th>
                                     <th>原因</th>
                                     <th>申请时间</th>
                                 </tr>
@@ -2279,6 +2285,7 @@ window.showOvertimeDetails = async function (userId, userName) {
                                     <tr>
                                         <td>${formatTimeRange(ot.start_time, ot.end_time)}</td>
                                         <td>${ot.days}</td>
+                                        <td>${String(ot.overtime_type || '').toLowerCase() === 'active' ? '主动加班' : String(ot.overtime_type || '').toLowerCase() === 'passive' ? '被动加班' : '-'}</td>
                                         <td>${ot.reason || '-'}</td>
                                         <td>${formatDateTime(ot.created_at)}</td>
                                     </tr>
@@ -5237,4 +5244,5 @@ async function saveSystemSettings() {
         showToast('保存系统设置失败: ' + error.message, 'error');
     }
 }
+
 
