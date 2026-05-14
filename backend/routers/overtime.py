@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime, date
 from ..database import get_db
 from ..models import OvertimeApplication, User, UserRole, OvertimeStatus, OvertimeType
+from ..request_dedup import build_overtime_active_request_key, is_active_request_key_conflict, normalize_reason_text
 from ..schemas import OvertimeApplicationCreate, OvertimeApplicationUpdate, OvertimeApplicationResponse, OvertimeApproval
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import assign_approver_for_overtime, can_approve_overtime
@@ -48,6 +50,29 @@ def get_overtime_application_time(overtime: OvertimeApplication) -> str:
 
 def get_overtime_reason(overtime: OvertimeApplication) -> str:
     return overtime.reason or "无"
+
+
+def find_existing_active_overtime(
+    db: Session,
+    current_user: User,
+    overtime_create: OvertimeApplicationCreate
+) -> Optional[OvertimeApplication]:
+    normalized_reason = normalize_reason_text(overtime_create.reason)
+    active_request_key = build_overtime_active_request_key(
+        user_id=current_user.id,
+        start_time=overtime_create.start_time,
+        end_time=overtime_create.end_time,
+        hours=overtime_create.hours,
+        days=overtime_create.days,
+        reason=normalized_reason,
+        status=OvertimeStatus.PENDING,
+        overtime_type=overtime_create.overtime_type,
+    )
+    if not active_request_key:
+        return None
+    return db.query(OvertimeApplication).filter(
+        OvertimeApplication.active_request_key == active_request_key,
+    ).first()
 
 
 
@@ -113,6 +138,13 @@ def create_overtime_application(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="结束时间不能早于开始时间"
         )
+
+    existing_overtime = find_existing_active_overtime(db, current_user, overtime_create)
+    if existing_overtime:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="相同的加班申请已存在，请勿重复提交"
+        )
     
     overtime = OvertimeApplication(
         user_id=current_user.id,
@@ -120,7 +152,7 @@ def create_overtime_application(
         end_time=overtime_create.end_time,
         hours=overtime_create.hours,
         days=overtime_create.days,
-        reason=overtime_create.reason,
+        reason=normalize_reason_text(overtime_create.reason),
         status=OvertimeStatus.PENDING,
         assigned_approver_id=overtime_create.assigned_approver_id,
         overtime_type=overtime_create.overtime_type or OvertimeType.ACTIVE
@@ -182,7 +214,16 @@ def create_overtime_application(
     _auto_approve_overtime_at_gm_stage(overtime, db)
 
     db.add(overtime)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if is_active_request_key_conflict(exc, "overtime_applications"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="相同的加班申请已存在，请勿重复提交"
+            ) from exc
+        raise
     db.refresh(overtime)
     
     # 发送审批提醒消息给审批人

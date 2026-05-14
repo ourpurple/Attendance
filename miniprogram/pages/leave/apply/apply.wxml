@@ -128,6 +128,5 @@
     <view class="form-hint">留空则系统自动分配</view>
   </view>
 
-  <button class="btn btn-primary btn-block" bindtap="submitForm">提交申请</button>
+  <button class="btn btn-primary btn-block" bindtap="submitForm" disabled="{{isSubmitting}}">{{isSubmitting ? '提交中...' : '提交申请'}}</button>
 </view>
-

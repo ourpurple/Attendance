@@ -33,7 +33,8 @@ Page({
     leaveTypeIndex: 0,
     selectedLeaveTypeId: '',
     annualLeaveInfo: null, // 年假使用情况
-    showAnnualLeaveInfo: false // 是否显示年假信息
+    showAnnualLeaveInfo: false, // 是否显示年假信息
+    isSubmitting: false
   },
 
   async onLoad() {
@@ -363,9 +364,13 @@ Page({
 
   // 提交申请
   async submitForm() {
+    if (this.data.isSubmitting) {
+      return;
+    }
+
     const { startDate, startTimeNode, endDate, endTimeNode, calculatedDays, reason, selectedLeaveTypeId } = this.data;
 
-    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason || !selectedLeaveTypeId) {
+    if (!startDate || !startTimeNode || !endDate || !endTimeNode || !reason || !reason.trim() || !selectedLeaveTypeId) {
       wx.showToast({
         title: '请填写所有必填项',
         icon: 'none'
@@ -399,22 +404,24 @@ Page({
       return;
     }
 
-    // 提交申请前，确保已授权"审批结果通知"模板
-    const authResult = await this.requestSubscribeMessage();
-    
-    // 如果用户拒绝了授权，提示但不阻止提交
-    if (authResult && authResult.rejected > 0) {
-      wx.showModal({
-        title: '授权提示',
-        content: '您拒绝了订阅消息授权，将无法收到审批结果通知。\n\n建议允许授权，以便及时了解审批状态。',
-        showCancel: false,
-        confirmText: '知道了'
-      });
-    }
-
-    wx.showLoading({ title: '提交中...' });
+    this.setData({ isSubmitting: true });
 
     try {
+      // 提交申请前，确保已授权"审批结果通知"模板
+      const authResult = await this.requestSubscribeMessage();
+      
+      // 如果用户拒绝了授权，提示但不阻止提交
+      if (authResult && authResult.rejected > 0) {
+        wx.showModal({
+          title: '授权提示',
+          content: '您拒绝了订阅消息授权，将无法收到审批结果通知。\n\n建议允许授权，以便及时了解审批状态。',
+          showCancel: false,
+          confirmText: '知道了'
+        });
+      }
+
+      wx.showLoading({ title: '提交中...' });
+
       // 构建开始和结束日期时间
       const startDateTime = `${normalizedStartDate}T${startTimeNode}:00`;
       const endDateTime = `${normalizedEndDate}T${endTimeNode}:00`;
@@ -423,7 +430,7 @@ Page({
         start_date: startDateTime,
         end_date: endDateTime,
         days: days,
-        reason: reason,
+        reason: reason.trim(),
         leave_type_id: parseInt(selectedLeaveTypeId)
       };
       
@@ -453,11 +460,14 @@ Page({
       }, 1500);
     } catch (error) {
       wx.hideLoading();
+      this.setData({ isSubmitting: false });
       
       wx.showToast({
-        title: error.message || '提交失败',
+        title: error.detail || error.message || '提交失败',
         icon: 'none'
       });
+    } finally {
+      wx.hideLoading();
     }
   }
 });

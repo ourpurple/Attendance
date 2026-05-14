@@ -1,8 +1,12 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, Enum as SQLEnum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Float, Text, Enum as SQLEnum, UniqueConstraint, event
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import enum
 from .database import Base
+from .request_dedup import (
+    build_leave_active_request_key,
+    build_overtime_active_request_key,
+)
 
 
 class UserRole(str, enum.Enum):
@@ -186,6 +190,7 @@ class LeaveApplication(Base):
     days = Column(Float, nullable=False, comment="请假天数")
     reason = Column(Text, nullable=False, comment="请假原因")
     status = Column(String(20), default=LeaveStatus.PENDING.value, comment="审批状态")
+    active_request_key = Column(String(64), unique=True, nullable=True, index=True, comment="活动中请假申请去重键")
     assigned_vp_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的副总审批人ID")
     assigned_gm_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的总经理审批人ID")
     dept_approver_id = Column(Integer, ForeignKey("users.id"), comment="部门主任审批人ID")
@@ -223,6 +228,7 @@ class OvertimeApplication(Base):
     days = Column(Float, nullable=False, default=0.5, comment="加班天数")
     reason = Column(Text, nullable=False, comment="加班原因")
     status = Column(String(20), default=OvertimeStatus.PENDING.value, comment="审批状态")
+    active_request_key = Column(String(64), unique=True, nullable=True, index=True, comment="活动中加班申请去重键")
     assigned_approver_id = Column(Integer, ForeignKey("users.id"), comment="手动指定的审批人ID")
     approver_id = Column(Integer, ForeignKey("users.id"), comment="审批人ID")
     approved_at = Column(DateTime, comment="审批时间")
@@ -242,6 +248,43 @@ class HolidayType(str, enum.Enum):
     HOLIDAY = "holiday"  # 法定节假日（休息）
     WORKDAY = "workday"  # 调休工作日（上班）
     COMPANY_HOLIDAY = "company_holiday"  # 公司节假日（休息）
+
+
+def sync_leave_active_request_key(leave: LeaveApplication) -> None:
+    leave.active_request_key = build_leave_active_request_key(
+        user_id=leave.user_id,
+        start_date=leave.start_date,
+        end_date=leave.end_date,
+        days=leave.days,
+        reason=leave.reason,
+        leave_type_id=leave.leave_type_id,
+        status=leave.status,
+    )
+
+
+def sync_overtime_active_request_key(overtime: OvertimeApplication) -> None:
+    overtime.active_request_key = build_overtime_active_request_key(
+        user_id=overtime.user_id,
+        start_time=overtime.start_time,
+        end_time=overtime.end_time,
+        hours=overtime.hours,
+        days=overtime.days,
+        reason=overtime.reason,
+        overtime_type=overtime.overtime_type,
+        status=overtime.status,
+    )
+
+
+@event.listens_for(LeaveApplication, "before_insert")
+@event.listens_for(LeaveApplication, "before_update")
+def _sync_leave_active_request_key(mapper, connection, target):
+    sync_leave_active_request_key(target)
+
+
+@event.listens_for(OvertimeApplication, "before_insert")
+@event.listens_for(OvertimeApplication, "before_update")
+def _sync_overtime_active_request_key(mapper, connection, target):
+    sync_overtime_active_request_key(target)
 
 
 class Holiday(Base):

@@ -209,5 +209,5 @@
     <view class="form-hint">默认本人审批，可选择其他副总</view>
   </view>
 
-  <button class="btn btn-primary btn-block" bindtap="submitForm">提交申请</button>
+  <button class="btn btn-primary btn-block" bindtap="submitForm" disabled="{{isSubmitting}}">{{isSubmitting ? '提交中...' : '提交申请'}}</button>
 </view>

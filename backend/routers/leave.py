@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 from datetime import datetime, date
 from ..database import get_db
 from ..models import LeaveApplication, User, UserRole, LeaveStatus, Department, LeaveType
+from ..request_dedup import build_leave_active_request_key, is_active_request_key_conflict, normalize_reason_text
 from ..schemas import LeaveApplicationCreate, LeaveApplicationUpdate, LeaveApplicationResponse, LeaveApproval
 from ..security import get_current_user, get_current_active_admin
 from ..approval_assigner import (
@@ -100,6 +102,28 @@ def get_required_approval_level(days: float) -> List[str]:
         return ["department_head", "vice_president", "general_manager"]
 
 
+def find_existing_active_leave(
+    db: Session,
+    current_user: User,
+    leave_create: LeaveApplicationCreate
+) -> Optional[LeaveApplication]:
+    normalized_reason = normalize_reason_text(leave_create.reason)
+    active_request_key = build_leave_active_request_key(
+        user_id=current_user.id,
+        start_date=leave_create.start_date,
+        end_date=leave_create.end_date,
+        days=leave_create.days,
+        reason=normalized_reason,
+        status=LeaveStatus.PENDING,
+        leave_type_id=leave_create.leave_type_id,
+    )
+    if not active_request_key:
+        return None
+    return db.query(LeaveApplication).filter(
+        LeaveApplication.active_request_key == active_request_key,
+    ).first()
+
+
 
 
 def _auto_approve_leave_at_gm_stage(leave: LeaveApplication, db: Session) -> bool:
@@ -166,13 +190,20 @@ def create_leave_application(
     
     leave_type = get_active_leave_type(db, leave_create.leave_type_id)
     leave_type_name = leave_type.name if leave_type else "普通请假"
+
+    existing_leave = find_existing_active_leave(db, current_user, leave_create)
+    if existing_leave:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="相同的请假申请已存在，请勿重复提交"
+        )
     
     leave = LeaveApplication(
         user_id=current_user.id,
         start_date=leave_create.start_date,
         end_date=leave_create.end_date,
         days=leave_create.days,
-        reason=leave_create.reason,
+        reason=normalize_reason_text(leave_create.reason),
         status=LeaveStatus.PENDING,
         assigned_vp_id=leave_create.assigned_vp_id,
         assigned_gm_id=leave_create.assigned_gm_id,
@@ -276,7 +307,16 @@ def create_leave_application(
             leave.gm_comment = auto_approve_comment
             leave.status = LeaveStatus.APPROVED
     db.add(leave)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        if is_active_request_key_conflict(exc, "leave_applications"):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="相同的请假申请已存在，请勿重复提交"
+            ) from exc
+        raise
     db.refresh(leave)
     
     # 发送审批提醒消息给第一个审批人

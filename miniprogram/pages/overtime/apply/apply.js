@@ -57,7 +57,8 @@ Page({
     reason: '',
     approverOptions: [{ id: '', name: '系统自动分配' }],
     approverIndex: 0,
-    assignedApproverId: ''
+    assignedApproverId: '',
+    isSubmitting: false
   },
 
   async onLoad() {
@@ -589,9 +590,13 @@ Page({
 
   // 提交申请
   async submitForm() {
+    if (this.data.isSubmitting) {
+      return;
+    }
+
     const { overtimeType, calculatedDays, reason, useManualDays, manualDays, selectedOvertimeClass } = this.data;
 
-    if (!overtimeType || !reason || !selectedOvertimeClass) {
+    if (!overtimeType || !reason || !reason.trim() || !selectedOvertimeClass) {
       wx.showToast({
         title: '请填写所有必填项',
         icon: 'none'
@@ -610,33 +615,40 @@ Page({
       return;
     }
 
-    // 提交申请前，确保已授权"审批结果通知"模板
-    const authResult = await this.requestSubscribeMessage();
-    
-    // 如果用户拒绝了授权，提示但不阻止提交
-    if (authResult && authResult.rejected > 0) {
-      wx.showModal({
-        title: '授权提示',
-        content: '您拒绝了订阅消息授权，将无法收到审批结果通知。\n\n建议允许授权，以便及时了解审批状态。',
-        showCancel: false,
-        confirmText: '知道了'
-      });
-    }
+    this.setData({ isSubmitting: true });
 
-    wx.showLoading({ title: '提交中...' });
+    const abortSubmit = (title) => {
+      wx.hideLoading();
+      this.setData({ isSubmitting: false });
+      wx.showToast({
+        title,
+        icon: 'none'
+      });
+    };
 
     try {
+      // 提交申请前，确保已授权"审批结果通知"模板
+      const authResult = await this.requestSubscribeMessage();
+      
+      // 如果用户拒绝了授权，提示但不阻止提交
+      if (authResult && authResult.rejected > 0) {
+        wx.showModal({
+          title: '授权提示',
+          content: '您拒绝了订阅消息授权，将无法收到审批结果通知。\n\n建议允许授权，以便及时了解审批状态。',
+          showCancel: false,
+          confirmText: '知道了'
+        });
+      }
+
+      wx.showLoading({ title: '提交中...' });
+
       let startDateTime, endDateTime, hours;
 
       if (overtimeType === 'single') {
         const { date, startTimeNode, endTimeNode } = this.data;
         
         if (!date || !startTimeNode || !endTimeNode) {
-          wx.showToast({
-            title: '请填写完整的单日加班信息',
-            icon: 'none'
-          });
-          return;
+          return abortSubmit('请填写完整的单日加班信息');
         }
 
         startDateTime = `${date}T${startTimeNode}:00`;
@@ -645,11 +657,7 @@ Page({
         const { startDate, startDateTimeNode, endDate, endDateTimeNode } = this.data;
         
         if (!startDate || !startDateTimeNode || !endDate || !endDateTimeNode) {
-          wx.showToast({
-            title: '请填写完整的多日加班信息',
-            icon: 'none'
-          });
-          return;
+          return abortSubmit('请填写完整的多日加班信息');
         }
 
         startDateTime = `${startDate}T${startDateTimeNode}:00`;
@@ -662,22 +670,14 @@ Page({
       
       // 验证日期是否有效
       if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        wx.showToast({
-          title: '日期时间格式错误，请重新选择',
-          icon: 'none'
-        });
-        return;
+        return abortSubmit('日期时间格式错误，请重新选择');
       }
       
       hours = (end - start) / (1000 * 60 * 60);
       
       // 验证小时数和天数
       if (isNaN(hours) || hours < 0) {
-        wx.showToast({
-          title: '计算小时数失败，请检查时间节点',
-          icon: 'none'
-        });
-        return;
+        return abortSubmit('计算小时数失败，请检查时间节点');
       }
       
       // 确定最终使用的天数（手动调节或自动计算）
@@ -686,38 +686,22 @@ Page({
         finalDays = parseFloat(manualDays);
         // 验证手动输入的天数是否符合规则（整数或x.5）
         if (isNaN(finalDays) || finalDays <= 0) {
-          wx.showToast({
-            title: '请输入有效的加班天数',
-            icon: 'none'
-          });
-          return;
+          return abortSubmit('请输入有效的加班天数');
         }
         const remainder = finalDays % 0.5;
         if (remainder !== 0 && Math.abs(remainder - 0.5) > 0.001) {
-          wx.showToast({
-            title: '加班天数只能是整数或x.5天（如：1、1.5、2、2.5）',
-            icon: 'none'
-          });
-          return;
+          return abortSubmit('加班天数只能是整数或x.5天（如：1、1.5、2、2.5）');
         }
       } else {
         finalDays = parseFloat(calculatedDays);
         if (isNaN(finalDays) || finalDays <= 0) {
-          wx.showToast({
-            title: '请选择有效的时间节点',
-            icon: 'none'
-          });
-          return;
+          return abortSubmit('请选择有效的时间节点');
         }
       }
       
       // 验证原因
       if (!reason || reason.trim() === '') {
-        wx.showToast({
-          title: '请填写加班原因',
-          icon: 'none'
-        });
-        return;
+        return abortSubmit('请填写加班原因');
       }
       
       // 确保日期时间格式正确（ISO 8601格式）
@@ -766,8 +750,9 @@ Page({
         wx.navigateBack();
       }, 1500);
     } catch (error) {
+      this.setData({ isSubmitting: false });
       wx.showToast({
-        title: error.message || '提交失败',
+        title: error.detail || error.message || '提交失败',
         icon: 'none'
       });
     } finally {
