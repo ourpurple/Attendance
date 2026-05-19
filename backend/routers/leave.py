@@ -96,7 +96,7 @@ def get_required_approval_level(days: float) -> List[str]:
     """根据请假天数确定需要的审批层级"""
     if days <= 1:
         return ["department_head"]
-    elif days <= 3:
+    elif days < 3:
         return ["department_head", "vice_president"]
     else:
         return ["department_head", "vice_president", "general_manager"]
