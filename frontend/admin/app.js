@@ -291,10 +291,15 @@ async function loadDashboard() {
 
         // 加载统计数据
         const users = await apiRequest('/users/');
-        document.getElementById('total-users').textContent = users.length;
+        const attendanceUsers = users.filter(u => u.enable_attendance !== false && u.is_active !== false);
+        document.getElementById('total-users').textContent = attendanceUsers.length;
 
         const attendances = await apiRequest(`/attendance/?start_date=${today}&end_date=${today}`);
         document.getElementById('today-attendance').textContent = attendances.length;
+
+        const todayLeaves = await apiRequest(`/leave/?start_date=${today}&end_date=${today}&limit=1000`);
+        const todayLeavesCount = todayLeaves.filter(l => l.status === 'approved').length;
+        document.getElementById('today-leaves').textContent = todayLeavesCount;
 
         const leaves = await apiRequest('/leave/pending');
         document.getElementById('pending-leaves').textContent = leaves.length;
