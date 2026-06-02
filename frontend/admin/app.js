@@ -3037,7 +3037,7 @@ async function editUser(id) {
 
 function deleteUser(id) {
     showConfirmDialog(
-        '确定要删除该用户吗？删除后无法恢复！',
+        '确定要删除该用户吗？该用户的考勤、请假、加班记录也会一起删除，删除后无法恢复！',
         () => {
             apiRequest(`/users/${id}`, { method: 'DELETE' })
                 .then(() => {

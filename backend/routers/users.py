@@ -4,7 +4,18 @@ from sqlalchemy import func
 from typing import List
 from datetime import datetime
 from ..database import get_db
-from ..models import User, UserRole, LeaveApplication, LeaveStatus, LeaveType
+from ..models import (
+    Attendance,
+    AttendanceViewer,
+    Department,
+    LeaveApplication,
+    LeaveStatus,
+    LeaveType,
+    OvertimeApplication,
+    User,
+    UserRole,
+    VicePresidentDepartment,
+)
 from ..schemas import UserResponse, UserCreate, UserUpdate, PasswordChange, AnnualLeaveInfo
 from ..security import get_current_user, get_current_active_admin, get_password_hash, verify_password
 
@@ -247,25 +258,45 @@ def delete_user(
             detail="不能删除自己"
         )
     
-    # 检查是否有关联数据
-    if user.attendances:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"该用户有 {len(user.attendances)} 条考勤记录，无法删除"
-        )
-    
-    if user.leave_applications:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"该用户有 {len(user.leave_applications)} 条请假记录，无法删除"
-        )
-    
-    if user.overtime_applications:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"该用户有 {len(user.overtime_applications)} 条加班记录，无法删除"
-        )
-    
+    # 管理员删除用户时同步清理该用户的业务数据，并解除其作为审批人/部门负责人的引用。
+    db.query(Department).filter(Department.head_id == user_id).update(
+        {Department.head_id: None},
+        synchronize_session=False,
+    )
+    db.query(VicePresidentDepartment).filter(
+        VicePresidentDepartment.vice_president_id == user_id
+    ).delete(synchronize_session=False)
+    db.query(AttendanceViewer).filter(
+        AttendanceViewer.user_id == user_id
+    ).delete(synchronize_session=False)
+
+    db.query(LeaveApplication).filter(
+        LeaveApplication.assigned_vp_id == user_id
+    ).update({LeaveApplication.assigned_vp_id: None}, synchronize_session=False)
+    db.query(LeaveApplication).filter(
+        LeaveApplication.assigned_gm_id == user_id
+    ).update({LeaveApplication.assigned_gm_id: None}, synchronize_session=False)
+    db.query(LeaveApplication).filter(
+        LeaveApplication.dept_approver_id == user_id
+    ).update({LeaveApplication.dept_approver_id: None}, synchronize_session=False)
+    db.query(LeaveApplication).filter(
+        LeaveApplication.vp_approver_id == user_id
+    ).update({LeaveApplication.vp_approver_id: None}, synchronize_session=False)
+    db.query(LeaveApplication).filter(
+        LeaveApplication.gm_approver_id == user_id
+    ).update({LeaveApplication.gm_approver_id: None}, synchronize_session=False)
+
+    db.query(OvertimeApplication).filter(
+        OvertimeApplication.assigned_approver_id == user_id
+    ).update({OvertimeApplication.assigned_approver_id: None}, synchronize_session=False)
+    db.query(OvertimeApplication).filter(
+        OvertimeApplication.approver_id == user_id
+    ).update({OvertimeApplication.approver_id: None}, synchronize_session=False)
+
+    db.query(Attendance).filter(Attendance.user_id == user_id).delete(synchronize_session=False)
+    db.query(LeaveApplication).filter(LeaveApplication.user_id == user_id).delete(synchronize_session=False)
+    db.query(OvertimeApplication).filter(OvertimeApplication.user_id == user_id).delete(synchronize_session=False)
+
     db.delete(user)
     db.commit()
     
