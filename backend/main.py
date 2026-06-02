@@ -15,6 +15,19 @@ logging.basicConfig(
         logging.StreamHandler(sys.stdout)
     ]
 )
+logger = logging.getLogger(__name__)
+
+DEFAULT_SECRET_KEYS = {
+    "your-secret-key-change-in-production",
+    "your-secret-key-change-in-production-min-32-chars",
+    "change-this-in-production",
+}
+
+if settings.SECRET_KEY in DEFAULT_SECRET_KEYS:
+    logger.error("当前 SECRET_KEY 是默认示例值，请立即改为随机密钥")
+
+if "*" in settings.CORS_ORIGINS:
+    logger.warning("当前 CORS_ORIGINS 包含 '*'，生产环境应配置为可信域名白名单")
 
 # 创建FastAPI应用
 app = FastAPI(

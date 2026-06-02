@@ -8,6 +8,7 @@ import json
 import httpx
 from ..database import get_db
 from ..models import Attendance, User, AttendancePolicy, UserRole, AttendanceViewer, LeaveApplication, OvertimeApplication, Department, Holiday, LeaveStatus, CheckinStatusConfig, AttendanceStatus
+from ..permissions import can_view_user_records
 from ..schemas import (
     AttendanceCheckin, AttendanceCheckout, AttendanceResponse, AttendanceUpdate, 
     AttendancePolicyResponse, AttendancePolicyCreate, AttendancePolicyUpdate,
@@ -1005,8 +1006,14 @@ def get_user_attendance(
     current_user: User = Depends(get_current_user)
 ):
     """获取指定用户的考勤记录（管理员或部门主任）"""
-    # 权限检查
-    if current_user.role not in [UserRole.ADMIN, UserRole.DEPARTMENT_HEAD, UserRole.VICE_PRESIDENT, UserRole.GENERAL_MANAGER]:
+    target_user = db.query(User).filter(User.id == user_id).first()
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+
+    if not can_view_user_records(db, current_user, target_user):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="权限不足"

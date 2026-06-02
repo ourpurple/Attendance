@@ -19,6 +19,10 @@ wheels/
 .installed.cfg
 *.egg
 tests/
+!tests/
+tests/*
+!tests/test_user_delete_api.py
+!tests/test_security_fixes.py
 .claude/
 plan.md
 

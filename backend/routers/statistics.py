@@ -5,6 +5,7 @@ from typing import List, Optional
 from datetime import datetime, timedelta, date
 from ..database import get_db
 from ..models import User, Attendance, LeaveApplication, OvertimeApplication, UserRole, LeaveStatus, OvertimeStatus, Holiday, LeaveType, AttendanceStatus, OvertimeType
+from ..permissions import can_view_user_records
 from ..schemas import (
     AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse,
     DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
@@ -399,14 +400,17 @@ def get_user_leave_details(
             detail="权限不足"
         )
     
-    # 如果是部门主任，只能查看本部门
-    if current_user.role == UserRole.DEPARTMENT_HEAD:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user or user.department_id != current_user.department_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="权限不足"
-            )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+    if not can_view_user_records(db, current_user, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="权限不足"
+        )
     
     # 获取已批准的请假记录
     leaves = db.query(LeaveApplication).filter(
@@ -437,14 +441,17 @@ def get_user_overtime_details(
             detail="权限不足"
         )
     
-    # 如果是部门主任，只能查看本部门
-    if current_user.role == UserRole.DEPARTMENT_HEAD:
-        user = db.query(User).filter(User.id == user_id).first()
-        if not user or user.department_id != current_user.department_id:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="权限不足"
-            )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="用户不存在"
+        )
+    if not can_view_user_records(db, current_user, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="权限不足"
+        )
     
     # 获取已批准的加班记录
     overtimes = db.query(OvertimeApplication).filter(

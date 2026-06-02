@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
 from datetime import datetime
 from .models import UserRole, LeaveStatus, OvertimeStatus, OvertimeType
@@ -162,13 +162,13 @@ class AttendanceCheckout(BaseModel):
 
 class LocationPoint(BaseModel):
     """地理位置点"""
-    latitude: float
-    longitude: float
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
 
 
 class BatchGeocodeRequest(BaseModel):
     """批量地理编码请求"""
-    locations: List[LocationPoint]
+    locations: List[LocationPoint] = Field(min_length=1, max_length=50)
 
 
 class GeocodeResult(BaseModel):

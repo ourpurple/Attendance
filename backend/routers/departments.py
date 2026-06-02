@@ -4,7 +4,7 @@ from typing import List
 from ..database import get_db
 from ..models import Department, User
 from ..schemas import DepartmentResponse, DepartmentCreate, DepartmentUpdate
-from ..security import get_current_active_admin
+from ..security import get_current_user, get_current_active_admin
 
 router = APIRouter(prefix="/departments", tags=["部门管理"])
 
@@ -13,7 +13,8 @@ router = APIRouter(prefix="/departments", tags=["部门管理"])
 def list_departments(
     skip: int = 0,
     limit: int = 100,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取部门列表"""
     departments = db.query(Department).offset(skip).limit(limit).all()
@@ -23,7 +24,8 @@ def list_departments(
 @router.get("/{department_id}", response_model=DepartmentResponse)
 def read_department(
     department_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """获取指定部门信息"""
     department = db.query(Department).filter(Department.id == department_id).first()

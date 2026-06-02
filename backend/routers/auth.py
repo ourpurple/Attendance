@@ -1,14 +1,48 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from datetime import timedelta
+import time
 import httpx
 from ..database import get_db
 from ..models import User
 from ..schemas import UserLogin, Token, UserCreate, UserResponse, WechatLogin
-from ..security import verify_password, get_password_hash, create_access_token
+from ..security import verify_password, get_password_hash, create_access_token, get_current_active_admin
 from ..config import settings
 
 router = APIRouter(prefix="/auth", tags=["认证"])
+
+_login_failures = {}
+_wechat_failures = {}
+AUTH_FAILURE_LIMIT = 5
+AUTH_FAILURE_WINDOW_SECONDS = 15 * 60
+
+
+def _prune_failures(store: dict, key: str) -> list:
+    now = time.time()
+    failures = [
+        ts for ts in store.get(key, [])
+        if now - ts < AUTH_FAILURE_WINDOW_SECONDS
+    ]
+    store[key] = failures
+    return failures
+
+
+def _check_failure_limit(store: dict, key: str) -> None:
+    if len(_prune_failures(store, key)) >= AUTH_FAILURE_LIMIT:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="失败次数过多，请稍后再试"
+        )
+
+
+def _record_failure(store: dict, key: str) -> None:
+    failures = _prune_failures(store, key)
+    failures.append(time.time())
+    store[key] = failures
+
+
+def _clear_failures(store: dict, key: str) -> None:
+    store.pop(key, None)
 
 
 async def get_wechat_openid(code: str) -> str:
@@ -56,9 +90,11 @@ async def get_wechat_openid(code: str) -> str:
 @router.post("/login", response_model=Token)
 async def login(user_login: UserLogin, db: Session = Depends(get_db)):
     """用户登录（支持绑定微信OpenID）"""
+    _check_failure_limit(_login_failures, user_login.username)
     user = db.query(User).filter(User.username == user_login.username).first()
     
     if not user or not verify_password(user_login.password, user.password_hash):
+        _record_failure(_login_failures, user_login.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户名或密码错误",
@@ -100,6 +136,7 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
             # 如果绑定失败，不影响登录
             pass
     
+    _clear_failures(_login_failures, user_login.username)
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username},
@@ -112,6 +149,7 @@ async def login(user_login: UserLogin, db: Session = Depends(get_db)):
 @router.post("/wechat-login", response_model=Token)
 async def wechat_login(wechat_login: WechatLogin, db: Session = Depends(get_db)):
     """微信登录（通过OpenID）"""
+    _check_failure_limit(_wechat_failures, wechat_login.code)
     try:
         # 获取微信OpenID
         openid = await get_wechat_openid(wechat_login.code)
@@ -139,9 +177,11 @@ async def wechat_login(wechat_login: WechatLogin, db: Session = Depends(get_db))
             expires_delta=access_token_expires
         )
         
+        _clear_failures(_wechat_failures, wechat_login.code)
         return {"access_token": access_token, "token_type": "bearer"}
         
     except HTTPException:
+        _record_failure(_wechat_failures, wechat_login.code)
         raise
     except Exception as e:
         raise HTTPException(
@@ -151,8 +191,12 @@ async def wechat_login(wechat_login: WechatLogin, db: Session = Depends(get_db))
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-def register(user_create: UserCreate, db: Session = Depends(get_db)):
-    """用户注册（仅用于初始化，生产环境应该由管理员创建用户）"""
+def register(
+    user_create: UserCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_active_admin)
+):
+    """创建用户（管理员）。禁止匿名注册，避免外部用户自提权。"""
     # 检查用户名是否已存在
     if db.query(User).filter(User.username == user_create.username).first():
         raise HTTPException(

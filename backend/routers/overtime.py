@@ -6,6 +6,7 @@ from typing import List, Optional
 from datetime import datetime, date
 from ..database import get_db
 from ..models import OvertimeApplication, User, UserRole, OvertimeStatus, OvertimeType
+from ..permissions import can_view_overtime_application
 from ..request_dedup import build_overtime_active_request_key, is_active_request_key_conflict, normalize_reason_text
 from ..schemas import OvertimeApplicationCreate, OvertimeApplicationUpdate, OvertimeApplicationResponse, OvertimeApproval
 from ..security import get_current_user, get_current_active_admin
@@ -388,9 +389,7 @@ def get_overtime_application(
             detail="加班申请不存在"
         )
     
-    # 权限检查：只有申请人、审批人或管理员可以查看
-    if (current_user.id != overtime.user_id and 
-        current_user.role not in [UserRole.ADMIN, UserRole.DEPARTMENT_HEAD, UserRole.VICE_PRESIDENT, UserRole.GENERAL_MANAGER]):
+    if not can_view_overtime_application(db, current_user, overtime):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="权限不足"
