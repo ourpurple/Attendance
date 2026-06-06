@@ -34,6 +34,8 @@ Page({
     selectedLeaveTypeId: '',
     annualLeaveInfo: null, // 年假使用情况
     showAnnualLeaveInfo: false, // 是否显示年假信息
+    compLeaveInfo: null, // 加班调休额度
+    showCompLeaveInfo: false, // 是否显示加班调休额度
     isSubmitting: false
   },
 
@@ -59,6 +61,7 @@ Page({
     
     // 加载年假使用情况
     await this.loadAnnualLeaveInfo();
+    await this.loadCompLeaveInfo();
     
     // 初始计算请假天数
     this.calculateLeaveDays();
@@ -207,10 +210,12 @@ Page({
     const index = parseInt(e.detail.value);
     const type = this.data.leaveTypes[index];
     const isAnnualLeave = type && type.name === '年假调休';
+    const isCompLeave = type && type.name === '加班调休';
     this.setData({
       leaveTypeIndex: index,
       selectedLeaveTypeId: type ? type.id : '',
-      showAnnualLeaveInfo: isAnnualLeave
+      showAnnualLeaveInfo: isAnnualLeave,
+      showCompLeaveInfo: isCompLeave
     });
   },
 
@@ -227,6 +232,22 @@ Page({
       });
     } catch (error) {
       console.error('加载年假信息失败:', error);
+    }
+  },
+
+  // 加载加班调休额度
+  async loadCompLeaveInfo() {
+    try {
+      const res = await app.request({
+        url: '/users/me/comp-leave',
+        method: 'GET'
+      });
+      const info = res.data || res;
+      this.setData({
+        compLeaveInfo: info
+      });
+    } catch (error) {
+      console.error('加载加班调休额度失败:', error);
     }
   },
 

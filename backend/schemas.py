@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, date
 from .models import UserRole, LeaveStatus, OvertimeStatus, OvertimeType
 
 
@@ -13,6 +13,7 @@ class UserBase(BaseModel):
     role: UserRole = UserRole.EMPLOYEE
     department_id: Optional[int] = None
     annual_leave_days: Optional[float] = 10.0
+    hire_date: Optional[datetime] = None
     enable_attendance: bool = True
 
 
@@ -29,6 +30,7 @@ class UserUpdate(BaseModel):
     is_active: Optional[bool] = None
     password: Optional[str] = None
     annual_leave_days: Optional[float] = None
+    hire_date: Optional[datetime] = None
     enable_attendance: Optional[bool] = None
 
 
@@ -63,6 +65,15 @@ class AnnualLeaveInfo(BaseModel):
     total_days: float  # 总年假天数
     used_days: float  # 已使用年假天数
     remaining_days: float  # 剩余年假天数
+
+
+class CompLeaveInfo(BaseModel):
+    """加班调休额度使用情况"""
+    earned_days: float  # 主动加班折算的可调休总天数
+    used_days: float  # 已使用（已批准/审批中的加班调休）天数
+    adjustment_days: float = 0.0  # 期初/人工调整天数（正=增加，负=扣减）
+    remaining_days: float  # 剩余可调休天数
+    yearly_reset: bool = False  # 当前是否启用跨年清零
 
 
 class WechatLogin(BaseModel):
@@ -618,5 +629,81 @@ class SystemSettingItem(BaseModel):
 
 
 class SystemSettingUpdate(BaseModel):
-    auto_approve_gm_level: bool
+    auto_approve_gm_level: Optional[bool] = None
+    comp_leave_yearly_reset: Optional[bool] = None
+
+
+# ==================== 假期管理相关 ====================
+class VacationCompLeaveItem(BaseModel):
+    """员工加班调休额度概况"""
+    user_id: int
+    user_name: str
+    department: Optional[str] = None
+    earned_days: float = 0.0
+    used_days: float = 0.0
+    adjustment_days: float = 0.0
+    remaining_days: float = 0.0
+
+
+class CompLeaveAdjustmentCreate(BaseModel):
+    """新增加班调休调整记录（期初/人工增减）"""
+    user_id: int
+    days: float  # 正=增加/期初，负=扣减
+    effective_date: date  # 生效日期（决定计入的自然年），接口内转为当天0点存储
+    reason: str
+
+
+class CompLeaveAdjustmentResponse(BaseModel):
+    """加班调休调整记录"""
+    id: int
+    user_id: int
+    days: float
+    effective_date: datetime
+    reason: str
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class VacationAnnualLeaveItem(BaseModel):
+    """员工年假概况"""
+    user_id: int
+    user_name: str
+    department: Optional[str] = None
+    hire_date: Optional[datetime] = None
+    total_days: float = 0.0
+    used_days: float = 0.0
+    remaining_days: float = 0.0
+
+
+class PassiveOvertimeMonthlyItem(BaseModel):
+    """被动加班按月明细"""
+    month: int
+    total_hours: float = 0.0
+    total_days: float = 0.0
+    count: int = 0
+
+
+class PassiveOvertimeStat(BaseModel):
+    """员工被动加班时长统计（加班费依据）"""
+    user_id: int
+    user_name: str
+    department: Optional[str] = None
+    total_hours: float = 0.0
+    total_days: float = 0.0
+    count: int = 0
+    monthly: List[PassiveOvertimeMonthlyItem] = []
+
+
+class PassiveOvertimeDetailItem(BaseModel):
+    """被动加班逐条明细（加班费核算依据）"""
+    id: int
+    start_time: datetime
+    end_time: datetime
+    hours: float = 0.0
+    days: float = 0.0
+    reason: Optional[str] = None
+    created_at: Optional[datetime] = None
 

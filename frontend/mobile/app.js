@@ -3064,8 +3064,9 @@ async function showNewLeaveForm() {
     document.getElementById('leave-start-date').value = today;
     document.getElementById('leave-end-date').value = today;
 
-    // 加载年假使用情况
+    // 加载年假与加班调休额度
     await loadAnnualLeaveInfo();
+    await loadCompLeaveInfo();
 
     // 检查是否已经选择了"年假调休"类型，如果是则显示年假信息
     setTimeout(() => {
@@ -3089,6 +3090,18 @@ async function loadAnnualLeaveInfo() {
     }
 }
 
+// 加载加班调休额度
+let compLeaveInfo = null;
+
+async function loadCompLeaveInfo() {
+    try {
+        compLeaveInfo = await apiRequest('/users/me/comp-leave');
+    } catch (error) {
+        console.error('加载加班调休额度失败:', error);
+        compLeaveInfo = null;
+    }
+}
+
 // 请假类型变更处理
 function onLeaveTypeChange() {
     const leaveTypeSelect = document.getElementById('leave-type-select');
@@ -3100,14 +3113,19 @@ function onLeaveTypeChange() {
 
     const selectedOption = leaveTypeSelect.options[leaveTypeSelect.selectedIndex];
     const leaveTypeName = selectedOption ? selectedOption.text : '';
-    const isAnnualLeave = leaveTypeName === '年假调休';
 
-    if (isAnnualLeave && annualLeaveInfo) {
+    if (leaveTypeName === '年假调休' && annualLeaveInfo) {
         // 显示年假信息
         annualLeaveInfoDiv.textContent = `您本年度年假共计${annualLeaveInfo.total_days}天，已调休${annualLeaveInfo.used_days}天，剩余${annualLeaveInfo.remaining_days}天`;
         annualLeaveInfoDiv.style.display = 'block';
+    } else if (leaveTypeName === '加班调休' && compLeaveInfo) {
+        // 显示加班调休额度
+        const adj = compLeaveInfo.adjustment_days || 0;
+        const adjText = adj ? `，期初/调整${adj > 0 ? '+' : ''}${adj}天` : '';
+        annualLeaveInfoDiv.textContent = `您的加班调休额度：主动加班共${compLeaveInfo.earned_days}天${adjText}，已调休${compLeaveInfo.used_days}天，剩余${compLeaveInfo.remaining_days}天`;
+        annualLeaveInfoDiv.style.display = 'block';
     } else {
-        // 隐藏年假信息
+        // 隐藏信息
         annualLeaveInfoDiv.style.display = 'none';
     }
 }

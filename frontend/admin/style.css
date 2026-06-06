@@ -1285,6 +1285,15 @@ tr:hover {
     display: block;
 }
 
+.vacation-tab-content {
+    display: none;
+    animation: fadeIn 0.3s ease-in;
+}
+
+.vacation-tab-content.active {
+    display: block;
+}
+
 /* 统计卡片 */
 .stats-cards {
     display: grid;

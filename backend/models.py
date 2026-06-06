@@ -73,6 +73,7 @@ class User(Base):
     is_active = Column(Boolean, default=True, comment="是否激活")
     wechat_openid = Column(String(128), unique=True, nullable=True, index=True, comment="微信OpenID")
     annual_leave_days = Column(Float, default=10.0, comment="年假天数")
+    hire_date = Column(DateTime, nullable=True, comment="入职日期")
     enable_attendance = Column(Boolean, default=True, comment="是否开启考勤管理")
     created_at = Column(DateTime, default=datetime.now)
     updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
@@ -241,6 +242,27 @@ class OvertimeApplication(Base):
     user = relationship("User", back_populates="overtime_applications", foreign_keys=[user_id])
     assigned_approver = relationship("User", foreign_keys=[assigned_approver_id], post_update=True)
     approver = relationship("User", foreign_keys=[approver_id], post_update=True)
+
+
+class CompLeaveAdjustment(Base):
+    """加班调休调整记录（期初余额 / 人工增减）。
+
+    days 正数=增加(含系统上线前的期初余额)，负数=扣减；
+    effective_date 决定该笔调整计入哪个自然年（与额度计算的年份口径一致）。
+    """
+    __tablename__ = "comp_leave_adjustments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="员工ID")
+    days = Column(Float, nullable=False, comment="调整天数：正=增加/期初，负=扣减")
+    effective_date = Column(DateTime, nullable=False, comment="生效日期（决定计入的自然年）")
+    reason = Column(Text, nullable=False, comment="调整原因/备注")
+    created_by_id = Column(Integer, ForeignKey("users.id"), comment="操作管理员ID")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user = relationship("User", foreign_keys=[user_id], post_update=True)
+    created_by = relationship("User", foreign_keys=[created_by_id], post_update=True)
 
 
 class HolidayType(str, enum.Enum):

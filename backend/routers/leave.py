@@ -16,7 +16,8 @@ from ..approval_assigner import (
     can_approve_leave
 )
 from ..services.wechat_message import send_approval_notification, send_approval_result_notification
-from .system_settings import is_gm_auto_approve_enabled
+from .system_settings import is_gm_auto_approve_enabled, is_comp_leave_yearly_reset_enabled
+from ..leave_balance import compute_comp_leave, COMP_LEAVE_TYPE_NAME
 
 router = APIRouter(prefix="/leave", tags=["请假管理"])
 
@@ -198,7 +199,17 @@ def create_leave_application(
             status_code=status.HTTP_409_CONFLICT,
             detail="相同的请假申请已存在，请勿重复提交"
         )
-    
+
+    # 加班调休：校验额度，不得超过主动加班折算的可调休天数
+    if leave_type.name == COMP_LEAVE_TYPE_NAME:
+        yearly_reset = is_comp_leave_yearly_reset_enabled(db)
+        balance = compute_comp_leave(db, current_user, yearly_reset=yearly_reset)
+        if leave_create.days > balance["remaining_days"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"加班调休额度不足，当前剩余 {balance['remaining_days']:g} 天"
+            )
+
     leave = LeaveApplication(
         user_id=current_user.id,
         start_date=leave_create.start_date,

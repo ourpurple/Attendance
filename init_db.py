@@ -102,6 +102,44 @@ def ensure_annual_leave_days_field():
         # 不影响主流程，继续执行
 
 
+def ensure_hire_date_field():
+    """确保 users 表有 hire_date 字段"""
+    db_path = "attendance.db"
+
+    if not os.path.exists(db_path):
+        # 数据库不存在，会在 init_db() 中自动创建
+        return
+
+    try:
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # 检查表是否存在
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+        if not cursor.fetchone():
+            conn.close()
+            return
+
+        # 检查字段是否存在
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+
+        if "hire_date" not in columns:
+            print("检测到 users 表缺少 hire_date 字段，正在添加...")
+            try:
+                cursor.execute("ALTER TABLE users ADD COLUMN hire_date DATETIME")
+                conn.commit()
+                print("✓ 成功添加 hire_date 字段")
+            except Exception as e:
+                print(f"⚠️ 添加字段失败（可能已存在）: {str(e)}")
+                conn.rollback()
+
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ 检查/添加 hire_date 字段时出错: {str(e)}")
+        # 不影响主流程，继续执行
+
+
 def create_initial_data():
     """创建初始数据"""
     db = SessionLocal()
@@ -665,7 +703,10 @@ if __name__ == "__main__":
     
     # 确保 annual_leave_days 字段存在（用于已存在的数据库）
     ensure_annual_leave_days_field()
-    
+
+    # 确保 hire_date 字段存在（用于已存在的数据库）
+    ensure_hire_date_field()
+
     # 创建初始数据
     create_initial_data()
 

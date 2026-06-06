@@ -16,8 +16,10 @@ from ..models import (
     UserRole,
     VicePresidentDepartment,
 )
-from ..schemas import UserResponse, UserCreate, UserUpdate, PasswordChange, AnnualLeaveInfo
+from ..schemas import UserResponse, UserCreate, UserUpdate, PasswordChange, AnnualLeaveInfo, CompLeaveInfo
 from ..security import get_current_user, get_current_active_admin, get_password_hash, verify_password
+from ..leave_balance import compute_comp_leave
+from .system_settings import is_comp_leave_yearly_reset_enabled
 
 router = APIRouter(prefix="/users", tags=["用户管理"])
 
@@ -130,6 +132,23 @@ def get_annual_leave_info(
     )
 
 
+@router.get("/me/comp-leave", response_model=CompLeaveInfo)
+def get_comp_leave_info(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """获取当前用户的加班调休额度使用情况（主动加班折算）"""
+    yearly_reset = is_comp_leave_yearly_reset_enabled(db)
+    balance = compute_comp_leave(db, current_user, yearly_reset=yearly_reset)
+    return CompLeaveInfo(
+        earned_days=balance["earned_days"],
+        used_days=balance["used_days"],
+        adjustment_days=balance["adjustment_days"],
+        remaining_days=balance["remaining_days"],
+        yearly_reset=yearly_reset,
+    )
+
+
 @router.get("/", response_model=List[UserResponse])
 def list_users(
     skip: int = 0,
@@ -196,6 +215,7 @@ def create_user(
         role=user_create.role,
         department_id=user_create.department_id,
         annual_leave_days=user_create.annual_leave_days if user_create.annual_leave_days is not None else 10.0,
+        hire_date=user_create.hire_date,
         enable_attendance=user_create.enable_attendance
     )
     
