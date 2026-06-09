@@ -23,9 +23,10 @@ from .models import (
 COMP_LEAVE_TYPE_NAME = "加班调休"
 ANNUAL_LEAVE_TYPE_NAME = "年假调休"
 
-# 占用额度的请假状态：审批中（部门/副总已批）也计入占用，避免在途申请导致超支。
+# 占用额度的请假状态：待审批/审批中也计入占用，避免在途申请导致超支。
 # 与 users.py 现有年假统计口径保持一致。
 OCCUPYING_LEAVE_STATUSES = [
+    LeaveStatus.PENDING,
     LeaveStatus.DEPT_APPROVED,
     LeaveStatus.VP_APPROVED,
     LeaveStatus.APPROVED,

@@ -1,5 +1,6 @@
 // pages/leave/apply/apply.js
 const app = getApp();
+const COMP_LEAVE_BALANCE_ERROR = '调休余额不足，请年假调休或普通请假';
 
 Page({
   data: {
@@ -378,6 +379,16 @@ Page({
     this.setData({ showGmSelector });
   },
 
+  isCompLeaveBalanceInsufficient(days) {
+    const selectedType = this.data.leaveTypes[this.data.leaveTypeIndex];
+    if (!selectedType || selectedType.name !== '加班调休' || !this.data.compLeaveInfo) {
+      return false;
+    }
+
+    const remainingDays = parseFloat(this.data.compLeaveInfo.remaining_days) || 0;
+    return remainingDays - (parseFloat(days) || 0) < 0;
+  },
+
   // 请求订阅消息授权
   requestSubscribeMessage() {
     return app.requestSubscribeMessage();
@@ -421,6 +432,16 @@ Page({
       wx.showToast({
         title: '请选择有效的时间节点',
         icon: 'none'
+      });
+      return;
+    }
+
+    if (this.isCompLeaveBalanceInsufficient(days)) {
+      wx.showModal({
+        title: '提示',
+        content: COMP_LEAVE_BALANCE_ERROR,
+        showCancel: false,
+        confirmText: '知道了'
       });
       return;
     }

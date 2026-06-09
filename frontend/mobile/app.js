@@ -9,6 +9,7 @@ function getApiBaseUrl() {
 }
 
 const API_BASE_URL = getApiBaseUrl();
+const COMP_LEAVE_BALANCE_ERROR = '调休余额不足，请年假调休或普通请假';
 
 // 全局状态
 let currentUser = null;
@@ -3130,6 +3131,19 @@ function onLeaveTypeChange() {
     }
 }
 
+function isCompLeaveBalanceInsufficient(days) {
+    const leaveTypeSelect = document.getElementById('leave-type-select');
+    const selectedOption = leaveTypeSelect ? leaveTypeSelect.options[leaveTypeSelect.selectedIndex] : null;
+    const leaveTypeName = selectedOption ? selectedOption.text : '';
+
+    if (leaveTypeName !== '加班调休' || !compLeaveInfo) {
+        return false;
+    }
+
+    const remainingDays = parseFloat(compLeaveInfo.remaining_days) || 0;
+    return remainingDays - (parseFloat(days) || 0) < 0;
+}
+
 // 计算请假天数（mobile端）
 function calculateLeaveDays() {
     const startDate = document.getElementById('leave-start-date')?.value;
@@ -3318,6 +3332,14 @@ async function submitLeaveForm(event) {
 
     if (days <= 0) {
         await showToast('请选择有效的时间节点', 'warning');
+        return;
+    }
+
+    if (isCompLeaveBalanceInsufficient(days)) {
+        await showToast(COMP_LEAVE_BALANCE_ERROR, 'warning', {
+            autoClose: false,
+            buttonText: '知道了'
+        });
         return;
     }
 

@@ -17,9 +17,15 @@ from ..approval_assigner import (
 )
 from ..services.wechat_message import send_approval_notification, send_approval_result_notification
 from .system_settings import is_gm_auto_approve_enabled, is_comp_leave_yearly_reset_enabled
-from ..leave_balance import compute_comp_leave, COMP_LEAVE_TYPE_NAME
+from ..leave_balance import compute_comp_leave, COMP_LEAVE_TYPE_NAME, OCCUPYING_LEAVE_STATUSES
 
 router = APIRouter(prefix="/leave", tags=["请假管理"])
+
+COMP_LEAVE_BALANCE_ERROR = "调休余额不足，请年假调休或普通请假"
+OCCUPYING_LEAVE_STATUS_VALUES = {
+    status_item.value if hasattr(status_item, "value") else status_item
+    for status_item in OCCUPYING_LEAVE_STATUSES
+}
 
 
 def to_leave_response(leave: LeaveApplication, extra: Optional[dict] = None) -> LeaveApplicationResponse:
@@ -92,6 +98,36 @@ def get_active_leave_type(db: Session, leave_type_id: int) -> LeaveType:
             detail="请选择有效的请假类型"
         )
     return leave_type
+
+
+def validate_comp_leave_balance(
+    db: Session,
+    user: User,
+    leave_type: LeaveType,
+    days: float,
+    exclude_leave: Optional[LeaveApplication] = None,
+):
+    if leave_type.name != COMP_LEAVE_TYPE_NAME:
+        return
+
+    yearly_reset = is_comp_leave_yearly_reset_enabled(db)
+    balance = compute_comp_leave(db, user, yearly_reset=yearly_reset)
+    remaining_days = float(balance.get("remaining_days") or 0)
+
+    if (
+        exclude_leave
+        and exclude_leave.user_id == user.id
+        and get_leave_type_name(exclude_leave, db) == COMP_LEAVE_TYPE_NAME
+        and (exclude_leave.status.value if hasattr(exclude_leave.status, "value") else exclude_leave.status)
+        in OCCUPYING_LEAVE_STATUS_VALUES
+    ):
+        remaining_days += float(exclude_leave.days or 0)
+
+    if remaining_days - float(days or 0) < 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=COMP_LEAVE_BALANCE_ERROR
+        )
 
 
 def get_required_approval_level(days: float) -> List[str]:
@@ -201,14 +237,7 @@ def create_leave_application(
         )
 
     # 加班调休：校验额度，不得超过主动加班折算的可调休天数
-    if leave_type.name == COMP_LEAVE_TYPE_NAME:
-        yearly_reset = is_comp_leave_yearly_reset_enabled(db)
-        balance = compute_comp_leave(db, current_user, yearly_reset=yearly_reset)
-        if leave_create.days > balance["remaining_days"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"加班调休额度不足，当前剩余 {balance['remaining_days']:g} 天"
-            )
+    validate_comp_leave_balance(db, current_user, leave_type, leave_create.days)
 
     leave = LeaveApplication(
         user_id=current_user.id,
@@ -776,6 +805,23 @@ def update_leave_application(
     if "leave_type_id" in update_data:
         leave_type = get_active_leave_type(db, update_data["leave_type_id"])
         update_data["leave_type_id"] = leave_type.id
+    else:
+        leave_type = leave.leave_type or db.query(LeaveType).filter(LeaveType.id == leave.leave_type_id).first()
+        if not leave_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="请选择有效的请假类型"
+            )
+
+    updated_days = update_data.get("days", leave.days)
+    validate_comp_leave_balance(
+        db,
+        db.query(User).filter(User.id == leave.user_id).first() or current_user,
+        leave_type,
+        updated_days,
+        exclude_leave=leave
+    )
+
     for field, value in update_data.items():
         setattr(leave, field, value)
     
