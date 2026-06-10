@@ -2922,6 +2922,7 @@ async function loadMyStats() {
                 <div class="stat-value">${formatStatDayValue(safeStats.overtime_days)}</div>
                 <div class="stat-label">加班天数</div>
             </div>
+            <div class="stats-section-title">年度假期统计</div>
             <div class="stat-card">
                 <div class="stat-value">${formatStatDayValue(safeStats.comp_leave_remaining_days)}</div>
                 <div class="stat-label">剩余可调休(天)</div>

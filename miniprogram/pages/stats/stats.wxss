@@ -17,3 +17,13 @@
   font-size: 32rpx;
 }
 
+.stats-section-title {
+  margin: 28rpx 4rpx 20rpx;
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #3A3A3C;
+}
+
+.annual-stats-grid {
+  margin-bottom: 8rpx;
+}

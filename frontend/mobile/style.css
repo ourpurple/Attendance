@@ -838,6 +838,14 @@ button:disabled {
     box-shadow: var(--shadow);
 }
 
+.stats-section-title {
+    grid-column: 1 / -1;
+    margin: 4px 2px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
 .stat-value {
     font-size: 32px;
     font-weight: 700;

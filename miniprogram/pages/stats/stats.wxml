@@ -11,42 +11,49 @@
   </view>
 
   <!-- 统计卡片 -->
-  <view class="stats-grid" wx:if="{{stats}}">
-    <view class="stat-card">
-      <view class="stat-value">{{stats.present_days || 0}}</view>
-      <view class="stat-label">出勤天数</view>
+  <view wx:if="{{stats}}">
+    <view class="stats-grid">
+      <view class="stat-card">
+        <view class="stat-value">{{stats.present_days || 0}}</view>
+        <view class="stat-label">出勤天数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.work_hours_display || '0.0'}}</view>
+        <view class="stat-label">工作时长(h)</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.late_days || 0}}</view>
+        <view class="stat-label">迟到次数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.early_leave_days || 0}}</view>
+        <view class="stat-label">早退次数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.leave_days || 0}}</view>
+        <view class="stat-label">请假天数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.overtime_days_display || 0}}</view>
+        <view class="stat-label">加班天数</view>
+      </view>
     </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.work_hours_display || '0.0'}}</view>
-      <view class="stat-label">工作时长(h)</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.late_days || 0}}</view>
-      <view class="stat-label">迟到次数</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.early_leave_days || 0}}</view>
-      <view class="stat-label">早退次数</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.leave_days || 0}}</view>
-      <view class="stat-label">请假天数</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.overtime_days_display || 0}}</view>
-      <view class="stat-label">加班天数</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.comp_leave_remaining_days_display || 0}}</view>
-      <view class="stat-label">剩余可调休(天)</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.year_passive_overtime_days_display || 0}}</view>
-      <view class="stat-label">被动加班天数</view>
-    </view>
-    <view class="stat-card">
-      <view class="stat-value">{{stats.annual_leave_remaining_days_display || 0}}</view>
-      <view class="stat-label">年假剩余天数</view>
+
+    <view class="stats-section-title">年度假期统计</view>
+
+    <view class="stats-grid annual-stats-grid">
+      <view class="stat-card">
+        <view class="stat-value">{{stats.comp_leave_remaining_days_display || 0}}</view>
+        <view class="stat-label">剩余可调休(天)</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.year_passive_overtime_days_display || 0}}</view>
+        <view class="stat-label">被动加班天数</view>
+      </view>
+      <view class="stat-card">
+        <view class="stat-value">{{stats.annual_leave_remaining_days_display || 0}}</view>
+        <view class="stat-label">年假剩余天数</view>
+      </view>
     </view>
   </view>
 
