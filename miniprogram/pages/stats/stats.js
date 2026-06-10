@@ -1,6 +1,11 @@
 // pages/stats/stats.js
 const app = getApp();
 
+function formatDayValue(value) {
+  const numberValue = parseFloat(value) || 0;
+  return numberValue % 1 === 0 ? numberValue.toString() : numberValue.toFixed(1);
+}
+
 Page({
   data: {
     selectedMonth: '',
@@ -48,17 +53,15 @@ Page({
       // 确保返回的数据是对象而不是 null
       const safeStats = data && typeof data === 'object' && data !== null ? data : {};
       
-      // 确保所有数值字段都是正确的类型
-      if (safeStats.overtime_days !== undefined && safeStats.overtime_days !== null) {
-        safeStats.overtime_days = parseFloat(safeStats.overtime_days) || 0;
-        // 格式化：如果是整数显示整数，否则显示一位小数
-        safeStats.overtime_days_display = safeStats.overtime_days % 1 === 0 
-          ? safeStats.overtime_days.toString() 
-          : safeStats.overtime_days.toFixed(1);
-      } else {
-        safeStats.overtime_days = 0;
-        safeStats.overtime_days_display = '0';
-      }
+      [
+        'overtime_days',
+        'year_passive_overtime_days',
+        'comp_leave_remaining_days',
+        'annual_leave_remaining_days'
+      ].forEach((field) => {
+        safeStats[field] = parseFloat(safeStats[field]) || 0;
+        safeStats[`${field}_display`] = formatDayValue(safeStats[field]);
+      });
       
       // 处理工作时长字段
       if (safeStats.work_hours !== undefined && safeStats.work_hours !== null) {

@@ -2870,6 +2870,16 @@ async function approveOvertime(id, approved) {
     }
 }
 
+function formatStatDayValue(value) {
+    const numberValue = Number(value) || 0;
+    return Number.isInteger(numberValue) ? String(numberValue) : numberValue.toFixed(1);
+}
+
+function formatStatFixedValue(value, digits = 1) {
+    const numberValue = Number(value) || 0;
+    return numberValue.toFixed(digits);
+}
+
 // 加载我的统计
 async function loadMyStats() {
     const monthInput = document.getElementById('stats-month');
@@ -2885,31 +2895,44 @@ async function loadMyStats() {
     try {
         const stats = await apiRequest(`/statistics/my?start_date=${startDate}&end_date=${endDate}`);
         const container = document.getElementById('stats-cards');
+        const safeStats = stats || {};
 
         container.innerHTML = `
             <div class="stat-card">
-                <div class="stat-value">${stats.present_days}</div>
+                <div class="stat-value">${safeStats.present_days || 0}</div>
                 <div class="stat-label">出勤天数</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${stats.work_hours.toFixed(1)}</div>
+                <div class="stat-value">${formatStatFixedValue(safeStats.work_hours)}</div>
                 <div class="stat-label">工作时长(h)</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${stats.late_days}</div>
+                <div class="stat-value">${safeStats.late_days || 0}</div>
                 <div class="stat-label">迟到次数</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${stats.early_leave_days}</div>
+                <div class="stat-value">${safeStats.early_leave_days || 0}</div>
                 <div class="stat-label">早退次数</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${stats.leave_days}</div>
+                <div class="stat-value">${formatStatDayValue(safeStats.leave_days)}</div>
                 <div class="stat-label">请假天数</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">${stats.overtime_days.toFixed(1)}</div>
+                <div class="stat-value">${formatStatDayValue(safeStats.overtime_days)}</div>
                 <div class="stat-label">加班天数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${formatStatDayValue(safeStats.comp_leave_remaining_days)}</div>
+                <div class="stat-label">剩余可调休(天)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${formatStatDayValue(safeStats.year_passive_overtime_days)}</div>
+                <div class="stat-label">被动加班天数</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${formatStatDayValue(safeStats.annual_leave_remaining_days)}</div>
+                <div class="stat-label">年假剩余天数</div>
             </div>
         `;
     } catch (error) {

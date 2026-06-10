@@ -10,6 +10,7 @@ from ..schemas import (
     AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse,
     DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
 )
+from ..leave_balance import compute_annual_leave, compute_comp_leave
 from .attendance import get_leave_period_for_date
 def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationResponse:
     data = LeaveApplicationResponse.from_orm(leave).model_dump()
@@ -288,6 +289,24 @@ def get_my_statistics(
     current_user: User = Depends(get_current_user)
 ):
     """获取我的统计数据"""
+    stats_year = start_date.year
+    comp_leave_balance = compute_comp_leave(
+        db,
+        current_user,
+        yearly_reset=True,
+        year=stats_year,
+    )
+    annual_leave_balance = compute_annual_leave(db, current_user, year=stats_year)
+    year_start = datetime(stats_year, 1, 1)
+    year_end = datetime(stats_year, 12, 31, 23, 59, 59)
+    year_passive_overtime_days = float(db.query(func.sum(OvertimeApplication.days)).filter(
+        OvertimeApplication.user_id == current_user.id,
+        OvertimeApplication.status == OvertimeStatus.APPROVED,
+        OvertimeApplication.overtime_type == OvertimeType.PASSIVE,
+        OvertimeApplication.start_time >= year_start,
+        OvertimeApplication.start_time <= year_end
+    ).scalar() or 0.0)
+
     if current_user.enable_attendance is False:
         return AttendanceStatistics(
             user_id=current_user.id,
@@ -306,6 +325,9 @@ def get_my_statistics(
             active_overtime_count=0,
             passive_overtime_days=0.0,
             passive_overtime_count=0,
+            year_passive_overtime_days=year_passive_overtime_days,
+            comp_leave_remaining_days=comp_leave_balance["remaining_days"],
+            annual_leave_remaining_days=annual_leave_balance["remaining_days"],
             work_hours=0.0,
             leave_type_breakdown=[]
         )
@@ -380,6 +402,9 @@ def get_my_statistics(
         active_overtime_count=active_overtime_count,
         passive_overtime_days=passive_overtime_days,
         passive_overtime_count=passive_overtime_count,
+        year_passive_overtime_days=year_passive_overtime_days,
+        comp_leave_remaining_days=comp_leave_balance["remaining_days"],
+        annual_leave_remaining_days=annual_leave_balance["remaining_days"],
         work_hours=work_hours
     )
 

@@ -416,6 +416,9 @@ class AttendanceStatistics(BaseModel):
     active_overtime_count: int = 0
     passive_overtime_days: float = 0.0
     passive_overtime_count: int = 0
+    year_passive_overtime_days: float = 0.0
+    comp_leave_remaining_days: float = 0.0
+    annual_leave_remaining_days: float = 0.0
     work_hours: float
     leave_type_breakdown: List[LeaveTypeSummary] = []
 
