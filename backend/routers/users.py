@@ -1,24 +1,23 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from typing import List
-from datetime import datetime
 from ..database import get_db
 from ..models import (
+    AnnualLeaveAdjustment,
     Attendance,
     AttendanceViewer,
+    CompLeaveAdjustment,
     Department,
     LeaveApplication,
-    LeaveStatus,
-    LeaveType,
     OvertimeApplication,
+    PassiveOvertimeAdjustment,
     User,
     UserRole,
     VicePresidentDepartment,
 )
 from ..schemas import UserResponse, UserCreate, UserUpdate, PasswordChange, AnnualLeaveInfo, CompLeaveInfo
 from ..security import get_current_user, get_current_active_admin, get_password_hash, verify_password
-from ..leave_balance import compute_comp_leave
+from ..leave_balance import compute_annual_leave, compute_comp_leave
 from .system_settings import is_comp_leave_yearly_reset_enabled
 
 router = APIRouter(prefix="/users", tags=["用户管理"])
@@ -86,49 +85,12 @@ def get_annual_leave_info(
     current_user: User = Depends(get_current_user)
 ):
     """获取当前用户的年假使用情况"""
-    # 获取总年假天数
-    total_days = current_user.annual_leave_days or 10.0
-    
-    # 获取"年假调休"类型的ID
-    annual_leave_type = db.query(LeaveType).filter(
-        LeaveType.name == "年假调休",
-        LeaveType.is_active == True
-    ).first()
-    
-    if not annual_leave_type:
-        # 如果没有找到年假调休类型，返回默认值
-        return AnnualLeaveInfo(
-            total_days=total_days,
-            used_days=0.0,
-            remaining_days=total_days
-        )
-    
-    # 计算本年度已使用的年假天数
-    # 获取当前年份的开始和结束时间
-    current_year = datetime.now().year
-    year_start = datetime(current_year, 1, 1)
-    year_end = datetime(current_year, 12, 31, 23, 59, 59)
-    
-    # 查询本年度已批准的年假调休申请
-    used_leave = db.query(func.sum(LeaveApplication.days)).filter(
-        LeaveApplication.user_id == current_user.id,
-        LeaveApplication.leave_type_id == annual_leave_type.id,
-        LeaveApplication.status.in_([
-            LeaveStatus.DEPT_APPROVED,
-            LeaveStatus.VP_APPROVED,
-            LeaveStatus.APPROVED
-        ]),
-        LeaveApplication.start_date >= year_start,
-        LeaveApplication.start_date <= year_end
-    ).scalar() or 0.0
-    
-    used_days = float(used_leave)
-    remaining_days = max(0.0, total_days - used_days)
-    
+    balance = compute_annual_leave(db, current_user)
     return AnnualLeaveInfo(
-        total_days=total_days,
-        used_days=used_days,
-        remaining_days=remaining_days
+        total_days=balance["total_days"],
+        used_days=balance["used_days"],
+        adjustment_days=balance["adjustment_days"],
+        remaining_days=balance["remaining_days"],
     )
 
 
@@ -313,9 +275,22 @@ def delete_user(
         OvertimeApplication.approver_id == user_id
     ).update({OvertimeApplication.approver_id: None}, synchronize_session=False)
 
+    db.query(CompLeaveAdjustment).filter(
+        CompLeaveAdjustment.created_by_id == user_id
+    ).update({CompLeaveAdjustment.created_by_id: None}, synchronize_session=False)
+    db.query(PassiveOvertimeAdjustment).filter(
+        PassiveOvertimeAdjustment.created_by_id == user_id
+    ).update({PassiveOvertimeAdjustment.created_by_id: None}, synchronize_session=False)
+    db.query(AnnualLeaveAdjustment).filter(
+        AnnualLeaveAdjustment.created_by_id == user_id
+    ).update({AnnualLeaveAdjustment.created_by_id: None}, synchronize_session=False)
+
     db.query(Attendance).filter(Attendance.user_id == user_id).delete(synchronize_session=False)
     db.query(LeaveApplication).filter(LeaveApplication.user_id == user_id).delete(synchronize_session=False)
     db.query(OvertimeApplication).filter(OvertimeApplication.user_id == user_id).delete(synchronize_session=False)
+    db.query(CompLeaveAdjustment).filter(CompLeaveAdjustment.user_id == user_id).delete(synchronize_session=False)
+    db.query(PassiveOvertimeAdjustment).filter(PassiveOvertimeAdjustment.user_id == user_id).delete(synchronize_session=False)
+    db.query(AnnualLeaveAdjustment).filter(AnnualLeaveAdjustment.user_id == user_id).delete(synchronize_session=False)
 
     db.delete(user)
     db.commit()

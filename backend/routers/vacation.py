@@ -13,10 +13,22 @@ from sqlalchemy.orm import Session
 
 from ..database import get_db
 from ..leave_balance import compute_annual_leave, compute_comp_leave
-from ..models import CompLeaveAdjustment, OvertimeApplication, OvertimeStatus, OvertimeType, User
+from ..models import (
+    AnnualLeaveAdjustment,
+    CompLeaveAdjustment,
+    OvertimeApplication,
+    OvertimeStatus,
+    OvertimeType,
+    PassiveOvertimeAdjustment,
+    User,
+)
 from ..schemas import (
+    AnnualLeaveAdjustmentCreate,
+    AnnualLeaveAdjustmentResponse,
     CompLeaveAdjustmentCreate,
     CompLeaveAdjustmentResponse,
+    PassiveOvertimeAdjustmentCreate,
+    PassiveOvertimeAdjustmentResponse,
     PassiveOvertimeDetailItem,
     PassiveOvertimeMonthlyItem,
     PassiveOvertimeStat,
@@ -46,6 +58,70 @@ def _date_range(year: int, month: Optional[int]):
         last_day = calendar.monthrange(year, month)[1]
         return date(year, month, 1), date(year, month, last_day)
     return date(year, 1, 1), date(year, 12, 31)
+
+
+def _datetime_range(year: int, month: Optional[int] = None):
+    start, end = _date_range(year, month)
+    return datetime.combine(start, datetime.min.time()), datetime.combine(end, datetime.max.time())
+
+
+def _adjustment_response(row, response_cls, created_by_name: Optional[str] = None):
+    return response_cls(
+        id=row.id,
+        user_id=row.user_id,
+        days=row.days,
+        effective_date=row.effective_date,
+        reason=row.reason,
+        created_by_name=created_by_name if created_by_name is not None else (
+            row.created_by.real_name if row.created_by else None
+        ),
+        created_at=row.created_at,
+    )
+
+
+def _list_adjustments(db: Session, model, response_cls, user_id: int):
+    rows = db.query(model).filter(
+        model.user_id == user_id,
+    ).order_by(
+        model.effective_date.desc(),
+        model.id.desc(),
+    ).all()
+    return [_adjustment_response(row, response_cls) for row in rows]
+
+
+def _create_adjustment(db: Session, model, response_cls, payload, current_user: User):
+    if payload.days == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="调整天数不能为 0")
+    if not payload.reason or not payload.reason.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请填写调整原因")
+    target = db.query(User).filter(
+        User.id == payload.user_id,
+        User.username != "admin",
+        User.is_active == True,
+    ).first()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="员工不存在")
+
+    adj = model(
+        user_id=payload.user_id,
+        days=payload.days,
+        effective_date=datetime.combine(payload.effective_date, datetime.min.time()),
+        reason=payload.reason.strip(),
+        created_by_id=current_user.id,
+    )
+    db.add(adj)
+    db.commit()
+    db.refresh(adj)
+    return _adjustment_response(adj, response_cls, current_user.real_name)
+
+
+def _delete_adjustment(db: Session, model, adjustment_id: int):
+    adj = db.query(model).filter(model.id == adjustment_id).first()
+    if not adj:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="调整记录不存在")
+    db.delete(adj)
+    db.commit()
+    return {"message": "已删除"}
 
 
 @router.get("/comp-leave", response_model=List[VacationCompLeaveItem])
@@ -83,24 +159,7 @@ def list_comp_leave_adjustments(
     current_user: User = Depends(get_current_active_admin),
 ):
     """列出某员工的加班调休调整记录（按生效日期倒序）。"""
-    rows = db.query(CompLeaveAdjustment).filter(
-        CompLeaveAdjustment.user_id == user_id,
-    ).order_by(
-        CompLeaveAdjustment.effective_date.desc(),
-        CompLeaveAdjustment.id.desc(),
-    ).all()
-    return [
-        CompLeaveAdjustmentResponse(
-            id=r.id,
-            user_id=r.user_id,
-            days=r.days,
-            effective_date=r.effective_date,
-            reason=r.reason,
-            created_by_name=r.created_by.real_name if r.created_by else None,
-            created_at=r.created_at,
-        )
-        for r in rows
-    ]
+    return _list_adjustments(db, CompLeaveAdjustment, CompLeaveAdjustmentResponse, user_id)
 
 
 @router.post(
@@ -114,33 +173,7 @@ def create_comp_leave_adjustment(
     current_user: User = Depends(get_current_active_admin),
 ):
     """新增加班调休调整记录（期初余额 / 人工增减）。"""
-    if payload.days == 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="调整天数不能为 0")
-    if not payload.reason or not payload.reason.strip():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请填写调整原因")
-    target = db.query(User).filter(User.id == payload.user_id).first()
-    if not target:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="员工不存在")
-
-    adj = CompLeaveAdjustment(
-        user_id=payload.user_id,
-        days=payload.days,
-        effective_date=datetime.combine(payload.effective_date, datetime.min.time()),
-        reason=payload.reason.strip(),
-        created_by_id=current_user.id,
-    )
-    db.add(adj)
-    db.commit()
-    db.refresh(adj)
-    return CompLeaveAdjustmentResponse(
-        id=adj.id,
-        user_id=adj.user_id,
-        days=adj.days,
-        effective_date=adj.effective_date,
-        reason=adj.reason,
-        created_by_name=current_user.real_name,
-        created_at=adj.created_at,
-    )
+    return _create_adjustment(db, CompLeaveAdjustment, CompLeaveAdjustmentResponse, payload, current_user)
 
 
 @router.delete("/comp-leave/adjustments/{adjustment_id}")
@@ -150,12 +183,7 @@ def delete_comp_leave_adjustment(
     current_user: User = Depends(get_current_active_admin),
 ):
     """删除加班调休调整记录。"""
-    adj = db.query(CompLeaveAdjustment).filter(CompLeaveAdjustment.id == adjustment_id).first()
-    if not adj:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="调整记录不存在")
-    db.delete(adj)
-    db.commit()
-    return {"message": "已删除"}
+    return _delete_adjustment(db, CompLeaveAdjustment, adjustment_id)
 
 
 @router.get("/annual-leave", response_model=List[VacationAnnualLeaveItem])
@@ -174,11 +202,47 @@ def list_annual_leave(
             user_name=user.real_name,
             department=user.department.name if user.department else None,
             hire_date=user.hire_date,
+            base_days=bal["base_days"],
+            adjustment_days=bal["adjustment_days"],
             total_days=bal["total_days"],
             used_days=bal["used_days"],
             remaining_days=bal["remaining_days"],
         ))
     return result
+
+
+@router.get("/annual-leave/adjustments", response_model=List[AnnualLeaveAdjustmentResponse])
+def list_annual_leave_adjustments(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """列出某员工的年假调整记录（按生效日期倒序）。"""
+    return _list_adjustments(db, AnnualLeaveAdjustment, AnnualLeaveAdjustmentResponse, user_id)
+
+
+@router.post(
+    "/annual-leave/adjustments",
+    response_model=AnnualLeaveAdjustmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_annual_leave_adjustment(
+    payload: AnnualLeaveAdjustmentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """新增年假调整记录（期初余额 / 人工增减）。"""
+    return _create_adjustment(db, AnnualLeaveAdjustment, AnnualLeaveAdjustmentResponse, payload, current_user)
+
+
+@router.delete("/annual-leave/adjustments/{adjustment_id}")
+def delete_annual_leave_adjustment(
+    adjustment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """删除年假调整记录。"""
+    return _delete_adjustment(db, AnnualLeaveAdjustment, adjustment_id)
 
 
 def _passive_overtime_stats(
@@ -202,19 +266,56 @@ def _passive_overtime_stats(
         func.date(OvertimeApplication.start_time) <= end,
     ).all()
 
+    adjustment_start, adjustment_end = _datetime_range(year, month)
+    adjustments = db.query(PassiveOvertimeAdjustment).filter(
+        PassiveOvertimeAdjustment.user_id.in_(list(user_map.keys())),
+        PassiveOvertimeAdjustment.effective_date >= adjustment_start,
+        PassiveOvertimeAdjustment.effective_date <= adjustment_end,
+    ).all()
+
     agg = {}
     for ot in overtimes:
-        a = agg.setdefault(ot.user_id, {"hours": 0.0, "days": 0.0, "count": 0, "months": {}})
+        a = agg.setdefault(ot.user_id, {
+            "hours": 0.0,
+            "overtime_days": 0.0,
+            "adjustment_days": 0.0,
+            "count": 0,
+            "months": {},
+        })
         hours = ot.hours or 0.0
         days = ot.days or 0.0
         a["hours"] += hours
-        a["days"] += days
+        a["overtime_days"] += days
         a["count"] += 1
         m = ot.start_time.month
-        ma = a["months"].setdefault(m, {"hours": 0.0, "days": 0.0, "count": 0})
+        ma = a["months"].setdefault(m, {
+            "hours": 0.0,
+            "overtime_days": 0.0,
+            "adjustment_days": 0.0,
+            "count": 0,
+        })
         ma["hours"] += hours
-        ma["days"] += days
+        ma["overtime_days"] += days
         ma["count"] += 1
+
+    for adj in adjustments:
+        a = agg.setdefault(adj.user_id, {
+            "hours": 0.0,
+            "overtime_days": 0.0,
+            "adjustment_days": 0.0,
+            "count": 0,
+            "months": {},
+        })
+        days = adj.days or 0.0
+        a["adjustment_days"] += days
+        m = adj.effective_date.month
+        ma = a["months"].setdefault(m, {
+            "hours": 0.0,
+            "overtime_days": 0.0,
+            "adjustment_days": 0.0,
+            "count": 0,
+        })
+        ma["adjustment_days"] += days
 
     result = []
     for uid, user in user_map.items():
@@ -225,21 +326,60 @@ def _passive_overtime_stats(
             PassiveOvertimeMonthlyItem(
                 month=m,
                 total_hours=round(v["hours"], 2),
-                total_days=v["days"],
+                overtime_days=v["overtime_days"],
+                adjustment_days=v["adjustment_days"],
+                total_days=max(0.0, v["overtime_days"] + v["adjustment_days"]),
                 count=v["count"],
             )
             for m, v in sorted(a["months"].items())
         ]
+        total_days = max(0.0, a["overtime_days"] + a["adjustment_days"])
         result.append(PassiveOvertimeStat(
             user_id=uid,
             user_name=user.real_name,
             department=user.department.name if user.department else None,
             total_hours=round(a["hours"], 2),
-            total_days=a["days"],
+            overtime_days=a["overtime_days"],
+            adjustment_days=a["adjustment_days"],
+            total_days=total_days,
             count=a["count"],
             monthly=monthly,
         ))
     return result
+
+
+@router.get("/passive-overtime/adjustments", response_model=List[PassiveOvertimeAdjustmentResponse])
+def list_passive_overtime_adjustments(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """列出某员工的被动加班调整记录（按生效日期倒序）。"""
+    return _list_adjustments(db, PassiveOvertimeAdjustment, PassiveOvertimeAdjustmentResponse, user_id)
+
+
+@router.post(
+    "/passive-overtime/adjustments",
+    response_model=PassiveOvertimeAdjustmentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_passive_overtime_adjustment(
+    payload: PassiveOvertimeAdjustmentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """新增被动加班调整记录（期初余额 / 人工增减）。"""
+    return _create_adjustment(db, PassiveOvertimeAdjustment, PassiveOvertimeAdjustmentResponse, payload, current_user)
+
+
+@router.delete("/passive-overtime/adjustments/{adjustment_id}")
+def delete_passive_overtime_adjustment(
+    adjustment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """删除被动加班调整记录。"""
+    return _delete_adjustment(db, PassiveOvertimeAdjustment, adjustment_id)
 
 
 @router.get("/passive-overtime", response_model=List[PassiveOvertimeStat])
@@ -299,15 +439,31 @@ def export_passive_overtime(
 ):
     """导出被动加班时长统计（Excel）。"""
     stats = _passive_overtime_stats(db, year, month, department_id)
-    headers = ['姓名', '部门', '月份/合计', '被动加班天数', '次数']
+    headers = ['姓名', '部门', '月份/合计', '被动加班记录(天)', '期初/调整(天)', '合计(天)', '次数']
     period_label = f"{year}年" + (f"{month}月" if month else "全年")
 
     rows = []
     for s in stats:
         if not month:
             for m in s.monthly:
-                rows.append([s.user_name, s.department or '-', f"{m.month}月", m.total_days, m.count])
-        rows.append([s.user_name, s.department or '-', f"{period_label}合计", s.total_days, s.count])
+                rows.append([
+                    s.user_name,
+                    s.department or '-',
+                    f"{m.month}月",
+                    m.overtime_days,
+                    m.adjustment_days,
+                    m.total_days,
+                    m.count,
+                ])
+        rows.append([
+            s.user_name,
+            s.department or '-',
+            f"{period_label}合计",
+            s.overtime_days,
+            s.adjustment_days,
+            s.total_days,
+            s.count,
+        ])
 
     suffix = f"_{month:02d}" if month else ""
     filename = f"被动加班统计_{year}{suffix}.xlsx"

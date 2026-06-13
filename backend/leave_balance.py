@@ -4,12 +4,14 @@
 避免在多处重复实现，口径不一致。
 """
 from datetime import datetime
+import calendar
 from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from .models import (
+    AnnualLeaveAdjustment,
     CompLeaveAdjustment,
     LeaveApplication,
     LeaveStatus,
@@ -17,6 +19,7 @@ from .models import (
     OvertimeApplication,
     OvertimeStatus,
     OvertimeType,
+    PassiveOvertimeAdjustment,
     User,
 )
 
@@ -42,6 +45,24 @@ def get_leave_type_by_name(db: Session, name: str) -> Optional[LeaveType]:
 
 def _year_range(year: int):
     return datetime(year, 1, 1), datetime(year, 12, 31, 23, 59, 59)
+
+
+def _period_range(year: int, month: Optional[int] = None):
+    if month:
+        last_day = calendar.monthrange(year, month)[1]
+        return datetime(year, month, 1), datetime(year, month, last_day, 23, 59, 59)
+    return _year_range(year)
+
+
+def _sum_adjustments(db: Session, model, user_id: int, year: Optional[int] = None, month: Optional[int] = None) -> float:
+    query = db.query(func.sum(model.days)).filter(model.user_id == user_id)
+    if year is not None:
+        start, end = _period_range(year, month)
+        query = query.filter(
+            model.effective_date >= start,
+            model.effective_date <= end,
+        )
+    return float(query.scalar() or 0.0)
 
 
 def compute_comp_leave(
@@ -73,10 +94,6 @@ def compute_comp_leave(
             LeaveApplication.status.in_(OCCUPYING_LEAVE_STATUSES),
         )
 
-    adj_query = db.query(func.sum(CompLeaveAdjustment.days)).filter(
-        CompLeaveAdjustment.user_id == user.id,
-    )
-
     if yearly_reset:
         year_start, year_end = _year_range(year)
         earned_query = earned_query.filter(
@@ -88,14 +105,10 @@ def compute_comp_leave(
                 LeaveApplication.start_date >= year_start,
                 LeaveApplication.start_date <= year_end,
             )
-        adj_query = adj_query.filter(
-            CompLeaveAdjustment.effective_date >= year_start,
-            CompLeaveAdjustment.effective_date <= year_end,
-        )
 
     earned = float(earned_query.scalar() or 0.0)
     used = float(used_query.scalar() or 0.0) if used_query is not None else 0.0
-    adjustment = float(adj_query.scalar() or 0.0)
+    adjustment = _sum_adjustments(db, CompLeaveAdjustment, user.id, year if yearly_reset else None)
     remaining = max(0.0, earned - used + adjustment)
     return {
         "earned_days": earned,
@@ -106,13 +119,15 @@ def compute_comp_leave(
 
 
 def compute_annual_leave(db: Session, user: User, year: Optional[int] = None) -> dict:
-    """年假额度：年假总数(annual_leave_days) - 本年度年假调休(used) = 剩余。
+    """年假额度：基础年假 + 年度期初/调整 - 本年度年假调休(used) = 剩余。
 
     抽取自 users.py 现有 /users/me/annual-leave 逻辑，便于后台批量复用。
     """
     if year is None:
         year = datetime.now().year
-    total = float(user.annual_leave_days if user.annual_leave_days is not None else 10.0)
+    base = float(user.annual_leave_days if user.annual_leave_days is not None else 10.0)
+    adjustment = _sum_adjustments(db, AnnualLeaveAdjustment, user.id, year)
+    total = max(0.0, base + adjustment)
 
     annual_type = get_leave_type_by_name(db, ANNUAL_LEAVE_TYPE_NAME)
     used = 0.0
@@ -127,4 +142,20 @@ def compute_annual_leave(db: Session, user: User, year: Optional[int] = None) ->
         ).scalar() or 0.0)
 
     remaining = max(0.0, total - used)
-    return {"total_days": total, "used_days": used, "remaining_days": remaining}
+    return {
+        "base_days": base,
+        "adjustment_days": adjustment,
+        "total_days": total,
+        "used_days": used,
+        "remaining_days": remaining,
+    }
+
+
+def compute_passive_overtime_adjustment(
+    db: Session,
+    user: User,
+    year: int,
+    month: Optional[int] = None,
+) -> float:
+    """被动加班期初/调整天数，按生效日期计入指定自然年/月。"""
+    return _sum_adjustments(db, PassiveOvertimeAdjustment, user.id, year, month)

@@ -831,7 +831,7 @@
                             <button class="btn btn-secondary" onclick="exportVacationPassiveOvertime()">导出Excel</button>
                         </div>
                         <div class="info-box" style="margin-bottom:16px; padding:12px 15px; background:#fff7e6; border-left:4px solid #fa8c16; border-radius:4px;">
-                            <p style="margin:0; color:#666; line-height:1.6;">仅统计已批准的“被动加班”时长，作为加班费核算依据。选择“全年”时附每月明细。</p>
+                            <p style="margin:0; color:#666; line-height:1.6;">被动加班合计 = 已批准的“被动加班”折算天数 + 期初/调整。期初/调整可在“操作”列录入，按生效日期计入对应自然年/月；次数与明细仅统计真实申请记录。</p>
                         </div>
                         <div class="table-container">
                             <table id="vacation-po-table">
@@ -839,9 +839,11 @@
                                     <tr>
                                         <th>姓名</th>
                                         <th>部门</th>
-                                        <th>被动加班天数</th>
+                                        <th>被动加班记录(天)</th>
+                                        <th>期初/调整(天)</th>
+                                        <th>合计(天)</th>
                                         <th>次数</th>
-                                        <th>明细</th>
+                                        <th>操作</th>
                                     </tr>
                                 </thead>
                                 <tbody id="vacation-po-tbody"></tbody>
@@ -861,7 +863,7 @@
                             <button class="btn btn-primary" onclick="loadVacationAnnualLeave()">查询</button>
                         </div>
                         <div class="info-box" style="margin-bottom:16px; padding:12px 15px; background:#f6ffed; border-left:4px solid #52c41a; border-radius:4px;">
-                            <p style="margin:0; color:#666; line-height:1.6;">年假总天数可在下方“操作”列直接编辑修改；已用为本年度已批准(含审批中)的“年假调休”。每年初“已用”自动归零、“剩余”自动恢复为总天数，去年未休不结转。</p>
+                            <p style="margin:0; color:#666; line-height:1.6;">年假总数 = 基础年假 + 期初/调整。基础年假可在“操作”列编辑；期初/调整可单独录入并按生效日期计入对应自然年。已用为本年度已批准(含审批中)的“年假调休”，去年未休不结转。</p>
                         </div>
                         <div class="table-container">
                             <table id="vacation-annual-table">
@@ -870,6 +872,8 @@
                                         <th>姓名</th>
                                         <th>部门</th>
                                         <th>入职日期</th>
+                                        <th>基础年假(天)</th>
+                                        <th>期初/调整(天)</th>
                                         <th>年假总数(天)</th>
                                         <th>已用(天)</th>
                                         <th>剩余(天)</th>

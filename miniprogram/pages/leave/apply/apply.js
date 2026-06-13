@@ -228,6 +228,10 @@ Page({
         method: 'GET'
       });
       const info = res.data || res;
+      const adjustmentDays = Number(info.adjustment_days) || 0;
+      info.adjustment_text = adjustmentDays
+        ? `，期初/调整${adjustmentDays > 0 ? '+' : ''}${adjustmentDays}天`
+        : '';
       this.setData({
         annualLeaveInfo: info
       });
@@ -244,6 +248,10 @@ Page({
         method: 'GET'
       });
       const info = res.data || res;
+      const adjustmentDays = Number(info.adjustment_days) || 0;
+      info.adjustment_text = adjustmentDays
+        ? `，期初/调整${adjustmentDays > 0 ? '+' : ''}${adjustmentDays}天`
+        : '';
       this.setData({
         compLeaveInfo: info
       });

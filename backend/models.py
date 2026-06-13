@@ -265,6 +265,48 @@ class CompLeaveAdjustment(Base):
     created_by = relationship("User", foreign_keys=[created_by_id], post_update=True)
 
 
+class PassiveOvertimeAdjustment(Base):
+    """被动加班调整记录（期初余额 / 人工增减）。
+
+    days 正数=增加(含系统上线前的期初)，负数=扣减；
+    effective_date 决定该笔调整计入哪个自然年/月度统计。
+    """
+    __tablename__ = "passive_overtime_adjustments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="员工ID")
+    days = Column(Float, nullable=False, comment="调整天数：正=增加/期初，负=扣减")
+    effective_date = Column(DateTime, nullable=False, comment="生效日期（决定计入的自然年/月）")
+    reason = Column(Text, nullable=False, comment="调整原因/备注")
+    created_by_id = Column(Integer, ForeignKey("users.id"), comment="操作管理员ID")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user = relationship("User", foreign_keys=[user_id], post_update=True)
+    created_by = relationship("User", foreign_keys=[created_by_id], post_update=True)
+
+
+class AnnualLeaveAdjustment(Base):
+    """年假调整记录（期初余额 / 人工增减）。
+
+    days 正数=增加(含系统上线前的期初)，负数=扣减；
+    effective_date 决定该笔调整计入哪个自然年。
+    """
+    __tablename__ = "annual_leave_adjustments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="员工ID")
+    days = Column(Float, nullable=False, comment="调整天数：正=增加/期初，负=扣减")
+    effective_date = Column(DateTime, nullable=False, comment="生效日期（决定计入的自然年）")
+    reason = Column(Text, nullable=False, comment="调整原因/备注")
+    created_by_id = Column(Integer, ForeignKey("users.id"), comment="操作管理员ID")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user = relationship("User", foreign_keys=[user_id], post_update=True)
+    created_by = relationship("User", foreign_keys=[created_by_id], post_update=True)
+
+
 class HolidayType(str, enum.Enum):
     """节假日类型"""
     HOLIDAY = "holiday"  # 法定节假日（休息）

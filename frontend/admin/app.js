@@ -5287,6 +5287,22 @@ function vacationFormatDays(v) {
     return (Math.round(n * 100) / 100) + ' 天';
 }
 
+function vacationEscapeHtml(s) {
+    return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function vacationEscapeJsString(s) {
+    return String(s == null ? '' : s)
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\r?\n/g, ' ');
+}
+
 async function initVacation() {
     await loadVacationDepartments();
     populateVacationYearSelects();
@@ -5373,7 +5389,7 @@ async function loadVacationCompLeave() {
                 <td>${vacationFormatDays(item.adjustment_days)}</td>
                 <td>${vacationFormatDays(item.used_days)}</td>
                 <td><strong>${vacationFormatDays(item.remaining_days)}</strong></td>
-                <td><button class="btn btn-small btn-primary" onclick="openCompAdjustModal(${item.user_id}, '${(item.user_name || '').replace(/'/g, "\\'")}')">调整</button></td>
+                <td><button class="btn btn-small btn-primary" onclick="openCompAdjustModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button></td>
             </tr>
         `).join('');
     } catch (error) {
@@ -5381,45 +5397,77 @@ async function loadVacationCompLeave() {
     }
 }
 
-// 调休期初/调整记录管理
+// 假期期初/调整记录管理
+const VACATION_ADJUST_CONFIG = {
+    'comp-leave': {
+        title: '调休调整',
+        apiBase: '/vacation/comp-leave/adjustments',
+        guidance: '正数为增加(含系统上线前的期初余额)，负数为扣减。生效日期决定该笔计入哪个自然年；上线前的期初请填上线前日期(如 2025-12-31)。',
+        placeholder: '如：系统上线期初余额',
+        reload: loadVacationCompLeave
+    },
+    'passive-overtime': {
+        title: '被动加班调整',
+        apiBase: '/vacation/passive-overtime/adjustments',
+        guidance: '正数为增加(含系统上线前的期初被动加班天数)，负数为扣减。生效日期决定该笔计入哪个自然年/月。',
+        placeholder: '如：系统上线期初被动加班',
+        reload: loadVacationPassiveOvertime
+    },
+    'annual-leave': {
+        title: '年假调整',
+        apiBase: '/vacation/annual-leave/adjustments',
+        guidance: '正数为增加(含本年度期初补入)，负数为扣减。生效日期决定该笔计入哪个自然年。',
+        placeholder: '如：本年度期初年假调整',
+        reload: loadVacationAnnualLeave
+    }
+};
+
 function compAdjustEscape(s) {
-    return String(s == null ? '' : s)
-        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return vacationEscapeHtml(s);
 }
 
 function openCompAdjustModal(userId, userName) {
-    window.compAdjustUserId = userId;
+    openVacationAdjustModal('comp-leave', userId, userName);
+}
+
+function openVacationAdjustModal(type, userId, userName) {
+    const config = VACATION_ADJUST_CONFIG[type];
+    if (!config) return;
+    window.vacationAdjustState = { type, userId };
     const today = new Date().toISOString().slice(0, 10);
     const content = `
         <div style="margin-bottom:12px; color:#666; font-size:13px; line-height:1.6;">
-            正数为增加(含系统上线前的期初余额)，负数为扣减。生效日期决定该笔计入哪个自然年；上线前的期初请填上线前日期(如 2025-12-31)。
+            ${config.guidance}
         </div>
-        <div id="comp-adjust-list" style="margin-bottom:16px;">加载中...</div>
+        <div id="vacation-adjust-list" style="margin-bottom:16px;">加载中...</div>
         <div style="border-top:1px solid #eee; padding-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
             <div class="form-group" style="margin:0;">
                 <label>天数</label>
-                <input type="number" id="comp-adjust-days" step="0.5" placeholder="如 5 或 -2" style="width:110px; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                <input type="number" id="vacation-adjust-days" step="0.5" placeholder="如 5 或 -2" style="width:110px; padding:8px; border:1px solid #ddd; border-radius:6px;">
             </div>
             <div class="form-group" style="margin:0;">
                 <label>生效日期</label>
-                <input type="date" id="comp-adjust-date" value="${today}" style="padding:8px; border:1px solid #ddd; border-radius:6px;">
+                <input type="date" id="vacation-adjust-date" value="${today}" style="padding:8px; border:1px solid #ddd; border-radius:6px;">
             </div>
             <div class="form-group" style="margin:0; flex:1; min-width:160px;">
                 <label>原因</label>
-                <input type="text" id="comp-adjust-reason" placeholder="如：系统上线期初余额" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+                <input type="text" id="vacation-adjust-reason" placeholder="${config.placeholder}" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
             </div>
-            <button class="btn btn-primary" onclick="addCompAdjustment()">添加</button>
+            <button class="btn btn-primary" onclick="addVacationAdjustment()">添加</button>
         </div>
     `;
-    showModal(`调休调整 - ${compAdjustEscape(userName)}`, content, null);
-    loadCompAdjustments();
+    showModal(`${config.title} - ${vacationEscapeHtml(userName)}`, content, null);
+    loadVacationAdjustments();
 }
 
-async function loadCompAdjustments() {
-    const box = document.getElementById('comp-adjust-list');
+async function loadVacationAdjustments() {
+    const box = document.getElementById('vacation-adjust-list');
     if (!box) return;
+    const state = window.vacationAdjustState || {};
+    const config = VACATION_ADJUST_CONFIG[state.type];
+    if (!config || !state.userId) return;
     try {
-        const list = await apiRequest(`/vacation/comp-leave/adjustments?user_id=${window.compAdjustUserId}`);
+        const list = await apiRequest(`${config.apiBase}?user_id=${state.userId}`);
         if (!list.length) {
             box.innerHTML = '<div style="color:#999; text-align:center; padding:10px;">暂无调整记录</div>';
             return;
@@ -5434,9 +5482,9 @@ async function loadCompAdjustments() {
                     <tr style="border-top:1px solid #f0f0f0;">
                         <td style="padding:6px;">${String(a.effective_date).substring(0, 10)}</td>
                         <td style="padding:6px; color:${a.days < 0 ? '#f5222d' : '#52c41a'};">${a.days > 0 ? '+' : ''}${a.days}</td>
-                        <td style="padding:6px;">${compAdjustEscape(a.reason)}</td>
-                        <td style="padding:6px; color:#999;">${compAdjustEscape(a.created_by_name) || '-'}</td>
-                        <td style="padding:6px;"><button class="btn btn-small btn-danger" onclick="deleteCompAdjustment(${a.id})">删除</button></td>
+                        <td style="padding:6px;">${vacationEscapeHtml(a.reason)}</td>
+                        <td style="padding:6px; color:#999;">${vacationEscapeHtml(a.created_by_name) || '-'}</td>
+                        <td style="padding:6px;"><button class="btn btn-small btn-danger" onclick="deleteVacationAdjustment(${a.id})">删除</button></td>
                     </tr>
                 `).join('')}
                 </tbody>
@@ -5447,39 +5495,57 @@ async function loadCompAdjustments() {
     }
 }
 
-async function addCompAdjustment() {
-    const days = parseFloat(document.getElementById('comp-adjust-days').value);
-    const date = document.getElementById('comp-adjust-date').value;
-    const reason = (document.getElementById('comp-adjust-reason').value || '').trim();
+async function addVacationAdjustment() {
+    const state = window.vacationAdjustState || {};
+    const config = VACATION_ADJUST_CONFIG[state.type];
+    if (!config || !state.userId) return;
+    const days = parseFloat(document.getElementById('vacation-adjust-days').value);
+    const date = document.getElementById('vacation-adjust-date').value;
+    const reason = (document.getElementById('vacation-adjust-reason').value || '').trim();
     if (isNaN(days) || days === 0) { showToast('请输入非 0 的天数', 'warning'); return; }
     if (!date) { showToast('请选择生效日期', 'warning'); return; }
     if (!reason) { showToast('请填写调整原因', 'warning'); return; }
     try {
-        await apiRequest('/vacation/comp-leave/adjustments', {
+        await apiRequest(config.apiBase, {
             method: 'POST',
-            body: JSON.stringify({ user_id: window.compAdjustUserId, days, effective_date: date, reason })
+            body: JSON.stringify({ user_id: state.userId, days, effective_date: date, reason })
         });
         showToast('已添加', 'success');
-        document.getElementById('comp-adjust-days').value = '';
-        document.getElementById('comp-adjust-reason').value = '';
-        loadCompAdjustments();
-        loadVacationCompLeave();
+        document.getElementById('vacation-adjust-days').value = '';
+        document.getElementById('vacation-adjust-reason').value = '';
+        loadVacationAdjustments();
+        config.reload();
     } catch (e) {
         showToast('添加失败: ' + e.message, 'error');
     }
 }
 
-function deleteCompAdjustment(id) {
-    showConfirm('删除调整记录', '确定删除这条调休调整记录吗？', async () => {
+function deleteVacationAdjustment(id) {
+    const state = window.vacationAdjustState || {};
+    const config = VACATION_ADJUST_CONFIG[state.type];
+    if (!config) return;
+    showConfirm('删除调整记录', '确定删除这条调整记录吗？', async () => {
         try {
-            await apiRequest(`/vacation/comp-leave/adjustments/${id}`, { method: 'DELETE' });
+            await apiRequest(`${config.apiBase}/${id}`, { method: 'DELETE' });
             showToast('已删除', 'success');
-            loadCompAdjustments();
-            loadVacationCompLeave();
+            loadVacationAdjustments();
+            config.reload();
         } catch (e) {
             showToast('删除失败: ' + e.message, 'error');
         }
     });
+}
+
+function loadCompAdjustments() {
+    return loadVacationAdjustments();
+}
+
+function addCompAdjustment() {
+    return addVacationAdjustment();
+}
+
+function deleteCompAdjustment(id) {
+    return deleteVacationAdjustment(id);
 }
 
 async function loadVacationAnnualLeave() {
@@ -5494,7 +5560,7 @@ async function loadVacationAnnualLeave() {
         const qs = params.toString();
         const list = await apiRequest(`/vacation/annual-leave${qs ? '?' + qs : ''}`);
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999;">暂无数据</td></tr>';
             return;
         }
         tbody.innerHTML = list.map(item => `
@@ -5502,16 +5568,21 @@ async function loadVacationAnnualLeave() {
                 <td>${item.user_name}</td>
                 <td>${item.department || '-'}</td>
                 <td>${item.hire_date ? String(item.hire_date).substring(0, 10) : '-'}</td>
-                <td id="annual-total-${item.user_id}">${vacationFormatDays(item.total_days)}</td>
+                <td id="annual-total-${item.user_id}">${vacationFormatDays(item.base_days)}</td>
+                <td>${vacationFormatDays(item.adjustment_days)}</td>
+                <td>${vacationFormatDays(item.total_days)}</td>
                 <td>${vacationFormatDays(item.used_days)}</td>
                 <td><strong>${vacationFormatDays(item.remaining_days)}</strong></td>
                 <td id="annual-action-${item.user_id}">
-                    <button class="btn btn-small btn-primary" onclick="editAnnualLeave(${item.user_id}, ${item.total_days})">编辑</button>
+                    <div class="action-buttons">
+                        <button class="btn btn-small btn-primary" onclick="editAnnualLeave(${item.user_id}, ${item.base_days})">编辑</button>
+                        <button class="btn btn-small btn-secondary" onclick="openVacationAdjustModal('annual-leave', ${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button>
+                    </div>
                 </td>
             </tr>
         `).join('');
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
     }
 }
 
@@ -5535,7 +5606,7 @@ async function saveAnnualLeave(userId) {
     if (!input) return;
     const val = parseFloat(input.value);
     if (isNaN(val) || val < 0) {
-        showToast('请输入有效的年假天数(不小于0)', 'warning');
+        showToast('请输入有效的基础年假天数(不小于0)', 'warning');
         return;
     }
     try {
@@ -5543,7 +5614,7 @@ async function saveAnnualLeave(userId) {
             method: 'PUT',
             body: JSON.stringify({ annual_leave_days: val })
         });
-        showToast('年假总天数已更新', 'success');
+        showToast('基础年假天数已更新', 'success');
         loadVacationAnnualLeave();
     } catch (error) {
         showToast('保存失败: ' + error.message, 'error');
@@ -5568,16 +5639,23 @@ async function loadVacationPassiveOvertime() {
         const params = getVacationPassiveParams();
         const list = await apiRequest(`/vacation/passive-overtime?${params.toString()}`);
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:#999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999;">暂无数据</td></tr>';
             return;
         }
         tbody.innerHTML = list.map(item => `
             <tr>
                 <td>${item.user_name}</td>
                 <td>${item.department || '-'}</td>
-                <td>${vacationFormatDays(item.total_days)}</td>
+                <td>${vacationFormatDays(item.overtime_days)}</td>
+                <td>${vacationFormatDays(item.adjustment_days)}</td>
+                <td><strong>${vacationFormatDays(item.total_days)}</strong></td>
                 <td>${item.count}</td>
-                <td><button class="btn btn-small btn-primary" data-user-id="${item.user_id}" data-user-name="${(item.user_name || '').replace(/"/g, '&quot;')}" data-action="passive-overtime-detail">详情</button></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-small btn-primary" data-user-id="${item.user_id}" data-user-name="${vacationEscapeHtml(item.user_name)}" data-action="passive-overtime-detail">详情</button>
+                        <button class="btn btn-small btn-secondary" onclick="openVacationAdjustModal('passive-overtime', ${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button>
+                    </div>
+                </td>
             </tr>`).join('');
         tbody.querySelectorAll('button[data-action="passive-overtime-detail"]').forEach(btn => {
             btn.addEventListener('click', function () {
@@ -5587,7 +5665,7 @@ async function loadVacationPassiveOvertime() {
             });
         });
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
     }
 }
 
@@ -5642,7 +5720,7 @@ window.showPassiveOvertimeDetail = async function (userId, userName) {
                             <tbody>${rowsHtml}</tbody>
                             <tfoot>
                                 <tr style="font-weight:bold; background:#fafafa;">
-                                    <td>合计</td>
+                                    <td>申请记录合计</td>
                                     <td>${vacationFormatDays(totalDays)}</td>
                                     <td colspan="2">${list.length} 次</td>
                                 </tr>

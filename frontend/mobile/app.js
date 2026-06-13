@@ -3141,7 +3141,9 @@ function onLeaveTypeChange() {
 
     if (leaveTypeName === '年假调休' && annualLeaveInfo) {
         // 显示年假信息
-        annualLeaveInfoDiv.textContent = `您本年度年假共计${annualLeaveInfo.total_days}天，已调休${annualLeaveInfo.used_days}天，剩余${annualLeaveInfo.remaining_days}天`;
+        const adj = annualLeaveInfo.adjustment_days || 0;
+        const adjText = adj ? `，期初/调整${adj > 0 ? '+' : ''}${adj}天` : '';
+        annualLeaveInfoDiv.textContent = `您本年度年假额度共${annualLeaveInfo.total_days}天${adjText}，已调休${annualLeaveInfo.used_days}天，剩余${annualLeaveInfo.remaining_days}天`;
         annualLeaveInfoDiv.style.display = 'block';
     } else if (leaveTypeName === '加班调休' && compLeaveInfo) {
         // 显示加班调休额度

@@ -10,7 +10,7 @@ from ..schemas import (
     AttendanceStatistics, PeriodStatistics, LeaveApplicationResponse, OvertimeApplicationResponse,
     DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
 )
-from ..leave_balance import compute_annual_leave, compute_comp_leave
+from ..leave_balance import compute_annual_leave, compute_comp_leave, compute_passive_overtime_adjustment
 from .attendance import get_leave_period_for_date
 def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationResponse:
     data = LeaveApplicationResponse.from_orm(leave).model_dump()
@@ -306,6 +306,10 @@ def get_my_statistics(
         OvertimeApplication.start_time >= year_start,
         OvertimeApplication.start_time <= year_end
     ).scalar() or 0.0)
+    year_passive_overtime_days = max(
+        0.0,
+        year_passive_overtime_days + compute_passive_overtime_adjustment(db, current_user, stats_year),
+    )
 
     if current_user.enable_attendance is False:
         return AttendanceStatistics(

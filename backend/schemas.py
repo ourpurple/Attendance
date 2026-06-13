@@ -64,6 +64,7 @@ class AnnualLeaveInfo(BaseModel):
     """年假使用情况"""
     total_days: float  # 总年假天数
     used_days: float  # 已使用年假天数
+    adjustment_days: float = 0.0  # 期初/人工调整天数（正=增加，负=扣减）
     remaining_days: float  # 剩余年假天数
 
 
@@ -648,16 +649,16 @@ class VacationCompLeaveItem(BaseModel):
     remaining_days: float = 0.0
 
 
-class CompLeaveAdjustmentCreate(BaseModel):
-    """新增加班调休调整记录（期初/人工增减）"""
+class VacationAdjustmentCreate(BaseModel):
+    """新增假期调整记录（期初/人工增减）"""
     user_id: int
     days: float  # 正=增加/期初，负=扣减
     effective_date: date  # 生效日期（决定计入的自然年），接口内转为当天0点存储
     reason: str
 
 
-class CompLeaveAdjustmentResponse(BaseModel):
-    """加班调休调整记录"""
+class VacationAdjustmentResponse(BaseModel):
+    """假期调整记录"""
     id: int
     user_id: int
     days: float
@@ -670,12 +671,44 @@ class CompLeaveAdjustmentResponse(BaseModel):
         from_attributes = True
 
 
+class CompLeaveAdjustmentCreate(VacationAdjustmentCreate):
+    """新增加班调休调整记录（期初/人工增减）"""
+    pass
+
+
+class CompLeaveAdjustmentResponse(VacationAdjustmentResponse):
+    """加班调休调整记录"""
+    pass
+
+
+class PassiveOvertimeAdjustmentCreate(VacationAdjustmentCreate):
+    """新增被动加班调整记录（期初/人工增减）"""
+    pass
+
+
+class PassiveOvertimeAdjustmentResponse(VacationAdjustmentResponse):
+    """被动加班调整记录"""
+    pass
+
+
+class AnnualLeaveAdjustmentCreate(VacationAdjustmentCreate):
+    """新增年假调整记录（期初/人工增减）"""
+    pass
+
+
+class AnnualLeaveAdjustmentResponse(VacationAdjustmentResponse):
+    """年假调整记录"""
+    pass
+
+
 class VacationAnnualLeaveItem(BaseModel):
     """员工年假概况"""
     user_id: int
     user_name: str
     department: Optional[str] = None
     hire_date: Optional[datetime] = None
+    base_days: float = 0.0
+    adjustment_days: float = 0.0
     total_days: float = 0.0
     used_days: float = 0.0
     remaining_days: float = 0.0
@@ -685,6 +718,8 @@ class PassiveOvertimeMonthlyItem(BaseModel):
     """被动加班按月明细"""
     month: int
     total_hours: float = 0.0
+    overtime_days: float = 0.0
+    adjustment_days: float = 0.0
     total_days: float = 0.0
     count: int = 0
 
@@ -695,6 +730,8 @@ class PassiveOvertimeStat(BaseModel):
     user_name: str
     department: Optional[str] = None
     total_hours: float = 0.0
+    overtime_days: float = 0.0
+    adjustment_days: float = 0.0
     total_days: float = 0.0
     count: int = 0
     monthly: List[PassiveOvertimeMonthlyItem] = []
