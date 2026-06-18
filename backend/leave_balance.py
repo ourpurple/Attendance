@@ -186,9 +186,10 @@ def compute_annual_leave(
     result = None
     for y in range(floor_year, year + 1):
         if y == floor_year:
-            # 起始年汇总该年及更早的全部期初/调整与已用（含上线前补录的期初）。
+            # 起始年汇总该年及更早的期初/调整（含上线前补录的期初余额）；
+            # 已用只计当年，起始年之前的历史请假视为上线前、由期初统一抵充。
             adj_y = sum(v for yr, v in adj_by_year.items() if yr <= floor_year)
-            used_y = sum(v for yr, v in used_by_year.items() if yr <= floor_year)
+            used_y = used_by_year.get(floor_year, 0.0)
         else:
             adj_y = adj_by_year.get(y, 0.0)
             used_y = used_by_year.get(y, 0.0)

@@ -370,9 +370,8 @@ def get_annual_leave_detail(
 ):
     """某员工年假明细：年假调休使用、期初/调整。
 
-    过滤口径与 /annual-leave 汇总一致。结转模式下展示所选年份的当年期初/调整与已用，
-    并单列上一年结转余额(carryover_days)；起始年及更早的期初/已用归入起始年。
-    基础年假为固定值，不逐条列出。
+    使用明细仅展示所选年份当年的"年假调休"请假；期初/调整在所选年为起始年(或更早)时
+    并入该年及更早的记录(承接上线前补录的期初)，其余仅取当年。上一年结转单列 carryover_days。
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -383,23 +382,20 @@ def get_annual_leave_detail(
     target_year = year if year is not None else datetime.now().year
     bal = compute_annual_leave(db, user, year=target_year, yearly_reset=use_yearly_reset, start_year=start_year)
 
-    # 结转模式且所选年为起始年(或更早)时，并入该年及更早的期初/已用；其余仅取当年。
-    fold_earlier = (not use_yearly_reset) and target_year <= start_year
+    # 结转模式且所选年为起始年(或更早)时，期初/调整并入该年及更早(承接上线前期初)。
+    fold_earlier_adjustments = (not use_yearly_reset) and target_year <= start_year
 
     annual_type = get_leave_type_by_name(db, ANNUAL_LEAVE_TYPE_NAME)
     used_items = []
     if annual_type:
+        year_start = datetime(target_year, 1, 1)
         year_end = datetime(target_year, 12, 31, 23, 59, 59)
-        used_filters = [
+        used_rows = db.query(LeaveApplication).filter(
             LeaveApplication.user_id == user_id,
             LeaveApplication.leave_type_id == annual_type.id,
             LeaveApplication.status.in_(OCCUPYING_LEAVE_STATUSES),
+            LeaveApplication.start_date >= year_start,
             LeaveApplication.start_date <= year_end,
-        ]
-        if not fold_earlier:
-            used_filters.append(LeaveApplication.start_date >= datetime(target_year, 1, 1))
-        used_rows = db.query(LeaveApplication).filter(
-            *used_filters
         ).order_by(LeaveApplication.start_date.asc()).all()
         used_items = [
             CompLeaveDetailEntry(
@@ -414,7 +410,7 @@ def get_annual_leave_detail(
         ]
 
     adjustments = _list_adjustments(db, AnnualLeaveAdjustment, AnnualLeaveAdjustmentResponse, user_id)
-    if fold_earlier:
+    if fold_earlier_adjustments:
         adjustments = [a for a in adjustments if a.effective_date.year <= target_year]
     else:
         adjustments = [a for a in adjustments if a.effective_date.year == target_year]
