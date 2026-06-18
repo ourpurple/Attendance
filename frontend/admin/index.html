@@ -623,6 +623,23 @@
                                 开启后，加班调休余额按自然年计算，跨年清零；关闭则永久累计不清零。
                             </p>
                         </div>
+                        <div class="system-setting-item">
+                            <label class="system-setting-label" for="annual-leave-yearly-reset">
+                                <input type="checkbox" id="annual-leave-yearly-reset" class="system-setting-checkbox">
+                                <span>开启“年假余额跨年清零”</span>
+                            </label>
+                            <p class="system-setting-desc">
+                                关闭(默认)：自“起始年”起每年发放一份基础年假，未休余额结转累计到下一年。
+                                开启：年假按自然年清零，去年未休不结转。
+                            </p>
+                            <label class="system-setting-label" for="annual-leave-start-year" style="margin-top:8px;">
+                                <span>年假结转起始年</span>
+                                <input type="number" id="annual-leave-start-year" min="2000" max="2100" style="width:110px; margin-left:10px; padding:6px 8px; border:1px solid #ddd; border-radius:6px;">
+                            </label>
+                            <p class="system-setting-desc">
+                                每年自该年起发放一份基础年假（仅在关闭跨年清零时生效）。上线前已积累的年假请用“假期管理→年假管理→调整”按生效日期补录为期初。
+                            </p>
+                        </div>
                         <div class="system-settings-actions">
                             <button class="btn btn-primary" onclick="saveSystemSettings()">保存设置</button>
                         </div>
@@ -805,7 +822,7 @@
                     <div id="passive-overtime-vacation" class="vacation-tab-content">
                         <div class="filters" style="display:flex; flex-direction:row; gap:10px; align-items:center; margin-bottom:16px; flex-wrap:wrap;">
                             <label style="display:flex; align-items:center; gap:5px;">年份
-                                <input type="number" id="vacation-po-year" style="padding:8px; border:1px solid #ddd; border-radius:6px; width:100px;" min="2000" max="2100">
+                                <select id="vacation-po-year" style="padding:8px; border:1px solid #ddd; border-radius:6px;"></select>
                             </label>
                             <label style="display:flex; align-items:center; gap:5px;">月份
                                 <select id="vacation-po-month" style="padding:8px; border:1px solid #ddd; border-radius:6px;">
@@ -863,7 +880,7 @@
                             <button class="btn btn-primary" onclick="loadVacationAnnualLeave()">查询</button>
                         </div>
                         <div class="info-box" style="margin-bottom:16px; padding:12px 15px; background:#f6ffed; border-left:4px solid #52c41a; border-radius:4px;">
-                            <p style="margin:0; color:#666; line-height:1.6;">年假总数 = 基础年假 + 期初/调整。基础年假可在“操作”列编辑；期初/调整可单独录入并按生效日期计入对应自然年。已用为本年度已批准(含审批中)的“年假调休”，去年未休不结转。</p>
+                            <p style="margin:0; color:#666; line-height:1.6;">年假总数 = 基础年假 + 上年结转 + 期初/调整。基础年假可在“操作”列编辑；期初/调整可单独录入并按生效日期计入对应自然年。已用为本年度已批准(含审批中)的“年假调休”。默认未休结转(逐年累计)，是否跨年清零及结转起始年由“系统设置”控制。</p>
                         </div>
                         <div class="table-container">
                             <table id="vacation-annual-table">
@@ -873,6 +890,7 @@
                                         <th>部门</th>
                                         <th>入职日期</th>
                                         <th>基础年假(天)</th>
+                                        <th>上年结转(天)</th>
                                         <th>期初/调整(天)</th>
                                         <th>年假总数(天)</th>
                                         <th>已用(天)</th>

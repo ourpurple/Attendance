@@ -635,6 +635,8 @@ class SystemSettingItem(BaseModel):
 class SystemSettingUpdate(BaseModel):
     auto_approve_gm_level: Optional[bool] = None
     comp_leave_yearly_reset: Optional[bool] = None
+    annual_leave_yearly_reset: Optional[bool] = None
+    annual_leave_start_year: Optional[int] = None
 
 
 # ==================== 假期管理相关 ====================
@@ -681,6 +683,30 @@ class CompLeaveAdjustmentResponse(VacationAdjustmentResponse):
     pass
 
 
+class CompLeaveDetailEntry(BaseModel):
+    """调休明细单条（主动加班挣得 / 加班调休使用）"""
+    id: int
+    start: datetime
+    end: datetime
+    days: float = 0.0
+    hours: Optional[float] = None
+    reason: Optional[str] = None
+    status: Optional[str] = None
+
+
+class CompLeaveDetailResponse(BaseModel):
+    """某员工调休明细：主动加班挣得、加班调休使用、期初/调整"""
+    user_id: int
+    user_name: str
+    earned_days: float = 0.0
+    used_days: float = 0.0
+    adjustment_days: float = 0.0
+    remaining_days: float = 0.0
+    earned_items: List[CompLeaveDetailEntry] = []
+    used_items: List[CompLeaveDetailEntry] = []
+    adjustments: List[CompLeaveAdjustmentResponse] = []
+
+
 class PassiveOvertimeAdjustmentCreate(VacationAdjustmentCreate):
     """新增被动加班调整记录（期初/人工增减）"""
     pass
@@ -701,6 +727,20 @@ class AnnualLeaveAdjustmentResponse(VacationAdjustmentResponse):
     pass
 
 
+class AnnualLeaveDetailResponse(BaseModel):
+    """某员工年假明细：年假调休使用、期初/调整"""
+    user_id: int
+    user_name: str
+    base_days: float = 0.0
+    carryover_days: float = 0.0
+    adjustment_days: float = 0.0
+    total_days: float = 0.0
+    used_days: float = 0.0
+    remaining_days: float = 0.0
+    used_items: List[CompLeaveDetailEntry] = []
+    adjustments: List[AnnualLeaveAdjustmentResponse] = []
+
+
 class VacationAnnualLeaveItem(BaseModel):
     """员工年假概况"""
     user_id: int
@@ -708,6 +748,7 @@ class VacationAnnualLeaveItem(BaseModel):
     department: Optional[str] = None
     hire_date: Optional[datetime] = None
     base_days: float = 0.0
+    carryover_days: float = 0.0
     adjustment_days: float = 0.0
     total_days: float = 0.0
     used_days: float = 0.0

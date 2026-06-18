@@ -18,7 +18,11 @@ from ..models import (
 from ..schemas import UserResponse, UserCreate, UserUpdate, PasswordChange, AnnualLeaveInfo, CompLeaveInfo
 from ..security import get_current_user, get_current_active_admin, get_password_hash, verify_password
 from ..leave_balance import compute_annual_leave, compute_comp_leave
-from .system_settings import is_comp_leave_yearly_reset_enabled
+from .system_settings import (
+    get_annual_leave_start_year,
+    is_annual_leave_yearly_reset_enabled,
+    is_comp_leave_yearly_reset_enabled,
+)
 
 router = APIRouter(prefix="/users", tags=["用户管理"])
 
@@ -85,7 +89,12 @@ def get_annual_leave_info(
     current_user: User = Depends(get_current_user)
 ):
     """获取当前用户的年假使用情况"""
-    balance = compute_annual_leave(db, current_user)
+    balance = compute_annual_leave(
+        db,
+        current_user,
+        yearly_reset=is_annual_leave_yearly_reset_enabled(db),
+        start_year=get_annual_leave_start_year(db),
+    )
     return AnnualLeaveInfo(
         total_days=balance["total_days"],
         used_days=balance["used_days"],

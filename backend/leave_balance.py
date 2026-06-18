@@ -25,6 +25,7 @@ from .models import (
 
 COMP_LEAVE_TYPE_NAME = "加班调休"
 ANNUAL_LEAVE_TYPE_NAME = "年假调休"
+ANNUAL_LEAVE_DEFAULT_START_YEAR = 2025
 
 # 占用额度的请假状态：待审批/审批中也计入占用，避免在途申请导致超支。
 # 与 users.py 现有年假统计口径保持一致。
@@ -118,37 +119,102 @@ def compute_comp_leave(
     }
 
 
-def compute_annual_leave(db: Session, user: User, year: Optional[int] = None) -> dict:
-    """年假额度：基础年假 + 年度期初/调整 - 本年度年假调休(used) = 剩余。
+def compute_annual_leave(
+    db: Session,
+    user: User,
+    year: Optional[int] = None,
+    yearly_reset: bool = False,
+    start_year: Optional[int] = None,
+) -> dict:
+    """年假额度。
 
-    抽取自 users.py 现有 /users/me/annual-leave 逻辑，便于后台批量复用。
+    yearly_reset=True：按自然年隔离清零，剩余 = 基础年假 + 当年期初/调整 − 当年年假调休。
+    yearly_reset=False（默认，结转）：自 start_year 起逐年发放一份基础年假，并把上一年
+    未休余额 max(0, 上年剩余) 结转累计到下一年；返回所选 year 的明细，含 carryover_days。
     """
     if year is None:
         year = datetime.now().year
+    if start_year is None:
+        start_year = ANNUAL_LEAVE_DEFAULT_START_YEAR
     base = float(user.annual_leave_days if user.annual_leave_days is not None else 10.0)
-    adjustment = _sum_adjustments(db, AnnualLeaveAdjustment, user.id, year)
-    total = max(0.0, base + adjustment)
 
     annual_type = get_leave_type_by_name(db, ANNUAL_LEAVE_TYPE_NAME)
-    used = 0.0
+
+    if yearly_reset:
+        adjustment = _sum_adjustments(db, AnnualLeaveAdjustment, user.id, year)
+        total = max(0.0, base + adjustment)
+        used = 0.0
+        if annual_type:
+            year_start, year_end = _year_range(year)
+            used = float(db.query(func.sum(LeaveApplication.days)).filter(
+                LeaveApplication.user_id == user.id,
+                LeaveApplication.leave_type_id == annual_type.id,
+                LeaveApplication.status.in_(OCCUPYING_LEAVE_STATUSES),
+                LeaveApplication.start_date >= year_start,
+                LeaveApplication.start_date <= year_end,
+            ).scalar() or 0.0)
+        remaining = max(0.0, total - used)
+        return {
+            "base_days": base,
+            "carryover_days": 0.0,
+            "adjustment_days": adjustment,
+            "total_days": total,
+            "used_days": used,
+            "remaining_days": remaining,
+        }
+
+    # 结转模式：逐年累计。预取按年聚合的期初/调整与已用年假。
+    adj_by_year: dict = {}
+    for eff_date, days in db.query(
+        AnnualLeaveAdjustment.effective_date, AnnualLeaveAdjustment.days
+    ).filter(AnnualLeaveAdjustment.user_id == user.id).all():
+        adj_by_year[eff_date.year] = adj_by_year.get(eff_date.year, 0.0) + float(days or 0.0)
+
+    used_by_year: dict = {}
     if annual_type:
-        year_start, year_end = _year_range(year)
-        used = float(db.query(func.sum(LeaveApplication.days)).filter(
+        for start_date, days in db.query(
+            LeaveApplication.start_date, LeaveApplication.days
+        ).filter(
             LeaveApplication.user_id == user.id,
             LeaveApplication.leave_type_id == annual_type.id,
             LeaveApplication.status.in_(OCCUPYING_LEAVE_STATUSES),
-            LeaveApplication.start_date >= year_start,
-            LeaveApplication.start_date <= year_end,
-        ).scalar() or 0.0)
+        ).all():
+            used_by_year[start_date.year] = used_by_year.get(start_date.year, 0.0) + float(days or 0.0)
 
-    remaining = max(0.0, total - used)
-    return {
-        "base_days": base,
-        "adjustment_days": adjustment,
-        "total_days": total,
-        "used_days": used,
-        "remaining_days": remaining,
-    }
+    floor_year = min(start_year, year)
+    carryover_in = 0.0
+    result = None
+    for y in range(floor_year, year + 1):
+        if y == floor_year:
+            # 起始年汇总该年及更早的全部期初/调整与已用（含上线前补录的期初）。
+            adj_y = sum(v for yr, v in adj_by_year.items() if yr <= floor_year)
+            used_y = sum(v for yr, v in used_by_year.items() if yr <= floor_year)
+        else:
+            adj_y = adj_by_year.get(y, 0.0)
+            used_y = used_by_year.get(y, 0.0)
+        total_y = max(0.0, base + carryover_in + adj_y)
+        remaining_y = max(0.0, total_y - used_y)
+        if y == year:
+            result = {
+                "base_days": base,
+                "carryover_days": carryover_in,
+                "adjustment_days": adj_y,
+                "total_days": total_y,
+                "used_days": used_y,
+                "remaining_days": remaining_y,
+            }
+        carryover_in = remaining_y
+
+    if result is None:
+        result = {
+            "base_days": base,
+            "carryover_days": 0.0,
+            "adjustment_days": 0.0,
+            "total_days": base,
+            "used_days": 0.0,
+            "remaining_days": base,
+        }
+    return result
 
 
 def compute_passive_overtime_adjustment(

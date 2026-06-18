@@ -2510,6 +2510,14 @@ function closeModal(event) {
     window.currentModalCallback = null;
 }
 
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modalContainer = document.getElementById('modal-container');
+    if (modalContainer && modalContainer.style.display !== 'none' && modalContainer.innerHTML.trim()) {
+        closeModal();
+    }
+});
+
 function handleModalConfirm() {
     if (window.currentModalCallback) {
         window.currentModalCallback();
@@ -5253,6 +5261,14 @@ async function loadSystemSettings() {
         if (compResetCheckbox) {
             compResetCheckbox.checked = !!settings.comp_leave_yearly_reset;
         }
+        const annualResetCheckbox = document.getElementById('annual-leave-yearly-reset');
+        if (annualResetCheckbox) {
+            annualResetCheckbox.checked = !!settings.annual_leave_yearly_reset;
+        }
+        const annualStartYearInput = document.getElementById('annual-leave-start-year');
+        if (annualStartYearInput) {
+            annualStartYearInput.value = settings.annual_leave_start_year || new Date().getFullYear();
+        }
     } catch (error) {
         console.error('加载系统设置失败:', error);
         showToast('加载系统设置失败: ' + error.message, 'error');
@@ -5264,10 +5280,17 @@ async function saveSystemSettings() {
     try {
         const checkbox = document.getElementById('auto-approve-gm-level');
         const compResetCheckbox = document.getElementById('comp-leave-yearly-reset');
+        const annualResetCheckbox = document.getElementById('annual-leave-yearly-reset');
+        const annualStartYearInput = document.getElementById('annual-leave-start-year');
         const payload = {
             auto_approve_gm_level: !!(checkbox && checkbox.checked),
-            comp_leave_yearly_reset: !!(compResetCheckbox && compResetCheckbox.checked)
+            comp_leave_yearly_reset: !!(compResetCheckbox && compResetCheckbox.checked),
+            annual_leave_yearly_reset: !!(annualResetCheckbox && annualResetCheckbox.checked)
         };
+        if (annualStartYearInput && annualStartYearInput.value) {
+            const sy = parseInt(annualStartYearInput.value, 10);
+            if (!isNaN(sy)) payload.annual_leave_start_year = sy;
+        }
 
         await apiRequest('/system-settings/', {
             method: 'PUT',
@@ -5306,10 +5329,6 @@ function vacationEscapeJsString(s) {
 async function initVacation() {
     await loadVacationDepartments();
     populateVacationYearSelects();
-    const yearInput = document.getElementById('vacation-po-year');
-    if (yearInput && !yearInput.value) {
-        yearInput.value = new Date().getFullYear();
-    }
     // 默认展示第一个标签（调休余额）
     loadVacationCompLeave();
 }
@@ -5325,12 +5344,17 @@ function populateVacationYearSelects() {
     const compSel = document.getElementById('vacation-comp-year');
     if (compSel) {
         compSel.innerHTML = '<option value="">累计(全部)</option>' + yearOpts;
-        compSel.value = '';
+        compSel.value = String(now);
     }
     const annualSel = document.getElementById('vacation-annual-year');
     if (annualSel) {
         annualSel.innerHTML = yearOpts;
         annualSel.value = String(now);
+    }
+    const poSel = document.getElementById('vacation-po-year');
+    if (poSel) {
+        poSel.innerHTML = yearOpts;
+        poSel.value = String(now);
     }
 }
 
@@ -5389,7 +5413,10 @@ async function loadVacationCompLeave() {
                 <td>${vacationFormatDays(item.adjustment_days)}</td>
                 <td>${vacationFormatDays(item.used_days)}</td>
                 <td><strong>${vacationFormatDays(item.remaining_days)}</strong></td>
-                <td><button class="btn btn-small btn-primary" onclick="openCompAdjustModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button></td>
+                <td>
+                    <button class="btn btn-small btn-primary" onclick="openCompDetailModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">详情</button>
+                    <button class="btn btn-small btn-secondary" onclick="openCompAdjustModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button>
+                </td>
             </tr>
         `).join('');
     } catch (error) {
@@ -5424,6 +5451,178 @@ const VACATION_ADJUST_CONFIG = {
 
 function compAdjustEscape(s) {
     return vacationEscapeHtml(s);
+}
+
+const COMP_LEAVE_STATUS_LABELS = {
+    pending: '待审批',
+    dept_approved: '部门已批',
+    vp_approved: '副总已批',
+    approved: '已批准',
+    rejected: '已拒绝',
+    cancelled: '已取消'
+};
+
+async function openCompDetailModal(userId, userName) {
+    const yearSel = document.getElementById('vacation-comp-year');
+    const year = yearSel ? yearSel.value : '';
+    const yearLabel = year ? `${year}年` : '累计(全部)';
+    showModal(
+        `调休明细 - ${vacationEscapeHtml(userName)}（${yearLabel}）`,
+        '<div id="comp-detail-body">加载中...</div>',
+        null
+    );
+    const box = document.getElementById('comp-detail-body');
+    try {
+        const qs = year ? `&year=${year}` : '';
+        const data = await apiRequest(`/vacation/comp-leave/detail?user_id=${userId}${qs}`);
+        box.innerHTML = renderCompLeaveDetail(data);
+    } catch (error) {
+        if (box) box.innerHTML = `<div style="color:#f5222d; text-align:center; padding:10px;">加载失败: ${vacationEscapeHtml(error.message)}</div>`;
+    }
+}
+
+function renderCompLeaveDetail(data) {
+    const summary = `
+        <div style="margin-bottom:14px; padding:10px 12px; background:#f5f7fa; border-radius:6px; font-size:13px; color:#555;">
+            主动加班挣得 <strong>${vacationFormatDays(data.earned_days)}</strong>
+            + 期初/调整 <strong>${vacationFormatDays(data.adjustment_days)}</strong>
+            − 已调休 <strong>${vacationFormatDays(data.used_days)}</strong>
+            = 剩余 <strong style="color:#1890ff;">${vacationFormatDays(data.remaining_days)}</strong>
+        </div>
+    `;
+
+    const earnedRows = (data.earned_items || []).map(it => `
+        <tr>
+            <td style="padding:6px;">${formatTimeRange(it.start, it.end)}</td>
+            <td style="padding:6px;">${(Math.round((it.hours || 0) * 100) / 100)} 小时</td>
+            <td style="padding:6px;">${vacationFormatDays(it.days)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.reason)}</td>
+        </tr>
+    `).join('');
+    const earnedTable = (data.earned_items && data.earned_items.length) ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="text-align:left; color:#888; border-bottom:1px solid #eee;">
+                <th style="padding:6px;">加班时间</th><th style="padding:6px;">时长</th><th style="padding:6px;">折算天数</th><th style="padding:6px;">原因</th>
+            </tr></thead>
+            <tbody>${earnedRows}</tbody>
+        </table>
+    ` : '<div style="color:#999; padding:8px;">暂无主动加班记录</div>';
+
+    const usedRows = (data.used_items || []).map(it => `
+        <tr>
+            <td style="padding:6px;">${formatTimeRange(it.start, it.end)}</td>
+            <td style="padding:6px;">${vacationFormatDays(it.days)}</td>
+            <td style="padding:6px;">${COMP_LEAVE_STATUS_LABELS[it.status] || vacationEscapeHtml(it.status)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.reason)}</td>
+        </tr>
+    `).join('');
+    const usedTable = (data.used_items && data.used_items.length) ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="text-align:left; color:#888; border-bottom:1px solid #eee;">
+                <th style="padding:6px;">请假时间</th><th style="padding:6px;">天数</th><th style="padding:6px;">状态</th><th style="padding:6px;">原因</th>
+            </tr></thead>
+            <tbody>${usedRows}</tbody>
+        </table>
+    ` : '<div style="color:#999; padding:8px;">暂无加班调休记录</div>';
+
+    const adjRows = (data.adjustments || []).map(it => `
+        <tr>
+            <td style="padding:6px;">${formatDate(it.effective_date)}</td>
+            <td style="padding:6px; color:${(it.days || 0) < 0 ? '#f5222d' : '#52c41a'};">${vacationFormatDays(it.days)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.reason)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.created_by_name || '-')}</td>
+        </tr>
+    `).join('');
+    const adjTable = (data.adjustments && data.adjustments.length) ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="text-align:left; color:#888; border-bottom:1px solid #eee;">
+                <th style="padding:6px;">生效日期</th><th style="padding:6px;">天数</th><th style="padding:6px;">原因</th><th style="padding:6px;">操作人</th>
+            </tr></thead>
+            <tbody>${adjRows}</tbody>
+        </table>
+    ` : '<div style="color:#999; padding:8px;">暂无期初/调整记录</div>';
+
+    const sectionTitle = (t) => `<div style="font-weight:600; margin:16px 0 6px; color:#333;">${t}</div>`;
+    return summary
+        + sectionTitle('主动加班明细')
+        + earnedTable
+        + sectionTitle('加班调休使用明细')
+        + usedTable
+        + sectionTitle('期初/调整明细')
+        + adjTable;
+}
+
+async function openAnnualDetailModal(userId, userName) {
+    const yearSel = document.getElementById('vacation-annual-year');
+    const year = yearSel ? yearSel.value : '';
+    const yearLabel = year ? `${year}年` : `${new Date().getFullYear()}年`;
+    showModal(
+        `年假明细 - ${vacationEscapeHtml(userName)}（${yearLabel}）`,
+        '<div id="annual-detail-body">加载中...</div>',
+        null
+    );
+    const box = document.getElementById('annual-detail-body');
+    try {
+        const qs = year ? `&year=${year}` : '';
+        const data = await apiRequest(`/vacation/annual-leave/detail?user_id=${userId}${qs}`);
+        box.innerHTML = renderAnnualLeaveDetail(data);
+    } catch (error) {
+        if (box) box.innerHTML = `<div style="color:#f5222d; text-align:center; padding:10px;">加载失败: ${vacationEscapeHtml(error.message)}</div>`;
+    }
+}
+
+function renderAnnualLeaveDetail(data) {
+    const summary = `
+        <div style="margin-bottom:14px; padding:10px 12px; background:#f5f7fa; border-radius:6px; font-size:13px; color:#555;">
+            基础年假 <strong>${vacationFormatDays(data.base_days)}</strong>
+            + 上年结转 <strong>${vacationFormatDays(data.carryover_days)}</strong>
+            + 期初/调整 <strong>${vacationFormatDays(data.adjustment_days)}</strong>
+            = 年假总数 <strong>${vacationFormatDays(data.total_days)}</strong>；
+            已用 <strong>${vacationFormatDays(data.used_days)}</strong>，
+            剩余 <strong style="color:#1890ff;">${vacationFormatDays(data.remaining_days)}</strong>
+        </div>
+    `;
+
+    const usedRows = (data.used_items || []).map(it => `
+        <tr>
+            <td style="padding:6px;">${formatTimeRange(it.start, it.end)}</td>
+            <td style="padding:6px;">${vacationFormatDays(it.days)}</td>
+            <td style="padding:6px;">${COMP_LEAVE_STATUS_LABELS[it.status] || vacationEscapeHtml(it.status)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.reason)}</td>
+        </tr>
+    `).join('');
+    const usedTable = (data.used_items && data.used_items.length) ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="text-align:left; color:#888; border-bottom:1px solid #eee;">
+                <th style="padding:6px;">请假时间</th><th style="padding:6px;">天数</th><th style="padding:6px;">状态</th><th style="padding:6px;">原因</th>
+            </tr></thead>
+            <tbody>${usedRows}</tbody>
+        </table>
+    ` : '<div style="color:#999; padding:8px;">暂无年假调休记录</div>';
+
+    const adjRows = (data.adjustments || []).map(it => `
+        <tr>
+            <td style="padding:6px;">${formatDate(it.effective_date)}</td>
+            <td style="padding:6px; color:${(it.days || 0) < 0 ? '#f5222d' : '#52c41a'};">${vacationFormatDays(it.days)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.reason)}</td>
+            <td style="padding:6px;">${vacationEscapeHtml(it.created_by_name || '-')}</td>
+        </tr>
+    `).join('');
+    const adjTable = (data.adjustments && data.adjustments.length) ? `
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead><tr style="text-align:left; color:#888; border-bottom:1px solid #eee;">
+                <th style="padding:6px;">生效日期</th><th style="padding:6px;">天数</th><th style="padding:6px;">原因</th><th style="padding:6px;">操作人</th>
+            </tr></thead>
+            <tbody>${adjRows}</tbody>
+        </table>
+    ` : '<div style="color:#999; padding:8px;">暂无期初/调整记录</div>';
+
+    const sectionTitle = (t) => `<div style="font-weight:600; margin:16px 0 6px; color:#333;">${t}</div>`;
+    return summary
+        + sectionTitle('年假调休使用明细')
+        + usedTable
+        + sectionTitle('期初/调整明细')
+        + adjTable;
 }
 
 function openCompAdjustModal(userId, userName) {
@@ -5560,7 +5759,7 @@ async function loadVacationAnnualLeave() {
         const qs = params.toString();
         const list = await apiRequest(`/vacation/annual-leave${qs ? '?' + qs : ''}`);
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#999;">暂无数据</td></tr>';
             return;
         }
         tbody.innerHTML = list.map(item => `
@@ -5569,20 +5768,22 @@ async function loadVacationAnnualLeave() {
                 <td>${item.department || '-'}</td>
                 <td>${item.hire_date ? String(item.hire_date).substring(0, 10) : '-'}</td>
                 <td id="annual-total-${item.user_id}">${vacationFormatDays(item.base_days)}</td>
+                <td>${vacationFormatDays(item.carryover_days)}</td>
                 <td>${vacationFormatDays(item.adjustment_days)}</td>
                 <td>${vacationFormatDays(item.total_days)}</td>
                 <td>${vacationFormatDays(item.used_days)}</td>
                 <td><strong>${vacationFormatDays(item.remaining_days)}</strong></td>
                 <td id="annual-action-${item.user_id}">
                     <div class="action-buttons">
-                        <button class="btn btn-small btn-primary" onclick="editAnnualLeave(${item.user_id}, ${item.base_days})">编辑</button>
+                        <button class="btn btn-small btn-primary" onclick="openAnnualDetailModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">详情</button>
+                        <button class="btn btn-small btn-secondary" onclick="editAnnualLeave(${item.user_id}, ${item.base_days})">编辑</button>
                         <button class="btn btn-small btn-secondary" onclick="openVacationAdjustModal('annual-leave', ${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button>
                     </div>
                 </td>
             </tr>
         `).join('');
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
     }
 }
 

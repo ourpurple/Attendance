@@ -11,6 +11,7 @@ from ..schemas import (
     DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
 )
 from ..leave_balance import compute_annual_leave, compute_comp_leave, compute_passive_overtime_adjustment
+from .system_settings import get_annual_leave_start_year, is_annual_leave_yearly_reset_enabled
 from .attendance import get_leave_period_for_date
 def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationResponse:
     data = LeaveApplicationResponse.from_orm(leave).model_dump()
@@ -296,7 +297,13 @@ def get_my_statistics(
         yearly_reset=True,
         year=stats_year,
     )
-    annual_leave_balance = compute_annual_leave(db, current_user, year=stats_year)
+    annual_leave_balance = compute_annual_leave(
+        db,
+        current_user,
+        year=stats_year,
+        yearly_reset=is_annual_leave_yearly_reset_enabled(db),
+        start_year=get_annual_leave_start_year(db),
+    )
     year_start = datetime(stats_year, 1, 1)
     year_end = datetime(stats_year, 12, 31, 23, 59, 59)
     year_passive_overtime_days = float(db.query(func.sum(OvertimeApplication.days)).filter(
