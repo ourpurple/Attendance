@@ -33,6 +33,26 @@ function clearToken() {
 }
 
 // API请求封装
+function formatApiErrorDetail(detail) {
+    if (Array.isArray(detail)) {
+        return detail.map(item => {
+            const field = Array.isArray(item.loc) ? item.loc.filter(part => part !== 'body').join('.') : '';
+            const message = item.msg || '参数校验失败';
+            return field ? `${field}: ${message}` : message;
+        }).join('; ');
+    }
+
+    if (typeof detail === 'string') {
+        return detail;
+    }
+
+    if (detail && typeof detail === 'object') {
+        return detail.message || JSON.stringify(detail);
+    }
+
+    return null;
+}
+
 async function apiRequest(endpoint, options = {}) {
     const url = `${API_BASE_URL}${endpoint}`;
     const headers = {
@@ -62,13 +82,14 @@ async function apiRequest(endpoint, options = {}) {
         }
 
         if (!response.ok) {
+            let message = `请求失败 (${response.status}): ${response.statusText}`;
             try {
                 const error = await response.json();
-                throw new Error(error.detail || '请求失败');
+                message = formatApiErrorDetail(error.detail) || error.message || message;
             } catch (jsonError) {
                 // 如果响应不是JSON格式，使用状态文本
-                throw new Error(`请求失败 (${response.status}): ${response.statusText}`);
             }
+            throw new Error(message);
         }
 
         return await response.json();
@@ -2853,7 +2874,7 @@ async function showAddUserModal() {
         const enableAttendance = document.getElementById('modal-enable-attendance').value === 'true';
         const hireDate = document.getElementById('modal-hire-date').value;
 
-        if (!username || !realname || !password) {
+        if (!username || !realname || !password || !role) {
             showToast('请填写必填项', 'warning');
             return;
         }
@@ -5402,7 +5423,7 @@ async function loadVacationCompLeave() {
         const qs = params.toString();
         const list = await apiRequest(`/vacation/comp-leave${qs ? '?' + qs : ''}`);
         if (!list.length) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#999;">暂无数据</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:#999;">暂无数据</td></tr>';
             return;
         }
         tbody.innerHTML = list.map(item => `
@@ -5410,6 +5431,7 @@ async function loadVacationCompLeave() {
                 <td>${item.user_name}</td>
                 <td>${item.department || '-'}</td>
                 <td>${vacationFormatDays(item.earned_days)}</td>
+                <td>${vacationFormatDays(item.carryover_days)}</td>
                 <td>${vacationFormatDays(item.adjustment_days)}</td>
                 <td>${vacationFormatDays(item.used_days)}</td>
                 <td><strong>${vacationFormatDays(item.remaining_days)}</strong></td>
@@ -5420,7 +5442,7 @@ async function loadVacationCompLeave() {
             </tr>
         `).join('');
     } catch (error) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#f5222d;">加载失败: ${error.message}</td></tr>`;
     }
 }
 
@@ -5484,7 +5506,8 @@ async function openCompDetailModal(userId, userName) {
 function renderCompLeaveDetail(data) {
     const summary = `
         <div style="margin-bottom:14px; padding:10px 12px; background:#f5f7fa; border-radius:6px; font-size:13px; color:#555;">
-            主动加班挣得 <strong>${vacationFormatDays(data.earned_days)}</strong>
+            上年结转 <strong>${vacationFormatDays(data.carryover_days)}</strong>
+            + 主动加班挣得 <strong>${vacationFormatDays(data.earned_days)}</strong>
             + 期初/调整 <strong>${vacationFormatDays(data.adjustment_days)}</strong>
             − 已调休 <strong>${vacationFormatDays(data.used_days)}</strong>
             = 剩余 <strong style="color:#1890ff;">${vacationFormatDays(data.remaining_days)}</strong>
@@ -5776,7 +5799,7 @@ async function loadVacationAnnualLeave() {
                 <td id="annual-action-${item.user_id}">
                     <div class="action-buttons">
                         <button class="btn btn-small btn-primary" onclick="openAnnualDetailModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">详情</button>
-                        <button class="btn btn-small btn-secondary" onclick="editAnnualLeave(${item.user_id}, ${item.base_days})">编辑</button>
+                        <button class="btn btn-small btn-secondary" onclick="openAnnualBaseModal(${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">基础年假</button>
                         <button class="btn btn-small btn-secondary" onclick="openVacationAdjustModal('annual-leave', ${item.user_id}, '${vacationEscapeJsString(item.user_name)}')">调整</button>
                     </div>
                 </td>
@@ -5787,38 +5810,113 @@ async function loadVacationAnnualLeave() {
     }
 }
 
-function editAnnualLeave(userId, currentValue) {
-    const totalTd = document.getElementById(`annual-total-${userId}`);
-    const actionTd = document.getElementById(`annual-action-${userId}`);
-    if (!totalTd || !actionTd) return;
-    totalTd.innerHTML = `<input type="number" id="annual-input-${userId}" value="${currentValue}" min="0" step="0.5" onkeydown="if(event.key==='Enter')saveAnnualLeave(${userId})" style="width:90px; padding:6px 8px; border:1px solid #ddd; border-radius:6px;">`;
-    actionTd.innerHTML = `
-        <div class="action-buttons">
-            <button class="btn btn-small btn-primary" onclick="saveAnnualLeave(${userId})">保存</button>
-            <button class="btn btn-small btn-secondary" onclick="loadVacationAnnualLeave()">取消</button>
+function openAnnualBaseModal(userId, userName) {
+    window.annualBaseState = { userId };
+    const currentYear = new Date().getFullYear();
+    const content = `
+        <div style="margin-bottom:12px; color:#666; font-size:13px; line-height:1.6;">
+            基础年假按"生效年份"分档，自该年起永久向后生效。例如设"2027 起 = 20 天"后，2026 仍按原值、2027 及以后按 20。
+            未设置任何分档的年份，使用该员工在"用户管理"里的默认年假天数。
+        </div>
+        <div id="annual-base-list" style="margin-bottom:16px;">加载中...</div>
+        <div style="border-top:1px solid #eee; padding-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+            <div class="form-group" style="margin:0;">
+                <label>生效年份</label>
+                <input type="number" id="annual-base-year" min="2000" max="2100" value="${currentYear}" style="width:110px; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            </div>
+            <div class="form-group" style="margin:0;">
+                <label>基础年假(天)</label>
+                <input type="number" id="annual-base-days" min="0" step="0.5" placeholder="如 20" style="width:120px; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            </div>
+            <div class="form-group" style="margin:0; flex:1; min-width:160px;">
+                <label>备注</label>
+                <input type="text" id="annual-base-reason" placeholder="如：工龄满3年上调" style="width:100%; padding:8px; border:1px solid #ddd; border-radius:6px;">
+            </div>
+            <button class="btn btn-primary" onclick="addAnnualBase()">保存档位</button>
         </div>
     `;
-    const input = document.getElementById(`annual-input-${userId}`);
-    if (input) { input.focus(); input.select(); }
+    showModal(`基础年假设置 - ${vacationEscapeHtml(userName)}`, content, null);
+    loadAnnualBaseList();
 }
 
-async function saveAnnualLeave(userId) {
-    const input = document.getElementById(`annual-input-${userId}`);
-    if (!input) return;
-    const val = parseFloat(input.value);
-    if (isNaN(val) || val < 0) {
+async function loadAnnualBaseList() {
+    const box = document.getElementById('annual-base-list');
+    if (!box) return;
+    const state = window.annualBaseState || {};
+    if (!state.userId) return;
+    try {
+        const list = await apiRequest(`/vacation/annual-leave/base?user_id=${state.userId}`);
+        if (!list.length) {
+            box.innerHTML = '<div style="color:#999; text-align:center; padding:10px;">暂无分档，未设置的年份使用默认年假天数</div>';
+            return;
+        }
+        box.innerHTML = `
+            <table style="width:100%; border-collapse:collapse; font-size:13px;">
+                <thead><tr style="text-align:left; color:#888; border-bottom:1px solid #eee;">
+                    <th style="padding:6px;">生效年份起</th><th style="padding:6px;">基础年假(天)</th><th style="padding:6px;">备注</th><th style="padding:6px;">操作人</th><th style="padding:6px;"></th>
+                </tr></thead>
+                <tbody>
+                    ${list.map(it => `
+                        <tr>
+                            <td style="padding:6px;">${it.effective_year} 年起</td>
+                            <td style="padding:6px;"><strong>${(Math.round((it.days || 0) * 100) / 100)} 天</strong></td>
+                            <td style="padding:6px;">${vacationEscapeHtml(it.reason || '-')}</td>
+                            <td style="padding:6px;">${vacationEscapeHtml(it.created_by_name || '-')}</td>
+                            <td style="padding:6px;"><button class="btn btn-small btn-secondary" onclick="deleteAnnualBase(${it.id})">删除</button></td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (error) {
+        box.innerHTML = `<div style="color:#f5222d; text-align:center; padding:10px;">加载失败: ${vacationEscapeHtml(error.message)}</div>`;
+    }
+}
+
+async function addAnnualBase() {
+    const state = window.annualBaseState || {};
+    if (!state.userId) return;
+    const yearInput = document.getElementById('annual-base-year');
+    const daysInput = document.getElementById('annual-base-days');
+    const reasonInput = document.getElementById('annual-base-reason');
+    const year = parseInt(yearInput && yearInput.value, 10);
+    const days = parseFloat(daysInput && daysInput.value);
+    if (isNaN(year) || year < 2000 || year > 2100) {
+        showToast('请输入有效的生效年份', 'warning');
+        return;
+    }
+    if (isNaN(days) || days < 0) {
         showToast('请输入有效的基础年假天数(不小于0)', 'warning');
         return;
     }
     try {
-        await apiRequest(`/users/${userId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ annual_leave_days: val })
+        await apiRequest('/vacation/annual-leave/base', {
+            method: 'POST',
+            body: JSON.stringify({
+                user_id: state.userId,
+                effective_year: year,
+                days: days,
+                reason: reasonInput ? reasonInput.value : ''
+            })
         });
-        showToast('基础年假天数已更新', 'success');
+        showToast('基础年假档位已保存', 'success');
+        if (daysInput) daysInput.value = '';
+        if (reasonInput) reasonInput.value = '';
+        loadAnnualBaseList();
         loadVacationAnnualLeave();
     } catch (error) {
         showToast('保存失败: ' + error.message, 'error');
+    }
+}
+
+async function deleteAnnualBase(baseId) {
+    try {
+        await apiRequest(`/vacation/annual-leave/base/${baseId}`, { method: 'DELETE' });
+        showToast('已删除', 'success');
+        loadAnnualBaseList();
+        loadVacationAnnualLeave();
+    } catch (error) {
+        showToast('删除失败: ' + error.message, 'error');
     }
 }
 

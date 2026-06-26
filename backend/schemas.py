@@ -4,6 +4,28 @@ from datetime import datetime, date
 from .models import UserRole, LeaveStatus, OvertimeStatus, OvertimeType
 
 
+def parse_optional_datetime(value):
+    """Accept HTML date input values while storing users.hire_date as DateTime."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, date):
+        return datetime.combine(value, datetime.min.time())
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return None
+        try:
+            return datetime.fromisoformat(stripped)
+        except ValueError:
+            try:
+                return datetime.strptime(stripped, "%Y-%m-%d")
+            except ValueError:
+                return value
+    return value
+
+
 # ==================== 用户相关 ====================
 class UserBase(BaseModel):
     username: str
@@ -15,6 +37,10 @@ class UserBase(BaseModel):
     annual_leave_days: Optional[float] = 10.0
     hire_date: Optional[datetime] = None
     enable_attendance: bool = True
+
+    @validator("hire_date", pre=True)
+    def validate_hire_date(cls, value):
+        return parse_optional_datetime(value)
 
 
 class UserCreate(UserBase):
@@ -32,6 +58,10 @@ class UserUpdate(BaseModel):
     annual_leave_days: Optional[float] = None
     hire_date: Optional[datetime] = None
     enable_attendance: Optional[bool] = None
+
+    @validator("hire_date", pre=True)
+    def validate_hire_date(cls, value):
+        return parse_optional_datetime(value)
 
 
 class UserResponse(UserBase):
@@ -648,6 +678,7 @@ class VacationCompLeaveItem(BaseModel):
     earned_days: float = 0.0
     used_days: float = 0.0
     adjustment_days: float = 0.0
+    carryover_days: float = 0.0
     remaining_days: float = 0.0
 
 
@@ -701,6 +732,7 @@ class CompLeaveDetailResponse(BaseModel):
     earned_days: float = 0.0
     used_days: float = 0.0
     adjustment_days: float = 0.0
+    carryover_days: float = 0.0
     remaining_days: float = 0.0
     earned_items: List[CompLeaveDetailEntry] = []
     used_items: List[CompLeaveDetailEntry] = []
@@ -725,6 +757,28 @@ class AnnualLeaveAdjustmentCreate(VacationAdjustmentCreate):
 class AnnualLeaveAdjustmentResponse(VacationAdjustmentResponse):
     """年假调整记录"""
     pass
+
+
+class AnnualLeaveBaseCreate(BaseModel):
+    """新增/更新基础年假分档（自该年起生效）"""
+    user_id: int
+    effective_year: int
+    days: float
+    reason: Optional[str] = None
+
+
+class AnnualLeaveBaseResponse(BaseModel):
+    """基础年假分档记录"""
+    id: int
+    user_id: int
+    effective_year: int
+    days: float
+    reason: Optional[str] = None
+    created_by_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
 
 
 class AnnualLeaveDetailResponse(BaseModel):

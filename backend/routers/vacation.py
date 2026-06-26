@@ -22,6 +22,7 @@ from ..leave_balance import (
 )
 from ..models import (
     AnnualLeaveAdjustment,
+    AnnualLeaveBase,
     CompLeaveAdjustment,
     LeaveApplication,
     OvertimeApplication,
@@ -33,6 +34,8 @@ from ..models import (
 from ..schemas import (
     AnnualLeaveAdjustmentCreate,
     AnnualLeaveAdjustmentResponse,
+    AnnualLeaveBaseCreate,
+    AnnualLeaveBaseResponse,
     AnnualLeaveDetailResponse,
     CompLeaveAdjustmentCreate,
     CompLeaveAdjustmentResponse,
@@ -148,10 +151,12 @@ def list_comp_leave(
 ):
     """全员加班调休额度概况。
 
-    不传 year：沿用"系统设置"的跨年清零口径（关闭=永久累计，开启=当年）。
-    指定 year：按该自然年隔离统计（当年挣得−当年使用），不含往年结转。
+    是否跨年结转由"系统设置"的"加班调休余额跨年清零"开关控制：
+      - 关闭(默认)：逐年结转。指定 year 时显示"上年结转 + 当年挣得/调整 − 当年已用"；
+        不指定 year(累计全部) 时为永久累计合计。
+      - 开启：按自然年隔离清零，不结转。
     """
-    use_yearly_reset = True if year is not None else is_comp_leave_yearly_reset_enabled(db)
+    use_yearly_reset = is_comp_leave_yearly_reset_enabled(db)
     result = []
     for user in _eligible_users(db, department_id):
         bal = compute_comp_leave(db, user, yearly_reset=use_yearly_reset, year=year)
@@ -162,6 +167,7 @@ def list_comp_leave(
             earned_days=bal["earned_days"],
             used_days=bal["used_days"],
             adjustment_days=bal["adjustment_days"],
+            carryover_days=bal["carryover_days"],
             remaining_days=bal["remaining_days"],
         ))
     return result
@@ -210,15 +216,23 @@ def get_comp_leave_detail(
 ):
     """某员工调休明细：主动加班挣得、加班调休使用、期初/调整。
 
-    过滤口径与 /comp-leave 汇总完全一致：不传 year 时沿用"系统设置"的跨年清零
-    口径；指定 year 时按该自然年隔离。保证明细之和与汇总数字对得上。
+    口径与 /comp-leave 一致：指定 year 时明细仅列当年，上年结转单列(carryover_days)；
+    不指定 year(累计全部) 时列出全部。开启跨年清零时按当年隔离。
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="员工不存在")
 
-    use_yearly_reset = True if year is not None else is_comp_leave_yearly_reset_enabled(db)
+    use_yearly_reset = is_comp_leave_yearly_reset_enabled(db)
     bal = compute_comp_leave(db, user, yearly_reset=use_yearly_reset, year=year)
+
+    # 明细按年过滤：清零模式恒为单年；结转模式指定年份列当年、累计(全部)列全部。
+    if use_yearly_reset:
+        filter_year = year if year is not None else datetime.now().year
+    elif year is not None:
+        filter_year = year
+    else:
+        filter_year = None
 
     earned_query = db.query(OvertimeApplication).filter(
         OvertimeApplication.user_id == user_id,
@@ -234,10 +248,9 @@ def get_comp_leave_detail(
             LeaveApplication.status.in_(OCCUPYING_LEAVE_STATUSES),
         )
 
-    if use_yearly_reset:
-        target_year = year if year is not None else datetime.now().year
-        year_start = datetime(target_year, 1, 1)
-        year_end = datetime(target_year, 12, 31, 23, 59, 59)
+    if filter_year is not None:
+        year_start = datetime(filter_year, 1, 1)
+        year_end = datetime(filter_year, 12, 31, 23, 59, 59)
         earned_query = earned_query.filter(
             OvertimeApplication.start_time >= year_start,
             OvertimeApplication.start_time <= year_end,
@@ -254,9 +267,8 @@ def get_comp_leave_detail(
         if used_query is not None else []
     )
     adjustments = _list_adjustments(db, CompLeaveAdjustment, CompLeaveAdjustmentResponse, user_id)
-    if use_yearly_reset:
-        target_year = year if year is not None else datetime.now().year
-        adjustments = [a for a in adjustments if a.effective_date.year == target_year]
+    if filter_year is not None:
+        adjustments = [a for a in adjustments if a.effective_date.year == filter_year]
 
     earned_items = [
         CompLeaveDetailEntry(
@@ -288,6 +300,7 @@ def get_comp_leave_detail(
         earned_days=bal["earned_days"],
         used_days=bal["used_days"],
         adjustment_days=bal["adjustment_days"],
+        carryover_days=bal["carryover_days"],
         remaining_days=bal["remaining_days"],
         earned_items=earned_items,
         used_items=used_items,
@@ -427,6 +440,96 @@ def get_annual_leave_detail(
         used_items=used_items,
         adjustments=adjustments,
     )
+
+
+@router.get("/annual-leave/base", response_model=List[AnnualLeaveBaseResponse])
+def list_annual_leave_base(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """列出某员工的基础年假分档（按生效年份倒序）。"""
+    rows = db.query(AnnualLeaveBase).filter(
+        AnnualLeaveBase.user_id == user_id,
+    ).order_by(AnnualLeaveBase.effective_year.desc()).all()
+    return [
+        AnnualLeaveBaseResponse(
+            id=r.id,
+            user_id=r.user_id,
+            effective_year=r.effective_year,
+            days=r.days,
+            reason=r.reason,
+            created_by_name=r.created_by.real_name if r.created_by else None,
+            created_at=r.created_at,
+        )
+        for r in rows
+    ]
+
+
+@router.post(
+    "/annual-leave/base",
+    response_model=AnnualLeaveBaseResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def upsert_annual_leave_base(
+    payload: AnnualLeaveBaseCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """新增或更新基础年假分档（同一员工+生效年份存在则覆盖天数）。"""
+    if payload.days < 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="基础年假天数不能为负")
+    target = db.query(User).filter(
+        User.id == payload.user_id,
+        User.username != "admin",
+        User.is_active == True,
+    ).first()
+    if not target:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="员工不存在")
+
+    row = db.query(AnnualLeaveBase).filter(
+        AnnualLeaveBase.user_id == payload.user_id,
+        AnnualLeaveBase.effective_year == payload.effective_year,
+    ).first()
+    if row:
+        row.days = payload.days
+        row.reason = (payload.reason or "").strip() or None
+        row.created_by_id = current_user.id
+    else:
+        row = AnnualLeaveBase(
+            user_id=payload.user_id,
+            effective_year=payload.effective_year,
+            days=payload.days,
+            reason=(payload.reason or "").strip() or None,
+            created_by_id=current_user.id,
+        )
+        db.add(row)
+    db.commit()
+    db.refresh(row)
+    return AnnualLeaveBaseResponse(
+        id=row.id,
+        user_id=row.user_id,
+        effective_year=row.effective_year,
+        days=row.days,
+        reason=row.reason,
+        created_by_name=current_user.real_name,
+        created_at=row.created_at,
+    )
+
+
+@router.delete("/annual-leave/base/{base_id}")
+def delete_annual_leave_base(
+    base_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_admin),
+):
+    """删除一档基础年假分档。"""
+    row = db.query(AnnualLeaveBase).filter(AnnualLeaveBase.id == base_id).first()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="分档记录不存在")
+    db.delete(row)
+    db.commit()
+    return {"message": "已删除"}
 
 
 def _passive_overtime_stats(

@@ -307,6 +307,30 @@ class AnnualLeaveAdjustment(Base):
     created_by = relationship("User", foreign_keys=[created_by_id], post_update=True)
 
 
+class AnnualLeaveBase(Base):
+    """按生效年份分档的基础年假。
+
+    effective_year 表示"自该年起基础年假为 days 天"，向后阶梯生效；
+    某年的基础年假取生效年份 <= 该年中年份最大的一档，无则回退 users.annual_leave_days。
+    """
+    __tablename__ = "annual_leave_bases"
+    __table_args__ = (
+        UniqueConstraint("user_id", "effective_year", name="uq_annual_leave_base_user_year"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True, comment="员工ID")
+    effective_year = Column(Integer, nullable=False, comment="生效年份（自该年起永久向后生效）")
+    days = Column(Float, nullable=False, comment="基础年假天数")
+    reason = Column(Text, nullable=True, comment="备注")
+    created_by_id = Column(Integer, ForeignKey("users.id"), comment="操作管理员ID")
+    created_at = Column(DateTime, default=datetime.now)
+    updated_at = Column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+    user = relationship("User", foreign_keys=[user_id], post_update=True)
+    created_by = relationship("User", foreign_keys=[created_by_id], post_update=True)
+
+
 class HolidayType(str, enum.Enum):
     """节假日类型"""
     HOLIDAY = "holiday"  # 法定节假日（休息）

@@ -798,7 +798,7 @@
                             <button class="btn btn-primary" onclick="loadVacationCompLeave()">查询</button>
                         </div>
                         <div class="info-box" style="margin-bottom:16px; padding:12px 15px; background:#f0f7ff; border-left:4px solid #1890ff; border-radius:4px;">
-                            <p style="margin:0; color:#666; line-height:1.6;">调休余额 = 已批准的主动加班折算天数 + 期初/调整 − 已使用(含审批中)的“加班调休”请假天数。期初/调整可在“操作”列录入(系统上线前已积累但未录入的调休填在此处);它按生效日期计入对应自然年,选择具体年份时仅统计该自然年内,选择“累计(全部)”时是否跨年清零由“系统设置”中的开关控制。</p>
+                            <p style="margin:0; color:#666; line-height:1.6;">调休余额 = 上年结转 + 当年主动加班折算天数 + 当年期初/调整 − 当年已使用(含审批中)的“加班调休”请假天数。期初/调整可在“操作”列录入(系统上线前已积累但未录入的调休填在此处)，按生效日期计入对应自然年。默认逐年结转：选择具体年份显示“上年结转 + 当年”，选择“累计(全部)”为历史总额；是否跨年清零由“系统设置”中的开关控制(开启则按年清零、不结转)。</p>
                         </div>
                         <div class="table-container">
                             <table id="vacation-comp-table">
@@ -807,6 +807,7 @@
                                         <th>姓名</th>
                                         <th>部门</th>
                                         <th>主动加班挣得(天)</th>
+                                        <th>上年结转(天)</th>
                                         <th>期初/调整(天)</th>
                                         <th>已调休(天)</th>
                                         <th>剩余可调休(天)</th>
@@ -880,7 +881,7 @@
                             <button class="btn btn-primary" onclick="loadVacationAnnualLeave()">查询</button>
                         </div>
                         <div class="info-box" style="margin-bottom:16px; padding:12px 15px; background:#f6ffed; border-left:4px solid #52c41a; border-radius:4px;">
-                            <p style="margin:0; color:#666; line-height:1.6;">年假总数 = 基础年假 + 上年结转 + 期初/调整。基础年假可在“操作”列编辑；期初/调整可单独录入并按生效日期计入对应自然年。已用为本年度已批准(含审批中)的“年假调休”。默认未休结转(逐年累计)，是否跨年清零及结转起始年由“系统设置”控制。</p>
+                            <p style="margin:0; color:#666; line-height:1.6;">年假总数 = 基础年假 + 上年结转 + 期初/调整。基础年假可在“操作”列按生效年份分档设置（自该年起永久向后生效，未设置的年份用默认年假天数）；期初/调整可单独录入并按生效日期计入对应自然年。已用为本年度已批准(含审批中)的“年假调休”。默认未休结转(逐年累计)，是否跨年清零及结转起始年由“系统设置”控制。</p>
                         </div>
                         <div class="table-container">
                             <table id="vacation-annual-table">
