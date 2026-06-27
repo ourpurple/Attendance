@@ -8,6 +8,9 @@ import sqlite3
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 def backup_database(db_path):
     """备份数据库"""
@@ -29,8 +32,8 @@ def backup_database(db_path):
 
 def run_migration():
     """执行数据库迁移"""
-    db_path = 'attendance.db'
-    migration_path = 'backend/migrations/add_enable_attendance_flag.sql'
+    db_path = str(PROJECT_ROOT / 'attendance.db')
+    migration_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_enable_attendance_flag.sql')
     
     # 检查文件是否存在
     if not os.path.exists(db_path):

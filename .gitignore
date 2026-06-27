@@ -1,60 +1,81 @@
+# Python bytecode and caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Python packaging/build output
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
-.installed.cfg
 *.egg
-tests/
-!tests/
-tests/*
-!tests/test_user_delete_api.py
-!tests/test_security_fixes.py
-.claude/
-plan.md
+wheels/
+pip-wheel-metadata/
+.installed.cfg
 
-# Virtual Environment
+# Virtual environments
+.venv/
 venv/
 env/
 ENV/
-MD/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Database
+# Runtime databases and local data
 *.db
 *.sqlite
 *.sqlite3
 *.db.backup.*
+*.backup
+instance/
+logs/
 
-# Environment variables
+# Environment and secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
 
-# Logs
-*.log
+# Frontend dependencies/build caches
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.parcel-cache/
+.vite/
+coverage/
 
-# OS
+# WeChat Mini Program local files
+miniprogram/project.private.config.json
+miniprogram/miniprogram_npm/
+miniprogram/.idea/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+
+# Local assistant/tooling files
+.agents/
+.claude/
+CLAUDE.md
+plan.md
+FEATURE_FLOW.md
+md/
+
+# OS files
 .DS_Store
 Thumbs.db
-
-
-
-CLAUDE.md
-FEATURE_FLOW.md
+desktop.ini

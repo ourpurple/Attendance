@@ -12,6 +12,9 @@ import os
 import sys
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def backup_database(db_path: str):
@@ -341,9 +344,9 @@ def supports_advanced_dedup_sql_error(exc: sqlite3.OperationalError) -> bool:
 
 
 def run_migration() -> bool:
-    db_path = 'attendance.db'
-    dedup_sql_path = 'backend/migrations/dedup_attendances_user_day.sql'
-    unique_sql_path = 'backend/migrations/add_attendance_user_date_unique_index.sql'
+    db_path = str(PROJECT_ROOT / 'attendance.db')
+    dedup_sql_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'dedup_attendances_user_day.sql')
+    unique_sql_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_attendance_user_date_unique_index.sql')
 
     if not os.path.exists(db_path):
         print(f"[ERROR] 数据库文件不存在: {db_path}")

@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库迁移脚本：基础年假分档表
-- 创建 annual_leave_bases 表（按生效年份阶梯的基础年假），幂等可重复执行
+数据库迁移脚本：加班调休调整记录表
+- 创建 comp_leave_adjustments 表（期初余额 / 人工增减），幂等可重复执行
 跨平台脚本，支持 Windows 和 Linux 系统
 """
 import os
 import sys
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Windows 控制台默认 GBK 编码，确保 emoji/中文正常输出，避免 UnicodeEncodeError
 try:
@@ -39,8 +42,8 @@ def backup_database(db_path: str):
 
 def run_migration() -> bool:
     """执行数据库迁移"""
-    db_path = 'attendance.db'
-    migration_path = 'backend/migrations/add_annual_leave_base.sql'
+    db_path = str(PROJECT_ROOT / 'attendance.db')
+    migration_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_comp_leave_adjustment.sql')
 
     if not os.path.exists(db_path):
         print(f"❌ 数据库文件不存在: {db_path}")
@@ -69,12 +72,12 @@ def run_migration() -> bool:
 
         # 验证表存在
         cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='annual_leave_bases'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='comp_leave_adjustments'"
         )
         has_table = cursor.fetchone() is not None
 
         print('\n📊 验证结果:')
-        print(f"   annual_leave_bases 表: {'已存在' if has_table else '缺失'}")
+        print(f"   comp_leave_adjustments 表: {'已存在' if has_table else '缺失'}")
 
         conn.close()
 
@@ -103,7 +106,7 @@ def run_migration() -> bool:
 
 if __name__ == '__main__':
     print('=' * 72)
-    print('数据库迁移：基础年假分档表（按生效年份阶梯）')
+    print('数据库迁移：加班调休调整记录表（期初余额 / 人工增减）')
     print('跨平台脚本 - 支持 Windows 和 Linux')
     print('=' * 72)
     print()

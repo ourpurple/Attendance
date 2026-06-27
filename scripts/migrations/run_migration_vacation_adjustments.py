@@ -1,13 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库迁移脚本：创建 system_settings 表并初始化 auto_approve_gm_level 开关
+数据库迁移脚本：被动加班、年假调整记录表
+- 创建 passive_overtime_adjustments / annual_leave_adjustments 表（期初余额 / 人工增减），幂等可重复执行
 跨平台脚本，支持 Windows 和 Linux 系统
 """
 import os
 import sys
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Windows 控制台默认 GBK 编码，确保 emoji/中文正常输出，避免 UnicodeEncodeError
+try:
+    sys.stdout.reconfigure(encoding='utf-8')
+    sys.stderr.reconfigure(encoding='utf-8')
+except Exception:
+    pass
 
 
 def backup_database(db_path: str):
@@ -29,10 +40,18 @@ def backup_database(db_path: str):
         return None
 
 
+def table_exists(cursor, table_name: str) -> bool:
+    cursor.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
+        (table_name,),
+    )
+    return cursor.fetchone() is not None
+
+
 def run_migration() -> bool:
     """执行数据库迁移"""
-    db_path = 'attendance.db'
-    migration_path = 'backend/migrations/add_system_settings.sql'
+    db_path = str(PROJECT_ROOT / 'attendance.db')
+    migration_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_vacation_adjustments.sql')
 
     if not os.path.exists(db_path):
         print(f"❌ 数据库文件不存在: {db_path}")
@@ -55,55 +74,23 @@ def run_migration() -> bool:
         print('📖 正在读取迁移脚本...')
         with open(migration_path, 'r', encoding='utf-8') as file:
             migration_sql = file.read()
-
         print('⚙️  正在执行迁移...')
         cursor.executescript(migration_sql)
         conn.commit()
 
-        print('✅ 数据库迁移执行成功')
-
-        # 验证表是否存在
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'")
-        table_exists = cursor.fetchone() is not None
-        if not table_exists:
-            print('❌ 未找到 system_settings 表')
-            conn.close()
-            return False
-
-        # 验证默认开关记录
-        cursor.execute(
-            "SELECT value FROM system_settings WHERE key = ?",
-            ('auto_approve_gm_level',)
-        )
-        row = cursor.fetchone()
-
-        if row is None:
-            print('⚠️  未找到 auto_approve_gm_level 默认配置，正在补写...')
-            cursor.execute(
-                """
-                INSERT INTO system_settings (key, value, description)
-                VALUES (?, ?, ?)
-                """,
-                (
-                    'auto_approve_gm_level',
-                    'false',
-                    '开启后，任何流转到总经理审批节点的申请将自动批准'
-                )
-            )
-            conn.commit()
-            setting_value = 'false'
-        else:
-            setting_value = str(row[0])
-
-        cursor.execute('SELECT COUNT(*) FROM system_settings')
-        total_settings = cursor.fetchone()[0]
+        has_passive_table = table_exists(cursor, 'passive_overtime_adjustments')
+        has_annual_table = table_exists(cursor, 'annual_leave_adjustments')
 
         print('\n📊 验证结果:')
-        print(f"   system_settings 表: 已存在")
-        print(f"   auto_approve_gm_level: {setting_value}")
-        print(f"   设置项总数: {total_settings}")
+        print(f"   passive_overtime_adjustments 表: {'已存在' if has_passive_table else '缺失'}")
+        print(f"   annual_leave_adjustments 表: {'已存在' if has_annual_table else '缺失'}")
 
         conn.close()
+
+        if not has_passive_table or not has_annual_table:
+            print('❌ 表创建失败')
+            return False
+
         print('\n✅ 迁移完成！')
         if backup_path:
             print(f"💾 备份文件: {backup_path}")
@@ -125,7 +112,7 @@ def run_migration() -> bool:
 
 if __name__ == '__main__':
     print('=' * 72)
-    print('数据库迁移：创建 system_settings 表并初始化自动审批开关')
+    print('数据库迁移：被动加班、年假调整记录表（期初余额 / 人工增减）')
     print('跨平台脚本 - 支持 Windows 和 Linux')
     print('=' * 72)
     print()

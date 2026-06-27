@@ -6,6 +6,11 @@ import os
 import sqlite3
 import sys
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from backend.request_dedup import (
     build_leave_active_request_key,
@@ -13,8 +18,8 @@ from backend.request_dedup import (
 )
 
 
-DB_PATH = 'attendance.db'
-MIGRATION_SQL_PATH = 'backend/migrations/add_active_request_keys.sql'
+DB_PATH = str(PROJECT_ROOT / 'attendance.db')
+MIGRATION_SQL_PATH = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_active_request_keys.sql')
 
 
 def backup_database(db_path: str):

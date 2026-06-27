@@ -1,14 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库迁移脚本：加班调休调整记录表
-- 创建 comp_leave_adjustments 表（期初余额 / 人工增减），幂等可重复执行
+数据库迁移脚本：假期管理模块
+- 为 users 表添加 hire_date（入职日期）列（幂等）
+- 初始化 comp_leave_yearly_reset（加班调休跨年清零）系统开关
 跨平台脚本，支持 Windows 和 Linux 系统
 """
 import os
 import sys
 import sqlite3
 from datetime import datetime
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 # Windows 控制台默认 GBK 编码，确保 emoji/中文正常输出，避免 UnicodeEncodeError
 try:
@@ -39,8 +43,8 @@ def backup_database(db_path: str):
 
 def run_migration() -> bool:
     """执行数据库迁移"""
-    db_path = 'attendance.db'
-    migration_path = 'backend/migrations/add_comp_leave_adjustment.sql'
+    db_path = str(PROJECT_ROOT / 'attendance.db')
+    migration_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_holiday_management.sql')
 
     if not os.path.exists(db_path):
         print(f"❌ 数据库文件不存在: {db_path}")
@@ -60,6 +64,18 @@ def run_migration() -> bool:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
+        # 1. 幂等添加 users.hire_date 列
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        if 'hire_date' not in columns:
+            print('⚙️  正在为 users 表添加 hire_date 列...')
+            cursor.execute("ALTER TABLE users ADD COLUMN hire_date DATETIME")
+            conn.commit()
+            print('✅ hire_date 列已添加')
+        else:
+            print('ℹ️  users.hire_date 列已存在，跳过')
+
+        # 2. 执行 SQL（system_settings 初始化，INSERT OR IGNORE 幂等）
         print('📖 正在读取迁移脚本...')
         with open(migration_path, 'r', encoding='utf-8') as file:
             migration_sql = file.read()
@@ -67,19 +83,26 @@ def run_migration() -> bool:
         cursor.executescript(migration_sql)
         conn.commit()
 
-        # 验证表存在
+        # 验证
+        cursor.execute("PRAGMA table_info(users)")
+        columns = [column[1] for column in cursor.fetchall()]
+        has_hire_date = 'hire_date' in columns
+
         cursor.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='comp_leave_adjustments'"
+            "SELECT value FROM system_settings WHERE key = ?",
+            ('comp_leave_yearly_reset',)
         )
-        has_table = cursor.fetchone() is not None
+        row = cursor.fetchone()
+        reset_value = str(row[0]) if row else '(缺失)'
 
         print('\n📊 验证结果:')
-        print(f"   comp_leave_adjustments 表: {'已存在' if has_table else '缺失'}")
+        print(f"   users.hire_date 列: {'已存在' if has_hire_date else '缺失'}")
+        print(f"   comp_leave_yearly_reset: {reset_value}")
 
         conn.close()
 
-        if not has_table:
-            print('❌ 表创建失败')
+        if not has_hire_date:
+            print('❌ hire_date 列添加失败')
             return False
 
         print('\n✅ 迁移完成！')
@@ -103,7 +126,7 @@ def run_migration() -> bool:
 
 if __name__ == '__main__':
     print('=' * 72)
-    print('数据库迁移：加班调休调整记录表（期初余额 / 人工增减）')
+    print('数据库迁移：假期管理模块（入职日期 + 加班调休跨年清零开关）')
     print('跨平台脚本 - 支持 Windows 和 Linux')
     print('=' * 72)
     print()

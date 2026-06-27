@@ -75,7 +75,10 @@ Attendance/
 │   ├── admin/         # 管理后台
 │   └── mobile/         # 移动端
 ├── miniprogram/       # 微信小程序
+├── scripts/           # 维护脚本
+│   └── migrations/     # 数据库迁移执行脚本
 ├── deploy/            # 部署脚本
+├── docs/              # 部署、使用和维护文档
 ├── init_db.py         # 数据库初始化
 ├── run.py             # 启动脚本
 └── requirements.txt   # Python依赖
@@ -110,7 +113,7 @@ WECHAT_SECRET=your-wechat-secret
 
 ## 部署
 
-详细部署指南请参考 [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md)
+详细部署指南请参考 [docs/DEPLOYMENT_GUIDE.md](./docs/DEPLOYMENT_GUIDE.md)
 
 **快速部署：**
 
@@ -135,8 +138,8 @@ sudo systemctl start attendance-backend
 
 ## 文档
 
-- [部署指南](./DEPLOYMENT_GUIDE.md) - 生产环境部署说明
-- [使用手册](./USER_MANUAL.md) - 用户操作指南
+- [部署指南](./docs/DEPLOYMENT_GUIDE.md) - 生产环境部署说明
+- [使用手册](./docs/USER_MANUAL.md) - 用户操作指南
 - [更新日志](./CHANGELOG.md) - 版本变更记录
 
 ## 常见问题

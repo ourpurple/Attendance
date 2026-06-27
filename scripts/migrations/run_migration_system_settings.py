@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-数据库迁移脚本：假期管理模块
-- 为 users 表添加 hire_date（入职日期）列（幂等）
-- 初始化 comp_leave_yearly_reset（加班调休跨年清零）系统开关
+数据库迁移脚本：创建 system_settings 表并初始化 auto_approve_gm_level 开关
 跨平台脚本，支持 Windows 和 Linux 系统
 """
 import os
 import sys
 import sqlite3
 from datetime import datetime
+from pathlib import Path
 
-# Windows 控制台默认 GBK 编码，确保 emoji/中文正常输出，避免 UnicodeEncodeError
-try:
-    sys.stdout.reconfigure(encoding='utf-8')
-    sys.stderr.reconfigure(encoding='utf-8')
-except Exception:
-    pass
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def backup_database(db_path: str):
@@ -40,8 +34,8 @@ def backup_database(db_path: str):
 
 def run_migration() -> bool:
     """执行数据库迁移"""
-    db_path = 'attendance.db'
-    migration_path = 'backend/migrations/add_holiday_management.sql'
+    db_path = str(PROJECT_ROOT / 'attendance.db')
+    migration_path = str(PROJECT_ROOT / 'backend' / 'migrations' / 'add_system_settings.sql')
 
     if not os.path.exists(db_path):
         print(f"❌ 数据库文件不存在: {db_path}")
@@ -61,47 +55,58 @@ def run_migration() -> bool:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        # 1. 幂等添加 users.hire_date 列
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [column[1] for column in cursor.fetchall()]
-        if 'hire_date' not in columns:
-            print('⚙️  正在为 users 表添加 hire_date 列...')
-            cursor.execute("ALTER TABLE users ADD COLUMN hire_date DATETIME")
-            conn.commit()
-            print('✅ hire_date 列已添加')
-        else:
-            print('ℹ️  users.hire_date 列已存在，跳过')
-
-        # 2. 执行 SQL（system_settings 初始化，INSERT OR IGNORE 幂等）
         print('📖 正在读取迁移脚本...')
         with open(migration_path, 'r', encoding='utf-8') as file:
             migration_sql = file.read()
+
         print('⚙️  正在执行迁移...')
         cursor.executescript(migration_sql)
         conn.commit()
 
-        # 验证
-        cursor.execute("PRAGMA table_info(users)")
-        columns = [column[1] for column in cursor.fetchall()]
-        has_hire_date = 'hire_date' in columns
+        print('✅ 数据库迁移执行成功')
 
-        cursor.execute(
-            "SELECT value FROM system_settings WHERE key = ?",
-            ('comp_leave_yearly_reset',)
-        )
-        row = cursor.fetchone()
-        reset_value = str(row[0]) if row else '(缺失)'
-
-        print('\n📊 验证结果:')
-        print(f"   users.hire_date 列: {'已存在' if has_hire_date else '缺失'}")
-        print(f"   comp_leave_yearly_reset: {reset_value}")
-
-        conn.close()
-
-        if not has_hire_date:
-            print('❌ hire_date 列添加失败')
+        # 验证表是否存在
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'")
+        table_exists = cursor.fetchone() is not None
+        if not table_exists:
+            print('❌ 未找到 system_settings 表')
+            conn.close()
             return False
 
+        # 验证默认开关记录
+        cursor.execute(
+            "SELECT value FROM system_settings WHERE key = ?",
+            ('auto_approve_gm_level',)
+        )
+        row = cursor.fetchone()
+
+        if row is None:
+            print('⚠️  未找到 auto_approve_gm_level 默认配置，正在补写...')
+            cursor.execute(
+                """
+                INSERT INTO system_settings (key, value, description)
+                VALUES (?, ?, ?)
+                """,
+                (
+                    'auto_approve_gm_level',
+                    'false',
+                    '开启后，任何流转到总经理审批节点的申请将自动批准'
+                )
+            )
+            conn.commit()
+            setting_value = 'false'
+        else:
+            setting_value = str(row[0])
+
+        cursor.execute('SELECT COUNT(*) FROM system_settings')
+        total_settings = cursor.fetchone()[0]
+
+        print('\n📊 验证结果:')
+        print(f"   system_settings 表: 已存在")
+        print(f"   auto_approve_gm_level: {setting_value}")
+        print(f"   设置项总数: {total_settings}")
+
+        conn.close()
         print('\n✅ 迁移完成！')
         if backup_path:
             print(f"💾 备份文件: {backup_path}")
@@ -123,7 +128,7 @@ def run_migration() -> bool:
 
 if __name__ == '__main__':
     print('=' * 72)
-    print('数据库迁移：假期管理模块（入职日期 + 加班调休跨年清零开关）')
+    print('数据库迁移：创建 system_settings 表并初始化自动审批开关')
     print('跨平台脚本 - 支持 Windows 和 Linux')
     print('=' * 72)
     print()
