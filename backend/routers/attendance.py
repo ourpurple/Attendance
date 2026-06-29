@@ -20,6 +20,7 @@ from ..security import get_current_user, get_current_active_admin
 from ..config import settings
 from ..geocode_cache import get_cached_address, set_cached_address
 from ..services.excel_export import build_excel_stream, fmt_date, fmt_dt
+from ..leave_balance import OCCUPYING_LEAVE_STATUSES
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
 
@@ -1429,12 +1430,17 @@ def get_attendance_overview(
         attendances = []
     attendance_dict = {att.user_id: att for att in attendances}
     
-    # 获取目标日期的请假记录（已批准的，只查询已过滤用户的记录）
+    occupying_leave_status_values = [
+        status_item.value if hasattr(status_item, "value") else status_item
+        for status_item in OCCUPYING_LEAVE_STATUSES
+    ]
+
+    # 获取目标日期的请假记录（已批准/审批中的，只查询已过滤用户的记录）
     if user_ids:
         leaves = db.query(LeaveApplication).filter(
             func.date(LeaveApplication.start_date) <= target_date,
             func.date(LeaveApplication.end_date) >= target_date,
-            LeaveApplication.status == "approved",
+            LeaveApplication.status.in_(occupying_leave_status_values),
             LeaveApplication.user_id.in_(user_ids)
         ).all()
     else:
@@ -1448,6 +1454,7 @@ def get_attendance_overview(
     
     leave_dict = {}
     leave_details = {}
+    leave_statuses = {}
     for leave in leaves:
         if leave.user_id not in leave_dict:
             leave_dict[leave.user_id] = 0.0
@@ -1472,6 +1479,7 @@ def get_attendance_overview(
             "start": format_datetime_for_frontend(start),
             "end": format_datetime_for_frontend(end)
         }
+        leave_statuses[leave.user_id] = leave.status.value if hasattr(leave.status, "value") else leave.status
         # 使用请假记录的总天数，而不是当天占用的天数
         # 这样前端显示"请假中"时，能看到完整的请假时长
         leave_dict[leave.user_id] = leave.days
@@ -1546,6 +1554,7 @@ def get_attendance_overview(
             work_hours=att.work_hours if att else None,
             has_leave=has_leave,
             leave_days=leave_dict.get(user.id, 0.0),
+            leave_status=leave_statuses.get(user.id),
             has_overtime=has_overtime,
             overtime_days=overtime_dict.get(user.id, 0.0),
             overtime_start_time=format_datetime_for_frontend(overtime_details.get(user.id, {}).get("start")) if has_overtime and overtime_details.get(user.id, {}).get("start") else None,

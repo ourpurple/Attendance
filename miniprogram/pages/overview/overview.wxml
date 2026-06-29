@@ -33,6 +33,7 @@
             </view>
             <text wx:if="{{person.date}}" class="date">{{person.date}}</text>
             <text wx:if="{{person.time}}" class="time">{{person.time}}</text>
+            <text wx:if="{{person.note}}" class="note">{{person.note}}</text>
             <text wx:if="{{person.extra && person.compact}}" class="status">{{person.extra}}</text>
           </view>
         </block>

@@ -198,6 +198,7 @@ Page({
       date: statusInfo.date,
       time: statusInfo.time,
       days: statusInfo.days,
+      note: statusInfo.note,
       extra: statusInfo.extra, // 保留用于其他类别
       compact: category === 'notChecked' || category === 'checked'
     };
@@ -206,10 +207,11 @@ Page({
   getStatusInfo(category, item) {
     switch (category) {
       case 'notChecked':
-        return { date: '', time: '', days: '', extra: '' };
+        return { date: '', time: '', days: '', extra: '', note: '' };
       case 'checked':
-        return { date: '', time: '', days: '', extra: '' };
+        return { date: '', time: '', days: '', extra: '', note: '' };
       case 'leave':
+        const leaveNote = this.isLeavePendingApproval(item.leave_status) ? '已请假，审批中' : '';
         if (item.leave_start_date) {
           const dateTimeInfo = this.formatLeaveDateTime(item.leave_start_date, item.leave_end_date);
           const days = item.leave_days !== undefined && item.leave_days !== null ? item.leave_days : 1;
@@ -217,11 +219,12 @@ Page({
             date: dateTimeInfo.date,
             time: dateTimeInfo.time,
             days: `${days}天`,
-            extra: `${dateTimeInfo.date} ${dateTimeInfo.time} 共${days}天` // 保留用于兼容
+            extra: `${dateTimeInfo.date} ${dateTimeInfo.time} 共${days}天`, // 保留用于兼容
+            note: leaveNote
           };
         }
         const leaveDays = item.leave_days ? `${item.leave_days}天` : '';
-        return { date: '', time: '', days: leaveDays, extra: leaveDays || '请假' };
+        return { date: '', time: '', days: leaveDays, extra: leaveDays || '请假', note: leaveNote };
       case 'overtime':
         if (item.overtime_start_time) {
           const dateTimeInfo = this.formatOvertimeDateTime(item.overtime_start_time, item.overtime_end_time);
@@ -230,14 +233,19 @@ Page({
             date: dateTimeInfo.date,
             time: dateTimeInfo.time,
             days: `${days}天`,
-            extra: `${dateTimeInfo.date} ${dateTimeInfo.time} 共${days}天` // 保留用于兼容
+            extra: `${dateTimeInfo.date} ${dateTimeInfo.time} 共${days}天`, // 保留用于兼容
+            note: ''
           };
         }
         const overtimeDays = item.overtime_days ? `${item.overtime_days}天` : '';
-        return { date: '', time: '', days: overtimeDays, extra: overtimeDays || '加班' };
+        return { date: '', time: '', days: overtimeDays, extra: overtimeDays || '加班', note: '' };
       default:
-        return { date: '', time: '', days: '', extra: '' };
+        return { date: '', time: '', days: '', extra: '', note: '' };
     }
+  },
+
+  isLeavePendingApproval(status) {
+    return ['pending', 'dept_approved', 'vp_approved'].includes(status);
   },
 
   getStatusText(category, item) {
