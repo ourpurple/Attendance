@@ -21,6 +21,7 @@ from ..config import settings
 from ..geocode_cache import get_cached_address, set_cached_address
 from ..services.excel_export import build_excel_stream, fmt_date, fmt_dt
 from ..leave_balance import OCCUPYING_LEAVE_STATUSES
+from ..utils.attendance_utils import is_on_or_after_hire_date
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
 
@@ -938,6 +939,10 @@ def get_my_attendance(
         absent_records = []
         
         while current_date <= end_date:
+            if not is_on_or_after_hire_date(current_user.hire_date, current_date):
+                current_date += timedelta(days=1)
+                continue
+
             # 跳过未来日期
             if current_date > today:
                 current_date += timedelta(days=1)
@@ -1416,6 +1421,10 @@ def get_attendance_overview(
         User.username != "admin",
         User.enable_attendance == True
     ).all()
+    users = [
+        user for user in users
+        if is_on_or_after_hire_date(user.hire_date, target_date)
+    ]
     
     # 获取过滤后用户的ID列表
     user_ids = [user.id for user in users]

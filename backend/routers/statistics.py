@@ -13,6 +13,9 @@ from ..schemas import (
 from ..leave_balance import compute_annual_leave, compute_comp_leave, compute_passive_overtime_adjustment
 from .system_settings import get_annual_leave_start_year, is_annual_leave_yearly_reset_enabled
 from .attendance import get_leave_period_for_date
+from ..utils.attendance_utils import is_on_or_after_hire_date
+
+
 def serialize_leave_response(leave: LeaveApplication) -> LeaveApplicationResponse:
     data = LeaveApplicationResponse.from_orm(leave).model_dump()
     data["leave_type_name"] = leave.leave_type.name if leave.leave_type else None
@@ -627,6 +630,19 @@ def get_daily_attendance_statistics(
         items = []
 
         for target_day in display_dates:
+            if not is_on_or_after_hire_date(user.hire_date, target_day):
+                items.append(DailyAttendanceItem(
+                    date=target_day.isoformat(),
+                    weekday=get_weekday_name(target_day),
+                    day_type="not_hired",
+                    morning_status=None,
+                    afternoon_status=None,
+                    has_overtime_punch=False,
+                    is_late=False,
+                    is_early_leave=False
+                ))
+                continue
+
             att = attendance_dict.get((user.id, target_day))
             has_overtime_punch = bool(att and att.checkin_status == AttendanceStatus.OVERTIME_PUNCH.value)
 
@@ -719,7 +735,11 @@ def export_daily_attendance_statistics(
     rows = []
     for stat in daily_data.statistics:
         for item in stat.items:
-            if item.day_type == 'overtime_non_workday':
+            if item.day_type == 'not_hired':
+                morning_text = '-'
+                afternoon_text = '-'
+                day_type_text = '未入职'
+            elif item.day_type == 'overtime_non_workday':
                 morning_text = '加班' if item.has_overtime_punch else ''
                 afternoon_text = '-'
                 day_type_text = '非工作日'
