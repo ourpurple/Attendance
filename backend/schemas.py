@@ -634,7 +634,7 @@ class DailyAttendanceItem(BaseModel):
     """每日上下午考勤记录项"""
     date: str  # YYYY-MM-DD
     weekday: str  # 星期几（一、二、三...）
-    day_type: str = "workday"  # 日期类型: workday/overtime_non_workday
+    day_type: str = "workday"  # 日期类型: workday/overtime_non_workday/not_hired
     morning_status: Optional[str] = None  # 上午状态: normal/city_business/business_trip/leave/absent
     afternoon_status: Optional[str] = None  # 下午状态: normal/city_business/business_trip/leave/absent
     has_overtime_punch: Optional[bool] = False  # 是否存在非工作日加班打卡
