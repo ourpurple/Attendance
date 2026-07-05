@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from backend.models import User, UserRole
+from backend.models import Attendance, AttendanceStatus, User, UserRole
 from backend.security import create_access_token, get_password_hash
 
 
@@ -49,6 +49,38 @@ def test_attendance_overview_excludes_users_before_hire_date(client, test_db):
     data = response.json()
     assert data["total_users"] == 2
     assert {item["user_id"] for item in data["items"]} == {manager.id, active_employee.id}
+
+
+def test_attendance_overview_shows_non_workday_overtime_punch(client, test_db):
+    manager = create_user(test_db, "gm_overtime_viewer", UserRole.GENERAL_MANAGER)
+    employee = create_user(test_db, "weekend_worker", UserRole.EMPLOYEE)
+    punch_time = datetime(2026, 7, 5, 9, 30)
+
+    test_db.add(
+        Attendance(
+            user_id=employee.id,
+            date=datetime(2026, 7, 5),
+            checkin_time=punch_time,
+            checkin_status=AttendanceStatus.OVERTIME_PUNCH.value,
+            morning_status=AttendanceStatus.OVERTIME_PUNCH.value,
+        )
+    )
+    test_db.commit()
+
+    response = client.get(
+        "/api/attendance/overview?target_date=2026-07-05",
+        headers=auth_header(manager),
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    employee_item = next(item for item in data["items"] if item["user_id"] == employee.id)
+
+    assert data["is_workday"] is False
+    assert data["on_overtime_count"] == 1
+    assert employee_item["has_overtime"] is True
+    assert employee_item["overtime_days"] == 0.0
+    assert employee_item["overtime_start_time"] == "2026-07-05T09:30:00"
 
 
 def test_daily_attendance_statistics_keeps_columns_blank_before_hire_date(client, test_db):

@@ -1520,6 +1520,19 @@ def get_attendance_overview(
                 detail["end"] = overtime.end_time
         # 累加加班总天数（使用实际记录的天数）
         overtime_dict[overtime.user_id] += overtime.days
+
+    # 休息日的“加班打卡”也应进入出勤概览的加班分类。
+    # 这里不增加加班天数，只补齐当天实际打卡时间，避免没有加班申请时前端休息日看不到该人员。
+    if not workday_status["is_workday"]:
+        for att in attendances:
+            if att.checkin_status != AttendanceStatus.OVERTIME_PUNCH.value:
+                continue
+
+            overtime_dict.setdefault(att.user_id, 0.0)
+            overtime_details.setdefault(att.user_id, {
+                "start": att.checkin_time,
+                "end": att.checkout_time or att.checkin_time,
+            })
     
     # 构建结果
     items = []
