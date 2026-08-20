@@ -105,18 +105,20 @@ def validate_comp_leave_balance(
     user: User,
     leave_type: LeaveType,
     days: float,
+    year: int,
     exclude_leave: Optional[LeaveApplication] = None,
 ):
     if leave_type.name != COMP_LEAVE_TYPE_NAME:
         return
 
     yearly_reset = is_comp_leave_yearly_reset_enabled(db)
-    balance = compute_comp_leave(db, user, yearly_reset=yearly_reset)
+    balance = compute_comp_leave(db, user, yearly_reset=yearly_reset, year=year)
     remaining_days = float(balance.get("remaining_days") or 0)
 
     if (
         exclude_leave
         and exclude_leave.user_id == user.id
+        and exclude_leave.start_date.year == year
         and get_leave_type_name(exclude_leave, db) == COMP_LEAVE_TYPE_NAME
         and (exclude_leave.status.value if hasattr(exclude_leave.status, "value") else exclude_leave.status)
         in OCCUPYING_LEAVE_STATUS_VALUES
@@ -237,7 +239,13 @@ def create_leave_application(
         )
 
     # 加班调休：校验额度，不得超过主动加班折算的可调休天数
-    validate_comp_leave_balance(db, current_user, leave_type, leave_create.days)
+    validate_comp_leave_balance(
+        db,
+        current_user,
+        leave_type,
+        leave_create.days,
+        year=leave_create.start_date.year,
+    )
 
     leave = LeaveApplication(
         user_id=current_user.id,
@@ -814,11 +822,13 @@ def update_leave_application(
             )
 
     updated_days = update_data.get("days", leave.days)
+    updated_start_date = update_data.get("start_date", leave.start_date)
     validate_comp_leave_balance(
         db,
         db.query(User).filter(User.id == leave.user_id).first() or current_user,
         leave_type,
         updated_days,
+        year=updated_start_date.year,
         exclude_leave=leave
     )
 

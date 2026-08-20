@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime
 from ..database import get_db
 from ..models import (
     AnnualLeaveAdjustment,
@@ -110,7 +111,12 @@ def get_comp_leave_info(
 ):
     """获取当前用户的加班调休额度使用情况（主动加班折算）"""
     yearly_reset = is_comp_leave_yearly_reset_enabled(db)
-    balance = compute_comp_leave(db, current_user, yearly_reset=yearly_reset)
+    balance = compute_comp_leave(
+        db,
+        current_user,
+        yearly_reset=yearly_reset,
+        year=datetime.now().year,
+    )
     return CompLeaveInfo(
         earned_days=balance["earned_days"],
         used_days=balance["used_days"],

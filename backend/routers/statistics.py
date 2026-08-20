@@ -303,7 +303,7 @@ def get_my_statistics(
         db,
         current_user,
         yearly_reset=comp_leave_yearly_reset,
-        year=stats_year if comp_leave_yearly_reset else None,
+        year=stats_year,
     )
     annual_leave_balance = compute_annual_leave(
         db,
