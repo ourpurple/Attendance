@@ -11,7 +11,11 @@ from ..schemas import (
     DailyAttendanceStatisticsResponse, DailyAttendanceStatistics, DailyAttendanceItem
 )
 from ..leave_balance import compute_annual_leave, compute_comp_leave, compute_passive_overtime_adjustment
-from .system_settings import get_annual_leave_start_year, is_annual_leave_yearly_reset_enabled
+from .system_settings import (
+    get_annual_leave_start_year,
+    is_annual_leave_yearly_reset_enabled,
+    is_comp_leave_yearly_reset_enabled,
+)
 from .attendance import get_leave_period_for_date
 from ..utils.attendance_utils import is_on_or_after_hire_date
 
@@ -294,11 +298,12 @@ def get_my_statistics(
 ):
     """获取我的统计数据"""
     stats_year = start_date.year
+    comp_leave_yearly_reset = is_comp_leave_yearly_reset_enabled(db)
     comp_leave_balance = compute_comp_leave(
         db,
         current_user,
-        yearly_reset=True,
-        year=stats_year,
+        yearly_reset=comp_leave_yearly_reset,
+        year=stats_year if comp_leave_yearly_reset else None,
     )
     annual_leave_balance = compute_annual_leave(
         db,
