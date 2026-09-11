@@ -572,6 +572,7 @@ class AttendanceOverviewItem(BaseModel):
     has_leave: bool = False
     leave_days: float = 0.0
     leave_status: Optional[str] = None
+    leave_approval_pending: bool = False
     has_overtime: bool = False
     overtime_days: float = 0.0
     overtime_start_time: Optional[datetime] = None

@@ -1,6 +1,16 @@
 from datetime import datetime
 
-from backend.models import Attendance, AttendanceStatus, User, UserRole
+import pytest
+
+from backend.models import (
+    Attendance,
+    AttendanceStatus,
+    LeaveApplication,
+    LeaveStatus,
+    LeaveType,
+    User,
+    UserRole,
+)
 from backend.security import create_access_token, get_password_hash
 
 
@@ -81,6 +91,50 @@ def test_attendance_overview_shows_non_workday_overtime_punch(client, test_db):
     assert employee_item["has_overtime"] is True
     assert employee_item["overtime_days"] == 0.0
     assert employee_item["overtime_start_time"] == "2026-07-05T09:30:00"
+
+
+@pytest.mark.parametrize(
+    ("leave_status", "approval_pending"),
+    [
+        (LeaveStatus.PENDING, True),
+        (LeaveStatus.DEPT_APPROVED, True),
+        (LeaveStatus.VP_APPROVED, True),
+        (LeaveStatus.APPROVED, False),
+    ],
+)
+def test_attendance_overview_keeps_approval_pending_until_final_approval(
+    client,
+    test_db,
+    leave_status,
+    approval_pending,
+):
+    manager = create_user(test_db, f"manager_{leave_status.value}", UserRole.GENERAL_MANAGER)
+    employee = create_user(test_db, f"employee_{leave_status.value}", UserRole.EMPLOYEE)
+    leave_type = LeaveType(name=f"leave_type_{leave_status.value}", is_active=True)
+    test_db.add(leave_type)
+    test_db.flush()
+    test_db.add(
+        LeaveApplication(
+            user_id=employee.id,
+            start_date=datetime(2026, 9, 14, 9, 0),
+            end_date=datetime(2026, 9, 18, 17, 30),
+            days=5,
+            reason="test",
+            status=leave_status.value,
+            leave_type_id=leave_type.id,
+        )
+    )
+    test_db.commit()
+
+    response = client.get(
+        "/api/attendance/overview?target_date=2026-09-14",
+        headers=auth_header(manager),
+    )
+
+    assert response.status_code == 200
+    employee_item = next(item for item in response.json()["items"] if item["user_id"] == employee.id)
+    assert employee_item["has_leave"] is True
+    assert employee_item["leave_approval_pending"] is approval_pending
 
 
 def test_daily_attendance_statistics_keeps_columns_blank_before_hire_date(client, test_db):

@@ -695,7 +695,7 @@ function getOverviewExtraInfo(categoryKey, item) {
         case 'notChecked':
             return { date: '', time: '', days: '', extra: '', note: '' };
         case 'onLeave':
-            const leaveNote = isLeavePendingApproval(item.leave_status) ? '已请假，审批中' : '';
+            const leaveNote = isLeavePendingApproval(item) ? '已请假，审批中' : '';
             if (item.leave_start_date) {
                 const dateTimeInfo = formatLeaveDateTime(item.leave_start_date, item.leave_end_date);
                 const days = item.leave_days !== undefined && item.leave_days !== null ? item.leave_days : 1;
@@ -728,8 +728,12 @@ function getOverviewExtraInfo(categoryKey, item) {
     }
 }
 
-function isLeavePendingApproval(status) {
-    return ['pending', 'dept_approved', 'vp_approved'].includes(status);
+function isLeavePendingApproval(item) {
+    if (typeof item.leave_approval_pending === 'boolean') {
+        return item.leave_approval_pending;
+    }
+    // 兼容尚未提供 leave_approval_pending 字段的旧版后端。
+    return ['pending', 'dept_approved', 'vp_approved'].includes(item.leave_status);
 }
 
 function getOverviewExtraText(categoryKey, item) {

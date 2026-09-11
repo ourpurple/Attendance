@@ -20,7 +20,7 @@ from ..security import get_current_user, get_current_active_admin
 from ..config import settings
 from ..geocode_cache import get_cached_address, set_cached_address
 from ..services.excel_export import build_excel_stream, fmt_date, fmt_dt
-from ..leave_balance import OCCUPYING_LEAVE_STATUSES
+from ..leave_balance import IN_PROGRESS_LEAVE_STATUSES, OCCUPYING_LEAVE_STATUSES
 from ..utils.attendance_utils import is_on_or_after_hire_date
 
 router = APIRouter(prefix="/attendance", tags=["考勤管理"])
@@ -1443,6 +1443,10 @@ def get_attendance_overview(
         status_item.value if hasattr(status_item, "value") else status_item
         for status_item in OCCUPYING_LEAVE_STATUSES
     ]
+    in_progress_leave_status_values = {
+        status_item.value if hasattr(status_item, "value") else status_item
+        for status_item in IN_PROGRESS_LEAVE_STATUSES
+    }
 
     # 获取目标日期的请假记录（已批准/审批中的，只查询已过滤用户的记录）
     if user_ids:
@@ -1464,6 +1468,7 @@ def get_attendance_overview(
     leave_dict = {}
     leave_details = {}
     leave_statuses = {}
+    leave_approval_pending = {}
     for leave in leaves:
         if leave.user_id not in leave_dict:
             leave_dict[leave.user_id] = 0.0
@@ -1488,7 +1493,13 @@ def get_attendance_overview(
             "start": format_datetime_for_frontend(start),
             "end": format_datetime_for_frontend(end)
         }
-        leave_statuses[leave.user_id] = leave.status.value if hasattr(leave.status, "value") else leave.status
+        leave_status = leave.status.value if hasattr(leave.status, "value") else leave.status
+        leave_statuses[leave.user_id] = leave_status
+        # 同一天存在多条请假记录时，只要任一流程尚未完成，就继续显示“审批中”。
+        leave_approval_pending[leave.user_id] = (
+            leave_approval_pending.get(leave.user_id, False)
+            or leave_status in in_progress_leave_status_values
+        )
         # 使用请假记录的总天数，而不是当天占用的天数
         # 这样前端显示"请假中"时，能看到完整的请假时长
         leave_dict[leave.user_id] = leave.days
@@ -1577,6 +1588,7 @@ def get_attendance_overview(
             has_leave=has_leave,
             leave_days=leave_dict.get(user.id, 0.0),
             leave_status=leave_statuses.get(user.id),
+            leave_approval_pending=leave_approval_pending.get(user.id, False),
             has_overtime=has_overtime,
             overtime_days=overtime_dict.get(user.id, 0.0),
             overtime_start_time=format_datetime_for_frontend(overtime_details.get(user.id, {}).get("start")) if has_overtime and overtime_details.get(user.id, {}).get("start") else None,
